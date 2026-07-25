@@ -4,6 +4,53 @@
 claim below is a `native_decide` theorem there; the tables are generated from the
 same functions, so prose and code cannot drift).**
 
+> ## ⚠ UPDATE — TASK Z1: DEFECT **D1 IS FIXED**, AND **D2** WITH IT
+>
+> This document's central finding was that CLAB's `validRedeemerMap` used the
+> PLUTUS constructor order for `ScriptPurpose` while the ledger emits
+> `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order — making
+> `validMintingContext` **unsatisfiable** for any transaction that both spends and
+> mints, hence every minting-purpose theorem **vacuous on its own target class**.
+> Both defects have now been repaired **at the source**, in CLAB:
+>
+> * `ltScriptPurpose` → `Spending < Minting < Certifying < Rewarding < Voting <
+>   Proposing` (`CardanoLedgerApi/V3/Contexts.lean`; the V1/V2 copy in
+>   `CardanoLedgerApi/V1/Contexts.lean` got the matching Alonzo-era order), and
+> * `ltCredential` → `ScriptCredential < PubKeyCredential`
+>   (`CardanoLedgerApi/V1/Credential.lean`),
+>
+> each with the `cardano-ledger` @ `cd8b7fab8` citation in its docstring.
+> Approach chosen: **(a) correct the orders**, not (b) weaken the predicates to
+> duplicate-freeness — the orders ARE ledger facts, so (a) keeps the precondition
+> as strong as the ledger allows and needs no apology in a docstring. Nothing was
+> weakened: every other conjunct of `validScriptContext` is untouched, and the
+> only structural change is the direction of two comparisons.
+>
+> **Measured effect on this audit (before → after):**
+>
+> | golden | failing conjuncts BEFORE | failing conjuncts AFTER |
+> |---|---|---|
+> | `programmableTokenMinting.mint-burnonly` | `txInfoFee > 0`, `validRedeemerMap` | **`txInfoFee > 0`** |
+> | `programmableTokenMinting.mint-delegate-transfer-topup` | `txInfoFee > 0`, `validRedeemerMap` | **`txInfoFee > 0`** |
+> | all 11 others | (see §3) | **unchanged** |
+>
+> So `validRedeemerMap` now fails in **3** goldens, not 5, and every surviving
+> order failure is the harness artifact A2 (a descending pair *inside* one purpose
+> kind). The D2 fix changes **no** golden verdict, and necessarily so: every
+> golden withdrawal/rewarding credential is a SCRIPT credential — the case where
+> the old and new `Credential` orders agree — which independently CONFIRMS this
+> document's attribution of A2 to the harness rather than to CLAB.
+>
+> Consequences elsewhere: `WSC/Honest.lean`'s audit rows L and M are now
+> **JUSTIFIED** and its `CLABMapOrderAgrees` side condition on `LR_CTX` has been
+> **deleted** (a hypothesis nobody could discharge is exactly what hides
+> vacuity); `WSC/Props/P4_Minting.lean`'s golden caveat theorem is now
+> `ctx_fails_validMintingContext_on_exactly_one_conjunct` — the real minting
+> golden is a single harness artifact (the zero fee) away from satisfying
+> `validMintingContext` verbatim. The prose below is kept in its original form,
+> with `[Z1]` notes where it has been overtaken, because the record of what was
+> wrong is what justifies the fix.
+
 ADDENDUM **E5** posits the axiom **LR-CTX**: *for every real script invocation,
 the ledger-constructed `ScriptContext` satisfies the matching `validXContext`.*
 Every P-theorem in this library takes that predicate as its only per-transaction
@@ -30,8 +77,9 @@ The answer is **both, in different clauses**:
   descending script-credential pair (3/13), lovelace-free outputs (2/13). Each is
   something the real Cardano ledger independently forbids, so CLAB is right and
   the context generator is wrong.
-* **One failure class is a genuine CLAB DEFECT** — `validRedeemerMap` fails at a
-  `(Spending, Minting)` pair on the two accepting minting goldens (2/13). There
+* **One failure class WAS a genuine CLAB DEFECT — now FIXED, see the Z1 UPDATE
+  banner at the top; it no longer fails in any golden.** `validRedeemerMap` failed
+  at a `(Spending, Minting)` pair on the two accepting minting goldens (2/13). There
   the goldens are **ledger-correct** and CLAB's `ScriptPurpose` order is not:
   `cardano-ledger` emits `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order
   (`ConwaySpending < ConwayMinting < …`) and never re-sorts. Since *every*
@@ -40,8 +88,10 @@ The answer is **both, in different clauses**:
   P4/P4a/P2′ theorem stated against it is vacuous exactly where it matters. This
   is defect **D1** of `WSC/STATUS.md` §3, found independently by task Y3 against
   the `cardano-ledger` sources; this audit reproduces it from the goldens and
-  localises it to the offending adjacent pair
-  (`Audit.order_violations_split_into_two_causes`).
+  localises it to the offending adjacent pair. `[Z1]` post-fix the localiser is
+  `Audit.order_violations_are_all_A2`, and
+  `Audit.no_purpose_kind_order_violation_remains` checks that NO golden breaks at
+  a purpose-KIND boundary any more.
 * Two further failures are intrinsic to how the *rejecting* goldens were tampered
   (§4 T1, T2).
 
@@ -52,11 +102,13 @@ checked verbatim — all 9 accepting goldens satisfy the predicate
 (`Audit.accepting_goldens_pass_modulo_artifacts`).
 
 **What is therefore NOT established:** LR-CTX itself. These contexts are built by
-the repo's benchmark harness, not captured from a node (§1), and D1 shows LR-CTX
-is currently *false as stated* for minting invocations. The audit settles the
+the repo's benchmark harness, not captured from a node (§1). `[Z1]` D1 used to
+make LR-CTX *false as stated* for minting invocations; that clause is repaired, so
+what remains outstanding is only the provenance gap. The audit settles the
 "is the precondition over-strong?" question clause by clause on the strongest
-evidence available today, and leaves LR-CTX standing as an axiom — with one
-clause of it now known to need repair — pending node-captured contexts (§6).
+evidence available today, and leaves LR-CTX standing as an axiom — `[Z1]` now with
+every clause mapped to a cited ledger rule, the D1/D2 repair having removed the
+two unjustified ones — pending node-captured contexts (§6).
 
 ---
 
@@ -76,7 +128,7 @@ the dumped context at PV11 through
 `WSC/goldens/K-MEASUREMENTS.md` §2). So these are real transactions as far as the
 *validator* is concerned. They are only "ledger-shaped" as far as the *ledger's
 own context builder* is concerned — and §4 shows the harness gets three ledger
-invariants wrong (while CLAB gets a fourth wrong).
+invariants wrong (while CLAB got a fourth wrong — `[Z1]` since fixed).
 
 The rejecting goldens are single-field tampers of accepting ones; two of them
 tamper by **deleting an output**, which necessarily breaks value conservation.
@@ -140,8 +192,8 @@ for attribution.
 | 1 | `programmableLogicBase.base-spend-transfer-tx` | yes | ✔ | **FALSE** | `txInfoFee > 0` |
 | 2 | `programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT` | no | ✔ | **FALSE** | `validScriptInfo`, `scriptInfo.redeemerConsistent`, `scriptInfo.purposeWellFormed`, `txInfoFee > 0` |
 | 3 | `programmableTokenMinting.mint-local-registered-by-ref` | yes | ✔ | **FALSE** | `txInfoFee > 0` |
-| 4 | `programmableTokenMinting.mint-burnonly` | yes | ✔ | **FALSE** | `txInfoFee > 0`, `validRedeemerMap` |
-| 5 | `programmableTokenMinting.mint-delegate-transfer-topup` | yes | ✔ | **FALSE** | `txInfoFee > 0`, `validRedeemerMap` |
+| 4 | `programmableTokenMinting.mint-burnonly` | yes | ✔ | **FALSE** | `txInfoFee > 0` `[Z1: was + validRedeemerMap]` |
+| 5 | `programmableTokenMinting.mint-delegate-transfer-topup` | yes | ✔ | **FALSE** | `txInfoFee > 0` `[Z1: was + validRedeemerMap]` |
 | 6 | `programmableTokenMinting.mint-local-empty-withdrawals-REJECT` | no | ✔ | **FALSE** | `txInfoFee > 0` |
 | 7 | `programmableSeize.seize-1-input` | yes | ✔ | **FALSE** | `validOutputs`, `txInfoFee > 0`, `validWithdrawals`, `validRedeemerMap` |
 | 8 | `programmableSeize.seize-2-inputs-partial-with-noise` | yes | ✔ | **FALSE** | `validOutputs`, `txInfoFee > 0`, `validWithdrawals`, `validRedeemerMap` |
@@ -156,12 +208,14 @@ Theorems: `Audit.all_goldens_fail_the_precondition`,
 the failing-conjunct list **exactly** (so an added or removed failure breaks the
 build).
 
-`validRedeemerMap` fails in **5** goldens (4, 5, 7, 8, 9) — but for two different
-reasons, which §4 separates: goldens 4 and 5 break at a `(Spending, Minting)`
+`validRedeemerMap` failed in **5** goldens (4, 5, 7, 8, 9) — for two different
+reasons, which §4 separates: goldens 4 and 5 broke at a `(Spending, Minting)`
 pair (defect D1, CLAB's fault) and goldens 7, 8, 9 at a
 `(Rewarding script, Rewarding script)` pair (artifact A2, the harness's fault).
-`Audit.order_violations_split_into_two_causes` pins the offending pair per
-golden.
+`[Z1]` **D1 is fixed, so it now fails in 3 goldens (7, 8, 9) only**, all A2;
+`Audit.order_violations_are_all_A2` pins the offending pair per golden and
+`Audit.no_purpose_kind_order_violation_remains` states the absence of D1-shaped
+pairs directly.
 
 **Conjuncts that hold in all 13:** purpose gate, `validInputs`,
 `validReferenceInputs`, `validMintValue`, `validTxRange`, `validSigners`,
@@ -200,15 +254,21 @@ the ledger's `Credential` orders agree (`WSC/STATUS.md` §3 D2), while the ledge
 builds the withdrawal map from a sorted `Map RewardAccount Coin` and orders equal
 purpose kinds by their argument. **So here CLAB is right and the context is
 genuinely mis-ordered: harness artifact.** This is exactly the distinction
-`Audit.order_violations_split_into_two_causes` makes machine-checkable — same
+`Audit.order_violations_are_all_A2` makes machine-checkable — same
 failing clause as D1, opposite conclusion, told apart by which adjacent pair
-breaks it.
+breaks it. `[Z1]` The D2 fix (`ltCredential` → `ScriptCredential <
+PubKeyCredential`) leaves these three failures exactly as they were, because both
+credentials are script credentials — a direct confirmation of this attribution.
 
-`Audit.order_failures_are_order_only` proves both are **pure order failures**:
+`Audit.order_failures_are_order_only` proves these are **pure order failures**:
 canonically re-sorting both maps (`canonicaliseOrder`, a permutation that touches
 no value, no fee and no balance) makes both clauses hold in all 13 goldens.
 
-### D1 — `validRedeemerMap` at a `(Spending, Minting)` pair (2/13) — **a CLAB defect, not a harness artifact**
+### D1 — `validRedeemerMap` at a `(Spending, Minting)` pair (2/13) — **a CLAB defect, not a harness artifact** — ✅ **FIXED BY TASK Z1**
+
+`[Z1]` The diagnosis below is the record of what was wrong; the fix is described
+in the banner at the top of this file. Post-fix both goldens PASS
+`validRedeemerMap`. Read it as history, not as current status.
 
 Goldens 4 and 5 (`mint-burnonly`, `mint-delegate-transfer-topup`) carry redeemer
 purposes
@@ -241,14 +301,20 @@ redeemers and is therefore *not* CLAB-sorted. `validMintingContext` is
 `validMintingContext ctx → accept → POST` is vacuous exactly where it is supposed
 to bite. This is the most serious finding in this audit.
 
-**Fix (in CLAB, not in the goldens).** Either change `ltScriptPurpose` to the
-ledger's `AsIx` order, or weaken `validRedeemerMap` to duplicate-freeness — which
-is all the WSC proofs actually consume. Tracked as `WSC/STATUS.md` §3 defect D1
-and quarantined for now in `WSC/Honest.lean`'s `CLABMapOrderAgrees`. The
-companion defect D2 (CLAB `Credential` order is `PubKey < Script`, the ledger's
-is `ScriptHashObj < KeyHashObj`) does not bite here because WSC's withdrawals are
+**Fix (in CLAB, not in the goldens) — DONE (Z1).** The two options were: change
+`ltScriptPurpose` to the ledger's `AsIx` order, or weaken `validRedeemerMap` to
+duplicate-freeness (all the WSC proofs actually consume). **The first was taken**
+— it is the faithful one and it keeps the precondition as strong as the ledger
+allows; `ltScriptPurpose` now reads
+`Spending < Minting < Certifying < Rewarding < Voting < Proposing`, with the
+ledger citation in its docstring, and `WSC/Honest.lean`'s `CLABMapOrderAgrees`
+quarantine has been deleted as unnecessary. The
+companion defect D2 (CLAB `Credential` order was `PubKey < Script`, the ledger's
+is `ScriptHashObj < KeyHashObj`) did not bite here because WSC's withdrawals are
 all script credentials — which is precisely why A2 above is a *harness* artifact
-and D1 is not.
+and D1 is not. `[Z1]` D2 is fixed too (`ltCredential`), in the same spirit and
+with the same citation discipline; it changes no verdict in this suite but it
+matters for any transaction that mixes script and key withdrawal credentials.
 
 ### A3 — lovelace-free outputs (2/13: the accepting seize goldens)
 
@@ -317,7 +383,9 @@ clause that a real ledger transaction could violate?*
 
 So the *only* obstructions between a real accepting WSC transaction and the
 precondition our theorems assume are the three context-generator defects (each
-independently forbidden by the Cardano ledger) plus CLAB's own D1. In particular
+independently forbidden by the Cardano ledger) plus CLAB's own D1 — `[Z1]` and D1
+is now fixed, leaving ONLY harness artifacts. For the two minting goldens the
+remaining gap is a single one: the zero fee. In particular
 **value
 conservation, script-info consistency, value canonicity of every ada-bearing
 output, input/reference-input sortedness and mint-value well-formedness all hold
@@ -329,7 +397,8 @@ substantive part of what E5 needed.
 | claim | status |
 |---|---|
 | CLAB's `validXContext` is not over-strong in any clause other than `validRedeemerMap` | **supported** (§5) |
-| CLAB's `validRedeemerMap` IS over-strong — it excludes every real programmable-token mint | **established** (§4 D1); blocks P4/P4a/P2′ |
+| CLAB's `validRedeemerMap` WAS over-strong — it excluded every real programmable-token mint | **established** (§4 D1) — `[Z1]` **REPAIRED**: `ltScriptPurpose` now uses the ledger's order, both minting goldens pass, and `validMintingContext` is satisfiable on P4's target class |
+| CLAB's `validWithdrawals` was over-strong for withdrawal maps mixing script and key credentials (D2) | **established** by ledger source reading — `[Z1]` **REPAIRED**: `ltCredential` now uses `ScriptCredential < PubKeyCredential`; no golden verdict changes, since all golden withdrawal credentials are script credentials |
 | The 9 accepting goldens can be substituted into a P-theorem to re-derive its conclusion | **FALSE** — blocked by A1 (`txInfoFee = 0`) in all 9 |
 | P3's non-vacuity rests on a real transaction | **supported**, but via the *bytecode* accept fact, not via the precondition — see `WSC/Goldens/Witnesses.lean` and its `ctx_fails_validSpendingContext_only_on_fee` |
 | LR-CTX (E5) holds for ledger-constructed contexts | **still an axiom** — no node-captured context was tested |
@@ -338,13 +407,18 @@ substantive part of what E5 needed.
 
 ## 6. Actions and follow-ups
 
-1. **(BLOCKER for P4/P4a/P2′) Fix CLAB's `validRedeemerMap` / `ltScriptPurpose`
-   (defect D1, §4).** Until then `validMintingContext` is unsatisfiable for real
-   issuance transactions and any minting-side theorem is vacuous on its target
-   class. Cheapest correct fix: weaken `validRedeemerMap` to duplicate-freeness
-   (all the WSC proofs use); fully correct fix: adopt the ledger's
-   `ConwayPlutusPurpose AsIx` order. Coordinate with `WSC/Honest.lean`'s
-   `CLABMapOrderAgrees` quarantine.
+1. ✅ **DONE (task Z1) — was: (BLOCKER for P4/P4a/P2′) Fix CLAB's
+   `validRedeemerMap` / `ltScriptPurpose` (defect D1, §4).** The *fully correct*
+   option was taken — `ltScriptPurpose` adopts the ledger's
+   `ConwayPlutusPurpose AsIx` order (and `ltCredential` the ledger's `Credential`
+   order, D2) — rather than the cheaper weakening of `validRedeemerMap` to
+   duplicate-freeness. `WSC/Honest.lean`'s `CLABMapOrderAgrees` quarantine was
+   consequently deleted; `LR_CTX` no longer carries a side condition.
+   **NOTE, so the win is not overstated:** this removes VACUITY, not the solver
+   wall. The budget-900 P4a obligation and the budget-900 vacuity probe were
+   re-measured with the fix in place (Z3 capped at 600 s) — see the task Z1 record
+   for the numbers; the obligations are still solver-limited, which is now the
+   only thing between P4a and a verdict.
 2. **(fidelity, highest value) Capture contexts from a real ledger.** Until a
    `ScriptContext` produced by `cardano-ledger`'s own builder (or a node/mockchain
    run) is put through this same audit, LR-CTX rests on an argument about the

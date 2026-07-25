@@ -50,8 +50,8 @@ State vocabulary (only these five are used):
 | Prop | Plain English | State | Budget K / non-vacuity witness | Honest caveat |
 |---|---|---|---|---|
 | **P3** | *You cannot spend a mini-ledger UTxO unless the global (transfer) or seize validator runs in the same transaction.* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K** — `WSC/Props/P3_Base.lean:67` (`P3_base_requires_global_or_seize`), plus negative control `:83`, tightness stanza `:100` (Falsified), vacuity probe `:112` (Falsified), concrete accepting witness `:190`/`:197`. | **K = 600** (`WSC/Prep/Base.lean:39`). Witnesses: golden `programmableLogicBase.base-spend-transfer-tx` halts accepting in **208** CEK steps (K-MEASUREMENTS §3); in-library concrete ctx `WSC.P3Witness.ctx` accepted by the real CEK at 600. Prep cost ~11 s. | Covers base-spend runs halting within 600 steps only. Its conclusion is "the credential is in `txInfoWdrl`"; upgrading that to "the validator actually ran" is the ledger axiom `LR_WDRL_RUNS_VALIDATOR`, not part of the proof. |
-| **P4** | *Every accepted mint routes tokens into the mini-ledger or is a pure burn (Local / DelegateTransfer / DelegateSeize / BurnOnly).* | **IN PROGRESS** (a parallel task is raising `WSC/Prep/Minting.lean` from 600 to ~900 and attempting the theorem). At commit `dd86906` the prep is 600, which is **BLOCKED-ON-BUDGET**. | Target **K_mint = 900** (`WSC/Honest.lean`). Non-vacuity floor **784** = golden `mint-burnonly` (K-MEASUREMENTS §3/§4). Prep cost measured **27.6 s @ 900**. | At 900 the scope is "burn-only-sized minting transactions". The other two accepting minting goldens need 1,257 and 1,681 steps; a prep at 1,700 did **not** finish in 48.6 min, so widening is not available. **Additionally: `validMintingContext` is currently UNSATISFIABLE for real issuance transactions** — see §3 defect D1. |
-| **P4a** | *Every accepted mint invokes the token's own minting-logic script (common corollary of all four arms).* | **IN PROGRESS** — same task, same prep, same budget as P4. | Same as P4. | Same as P4, including defect D1. |
+| **P4** | *Every accepted mint routes tokens into the mini-ledger or is a pure burn (Local / DelegateTransfer / DelegateSeize / BurnOnly).* | **IN PROGRESS** (a parallel task is raising `WSC/Prep/Minting.lean` from 600 to ~900 and attempting the theorem). At commit `dd86906` the prep is 600, which is **BLOCKED-ON-BUDGET**. | Target **K_mint = 900** (`WSC/Honest.lean`). Non-vacuity floor **784** = golden `mint-burnonly` (K-MEASUREMENTS §3/§4). Prep cost measured **27.6 s @ 900**. | At 900 the scope is "burn-only-sized minting transactions". The other two accepting minting goldens need 1,257 and 1,681 steps; a prep at 1,700 did **not** finish in 48.6 min, so widening is not available. **Additionally: `validMintingContext` WAS UNSATISFIABLE for real issuance transactions** — defect D1, **FIXED by task Z1** (§3), so the hypothesis is now satisfiable on the target class; what remains is the solver wall. |
+| **P4a** | *Every accepted mint invokes the token's own minting-logic script (common corollary of all four arms).* | **IN PROGRESS** — same task, same prep, same budget as P4. | Same as P4. | Same as P4; defect D1 is FIXED (§3), so the remaining blocker is solver search, not vacuity. |
 | **P5** | *A containment exemption can only be claimed for a genuinely unregistered policy: accept + NonMember ⟹ an authentic directory node covers `cs` (`key < cs < next`).* | **IN PROGRESS** (a parallel task is raising `WSC/Prep/Global.lean` from 600 to 1,600 and attempting the theorem). At `dd86906` the prep is 600 and its own probe CHARACTERIZES that as vacuous (`WSC/Prep/Global.lean:78-83`), so **BLOCKED-ON-BUDGET**. | Target **K_global = 1600**. Non-vacuity floor **1,554** = golden `transfer-nonmember-covering-node` — which is exactly P5's subject shape (ADDENDUM E3). Prep at 1,600 **measured 35.7 min / 1.55 GB, COMPLETED** (K-MEASUREMENTS §5.1). | P5's strength = `DirWF`'s strength; the postcondition is the covering-node witness, **not** `¬ IsRegistered` (E3). The bridge from a covering node to "not registered in the ledger" is the composition lemma `covering_node_excludes_registration`, which does not exist yet. Requires the CIP-153 PlutusCoreBlaster branch, which is **unpushed** (ADDENDUM E11). |
 | **P6** | *Claiming Member is self-penalizing: an accepted Member classification adds the positive minted amount to the value that must remain at base outputs.* | **PROVED-ON-SOURCE-MODEL (core), STATED (inequality form)** — the self-penalization CORE is machine-checked on the source model: `WSC/Props/P6_Member.lean:mintWalk_sublist` (the mint walk returns an order-preserving SUBLIST of `txInfoMint`, so every retained entry is byte-identical ledger truth and the walk has no quantity arithmetic at all — nothing can be negated) and `:mintWalk_member_retains` (a `Member` proof retains its entry while touching no directory node). The §3-P6 INEQUALITY `outAtBase ≥ mintPos` is `WSC/Props/P1_Transfer.lean:P6_model` — STATED, not proved (needs L1.1a/b + L1.2 + L1.6). | **No UPLC K.** Not attempted at UPLC: the Member-transfer accepts cost 3,262 / 3,726 CEK steps and no Member-shaped accept below 1,600 has been measured. Model-level non-vacuity witness: the accepting golden `transfer-member-single-policy` (`WSC/Model/GlobalGoldens.lean`). | Model-level, so it rests on `globalModel_faithful` (one axiom, 4/4 golden agreement — see the P1 row). The inequality form additionally needs the un-discharged links listed in the OBLIGATION STATUS block. |
 | **P2** | *An accepted seizure relocates only the seized policy and it stays in the mini-ledger (structure preserved + clawed delta contained).* | **NOT-REACHABLE-AT-UPLC-see-source-model-route** | **No published K.** Cheapest accepting seize run = **2,570** steps; symbolic prep at 2,000 never completed in 77 min and at 9,000 never completed in 62 min; 2,570 extrapolates to ≥ 15 days. Vacuity probes at 600 and 1,000 returned `Valid` for "no accepting context exists" (E2 spike). | `WSC/Honest.lean`'s `LR_BUDGET_seize` deliberately publishes **no** `K_seize` and is gated on a non-vacuity hypothesis that is measured FALSE. Routes: shaped contexts (fixed spines **and** concrete redeemer indices **and** concrete `Data` scalars — shaping spines alone was measured insufficient) with per-shape K, or the source-model route with a compilation-fidelity bridge. |
@@ -76,7 +76,7 @@ and `LR1…LR7` do not mean the same things as §5.3's.
 |---|---|---|
 | Modelling boundary | `OnChain`, `Deployed` | Never — they are the model/chain bridge. |
 | TRUSTED-SETUP | `TS1` (params-anchor integrity), `TS2` (params-NFT uniqueness), `TS_MINTING_IDENTITY`, `mlhPolicyId` (abstract) | Deployment audit of the one-shot params anchor policy; U10 for the registration side. `TS_SCRIPT_HASH_BINDING` is **checked, not assumed** (E7, `WSC/flats/PROVENANCE.md`). |
-| LEDGER-RULE (per-tx) | `LR1`–`LR7`, `LR_CTX` | Trusting the Cardano ledger; each conjunct is mapped to a cited ledger rule in `LR_CTX`'s audit table. **Two conjuncts are NOT justified — see §3 D1/D2.** |
+| LEDGER-RULE (per-tx) | `LR1`–`LR7`, `LR_CTX` | Trusting the Cardano ledger; **every** conjunct is mapped to a cited ledger rule in `LR_CTX`'s audit table. The two conjuncts that were NOT justified (§3 D1/D2) were fixed in CLAB by task Z1, and `LR_CTX`'s `CLABMapOrderAgrees` side condition was deleted as unnecessary. |
 | LEDGER-RULE (triggers) | `LR_MINT_RUNS_POLICY`, `LR_WDRL_RUNS_VALIDATOR`, `LR_SPEND_RUNS_VALIDATOR` | Trusting the Cardano ledger (UTXOW scripts-needed). |
 | Non-negativity | `NONNEG` | Trusting the ledger; the ledger-WIDE form still has to be restated in `Composition.lean`. |
 | Budget bridge | `LR_BUDGET_base` (K=600), `LR_BUDGET_minting` (K=900), `LR_BUDGET_global` (K=1600), `LR_BUDGET_seize` (**no K**) | A budget-monotonicity meta-theorem about `runSteps` that the substrate does not provide. Each is gated on an explicit non-vacuity hypothesis; only `BaseNonVacuous` is dischargeable today. |
@@ -84,10 +84,11 @@ and `LR1…LR7` do not mean the same things as §5.3's.
 | NOT STATED (deliberately) | §5.3 `ts_genesis`, §5.3 `lr_utxo_semantics` | Need a `Ledger` type; belong in `Composition.lean`. Inventing them here would have been a wrong axiom. |
 | NOT EXPRESSIBLE | §5.3 `lr_collateral_pubkey_only` | PlutusV3 `TxInfo` has no collateral field; the collateral exit route must be closed by a ledger-level argument outside this model. |
 
-## 3. Open defects found this session (task Y3)
+## 3. Defects found this session (task Y3); D1/D2 FIXED by task Z1
 
-**D1 — `validRedeemerMap` is REFUTED for every WSC issuance transaction
-(top-priority substrate defect).** CLAB orders `ScriptPurpose` as
+**D1 — ✅ FIXED (task Z1). Was: `validRedeemerMap` is REFUTED for every WSC
+issuance transaction (top-priority substrate defect).** CLAB ordered
+`ScriptPurpose` as
 `Minting < Spending < Rewarding < Certifying < …`
 (`CardanoLedgerApi/V3/Contexts.lean:20-27, 66-85`, the Plutus constructor order).
 The Cardano ledger emits `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order —
@@ -103,17 +104,45 @@ mint — is therefore NOT CLAB-sorted, so `validMintingContext` is false and any
 P4/P4a/P2′ theorem is vacuous on exactly its target class. Independently
 reproduced on the goldens: the 2 accepting minting goldens have redeemer
 purposes `[Spending, Minting, Rewarding, Rewarding, Rewarding]` and
-`validRedeemerMap = false`. Fix in CLAB (change `ltScriptPurpose` to the ledger
-order, or weaken `validRedeemerMap` to duplicate-freeness — which is all WSC
-needs). Quarantined meanwhile in `WSC/Honest.lean`'s `CLABMapOrderAgrees`.
+`validRedeemerMap = false`.
 
-**D2 — `validWithdrawals` is REFUTED for withdrawal maps mixing script and key
-credentials.** Ledger `Credential` Ord is `ScriptHashObj < KeyHashObj`
+**FIX AS LANDED (Z1).** `ltScriptPurpose` in `CardanoLedgerApi/V3/Contexts.lean`
+now uses the ledger order
+`Spending < Minting < Certifying < Rewarding < Voting < Proposing`, with the
+`cardano-ledger` citations in its docstring; the same defect in the V1/V2
+`ltScriptPurpose` (`CardanoLedgerApi/V1/Contexts.lean`) was fixed to the
+`AlonzoPlutusPurpose` order `Spending < Minting < Certifying < Rewarding`
+(`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Scripts.hs:308-313`; the Conway order
+restricted to those four kinds is the same sequence, so it is era-robust). The
+alternative — weakening `validRedeemerMap` to duplicate-freeness — was NOT taken:
+the ledger order is a ledger fact, so correcting it keeps the precondition as
+strong as reality permits. Effects, all machine-checked: both accepting minting
+goldens now PASS `validRedeemerMap` (their only failing conjunct is the zero fee);
+`WSC/Honest.lean` audit rows L and M are JUSTIFIED and its `CLABMapOrderAgrees`
+quarantine on `LR_CTX` is DELETED; `WSC/Props/P4_Minting.lean`'s caveat theorem is
+now `ctx_fails_validMintingContext_on_exactly_one_conjunct`. **`validMintingContext`
+is satisfiable on P4's target class again, so the minting theorems are no longer
+vacuous by construction** — what still blocks a verdict on P4a is the Z3 search
+wall, not vacuity: re-measured post-fix at budget 900, both the vacuity probe and
+the P4a obligation are still `Undetermined` at a 600 s Z3 cap (601 s wall each),
+indistinguishable from the pre-fix runs.
+
+**D2 — ✅ FIXED (task Z1). Was: `validWithdrawals` is REFUTED for withdrawal maps
+mixing script and key credentials.** Ledger `Credential` Ord is `ScriptHashObj < KeyHashObj`
 (`libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs:96-99`), CLAB's is
 `PubKeyCredential < ScriptCredential` (`CardanoLedgerApi/V1/Credential.lean:61-66`),
 and `transTxBodyWithdrawals` does not re-sort (`Conway/TxInfo.hs:544-546, 692-694`).
 Narrower than D1: WSC's own withdrawals are all script credentials, where the two
-orders agree. Same fix, same quarantine.
+orders agree. **FIX AS LANDED (Z1):** `ltCredential` in
+`CardanoLedgerApi/V1/Credential.lean` now reads
+`ScriptCredential < PubKeyCredential`, with the ledger citation and a note on the
+`AccountAddress = (Network, Credential)` key (Plutus drops the network; harmless
+because `validateWrongNetworkWithdrawal`,
+`eras/shelley/impl/src/Cardano/Ledger/Shelley/Rules/Utxo.hs:181,384`, admits one
+network per transaction). As predicted, this changes NO golden verdict — every
+golden withdrawal credential is a script credential — which confirms that the
+seize goldens' `validWithdrawals` failure is a harness artifact (A2), not a CLAB
+defect.
 
 **D3 — no golden satisfies `validXContext`, so the golden suite cannot supply an
 anti-vacuity witness.** All 13 golden contexts were CBOR-decoded into Lean and
@@ -125,7 +154,12 @@ same pass: the 3 seize goldens emit their two script withdrawal credentials
 DESCENDING (`0x40…` before `0x14…`), and the 2 accepting seize goldens have a
 residual output carrying **no ada entry at all**, which min-ada forbids on chain.
 Consequence: the only `validXContext`-satisfying accepting witness in the library
-is the hand-built `WSC.P3Witness.ctx`. Fix: give the golden builder a positive
+is the hand-built `WSC.P3Witness.ctx`. **STILL OPEN after Z1** — D1/D2 were CLAB's
+fault, D3 is the builder's: post-fix **8 of the 13 goldens fail on the fee ALONE**
+(7 accepting — the base spend, all 3 global transfers and all 3 minting goldens —
+plus `mint-local-empty-withdrawals-REJECT`), up from 6 before the fix, so a single
+builder change (a positive fee with the balance adjusted) would turn each of them
+into a genuine `validXContext` witness. Fix: give the golden builder a positive
 fee, sorted withdrawals and min-ada on every output, then re-dump.
 
 **D4 — CLAB does not assert the PV11 rule `txInfoInputs ∩ txInfoReferenceInputs = ∅`**
@@ -141,8 +175,10 @@ bytecode" claim for the global validator carries that caveat.
 
 ## 4. What would move the needle, in order
 
-1. Fix D1/D2 in CLAB (small, mechanical) — without it P4/P4a are vacuous on
-   their target transaction class no matter what budget is used.
+1. ✅ **DONE (task Z1)** — Fix D1/D2 in CLAB (small, mechanical): without it P4/P4a
+   were vacuous on their target transaction class no matter what budget is used.
+   Vacuity-by-precondition is gone; the remaining obstacle to P4a is the Z3 search
+   wall (re-measured post-fix at budget 900, see §3 D1).
 2. Land the minting prep at 900 and prove P4/P4a (cheapest new UPLC result:
    ~28 s of prep).
 3. Land the global prep at 1,600 and prove P5 (the one newly-affordable global

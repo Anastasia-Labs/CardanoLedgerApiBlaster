@@ -203,12 +203,15 @@ def failingConjuncts (v : Vector) : Option (List String) :=
 is always witnessed by ONE adjacent pair.  Naming that pair is what distinguishes
 the two very different causes found in this suite:
 
-* a `(Spending, Minting)` pair means the failure is at a PURPOSE-KIND boundary,
-  where CLAB's order disagrees with `cardano-ledger`'s — a CLAB defect
-  (`WSC/STATUS.md` §3 D1), not a defect of the transaction;
+* a pair at a PURPOSE-KIND boundary, e.g. `(Spending, Minting)`, would mean CLAB's
+  order disagrees with `cardano-ledger`'s — a CLAB defect, not a defect of the
+  transaction.  That WAS the case (`WSC/STATUS.md` §3 D1) and task Z1 fixed
+  `ltScriptPurpose`; `Audit.no_purpose_kind_order_violation_remains` now checks
+  that no golden exhibits such a pair;
 * a `(Rewarding c₁, Rewarding c₂)` pair with both credentials being script
   credentials means the failure is inside a kind, where CLAB and the ledger agree
-  — so the transaction really is mis-ordered (a harness artifact). -/
+  — so the transaction really is mis-ordered (a harness artifact).  These are the
+  only violations left in the suite. -/
 
 /-- Coarse label of a `ScriptPurpose`: its constructor, and for `Rewarding` also
 whether the credential is a script credential (the case where CLAB's and the
@@ -266,14 +269,13 @@ READ THE DIRECTION OF THIS REPAIR CAREFULLY (it differs per failure class, see
   violating pair is INSIDE one purpose/credential kind (two script credentials
   emitted descending), where CLAB's order and `cardano-ledger`'s agree — so
   sorting genuinely repairs a mis-ordered context.
-* For the redeemer maps of the two accepting MINTING goldens the violating pair
-  is `(Spending, Minting)`, and there CLAB's order is the one that is wrong:
-  `cardano-ledger` emits `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order
-  (`ConwaySpending < ConwayMinting < …`) and does not re-sort, so the golden is
-  ledger-correct and re-sorting moves it AWAY from reality.  This function is
-  still the right instrument there — it shows the failure is order-only — but the
-  conclusion is "fix CLAB" (`WSC/STATUS.md` §3 D1, quarantined in
-  `WSC/Honest.lean`'s `CLABMapOrderAgrees`), not "fix the transaction". -/
+* The two accepting MINTING goldens USED to break at `(Spending, Minting)`, where
+  CLAB's order — not the transaction — was the wrong one: `cardano-ledger` emits
+  `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order
+  (`ConwaySpending < ConwayMinting < …`) and does not re-sort.  That was CLAB
+  defect D1, and task Z1 FIXED it in `ltScriptPurpose`, so those two goldens are
+  now already sorted and this function is a NO-OP on them.  Nothing here moves any
+  context away from reality any more. -/
 def canonicaliseOrder (ctx : ScriptContext) : ScriptContext :=
   let ti := ctx.scriptContextTxInfo
   { ctx with

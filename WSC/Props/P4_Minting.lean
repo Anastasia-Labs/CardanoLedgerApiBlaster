@@ -179,6 +179,8 @@ from its precompiled `libBlaster.so`):
 | 900  | 1.5 s  | P4a + vacuity probe | Undetermined (killed) | uncapped | >1748 s |
 | 900  | 1.5 s  | P4a | Undetermined | 3300 s | 3208 s |
 | 900  | 1.5 s  | vacuity probe | Undetermined | 3300 s | 3207 s |
+| 900  | 1.5 s  | vacuity probe, **AFTER the D1/D2 order fix** | Undetermined | 600 s | 601 s |
+| 900  | 1.5 s  | P4a, **AFTER the D1/D2 order fix** | Undetermined | 600 s | 601 s |
 | 1300 | 7.4 s  | — | not attempted | — | — |
 | 1700 | 92.7 s | — | not attempted | — | — |
 | 2000 | never completed (killed at 1800 s) | — | — | — | — |
@@ -187,6 +189,17 @@ Read the 800-vs-900 rows together: dropping the budget by 100 steps (still above
 K_novac = 784, so still non-vacuous — `P4Witness.exec_accepts_at_800`) does not
 help at all. Nor does giving Z3 11× more time: 296 s, 1,748 s and 3,208 s all end
 in the same place.
+
+**AND NEITHER DOES FIXING THE PRECONDITION (task Z1, the last two rows).** CLAB
+defect D1 made `validMintingContext` UNSATISFIABLE for any transaction that both
+spends and mints, so before the fix these obligations were vacuous on their target
+class *as statements* even though the solver never got far enough to exploit it.
+The fix (`ltScriptPurpose` now in the ledger's `ConwayPlutusPurpose` order) makes
+the hypothesis genuinely satisfiable there — and both obligations are STILL
+`Undetermined` at a 600 s Z3 cap, with wall times (601 s) indistinguishable from
+the pre-fix runs. That is a clean separation of the two failure modes: **vacuity
+was a real defect and is now repaired; the wall is entirely Z3 search.** It also
+means no earlier "Undetermined" here was a disguised vacuity artifact.
 
 Two conclusions:
 
@@ -528,12 +541,11 @@ prep is what makes it usable: the follow-up note in WSC/Goldens/Witnesses.lean
 records that the minting golden could not carry a witness against a 600-step
 prep, and that is now fixed.
 
-WEAKER: the golden does NOT satisfy `validMintingContext`. Its two failing
-conjuncts are exactly the two already documented for this suite — `txInfoFee > 0`
-(the emulator golden pays no fee) and `validRedeemerMap` (a CLAB defect, see
-commit "WSC Y4 correction: the redeemer-map order failure is a CLAB defect" and
-WSC/LR-CTX-AUDIT.md) — and both are recorded as a theorem below rather than
-waved away. So the golden certifies that the BYTECODE accepts inside 900 steps
+WEAKER: the golden does NOT satisfy `validMintingContext`. Since task Z1 fixed
+CLAB defect D1 (`ltScriptPurpose` now uses the ledger's `ConwayPlutusPurpose`
+order) its SINGLE failing conjunct is `txInfoFee > 0` — the emulator golden pays
+no fee — recorded as a theorem below rather than waved away. So the golden
+certifies that the BYTECODE accepts inside 900 steps
 (which is what non-vacuity of the budget needs), while the hand-built
 `P4Witness` is the one that additionally satisfies the theorems' stated
 hypothesis exactly (`P4Witness.ctx_valid`). Together they cover both jobs.
@@ -584,12 +596,22 @@ theorem ownCS_pins_the_purpose : ownCurrencySymbol ctx = some ownCS := by
   native_decide
 
 /-- **The honest caveat, as a theorem.** The golden fails
-`validMintingContext` on EXACTLY two conjuncts: `txInfoFee > 0` (the emulator
-golden pays no fee) and `validRedeemerMap` (the CLAB redeemer-map-order defect).
-Stating it this way means the gap cannot silently widen. -/
-theorem ctx_fails_validMintingContext_on_exactly_two_conjuncts :
+`validMintingContext` on EXACTLY ONE conjunct: `txInfoFee > 0` (the emulator
+golden pays no fee).  Stating it this way means the gap cannot silently widen.
+
+NARROWED BY TASK Z1: this list used to be
+`["txInfoFee > 0", "validRedeemerMap"]`.  The second entry was CLAB defect D1 —
+`ltScriptPurpose` ordered purposes by the PLUTUS constructor tags
+(`Minting < Spending`) instead of the ledger's `ConwayPlutusPurpose AsIx` tags
+(`Spending < Minting`), so no transaction that both spends and mints could
+satisfy `validRedeemerMap` and every `validMintingContext`-hypothesised theorem
+was VACUOUS on its own target class.  With `ltScriptPurpose` corrected
+(`CardanoLedgerApi/V3/Contexts.lean`, ledger citations in its docstring) this
+real, chain-shaped minting context is a single HARNESS artifact — the zero fee —
+away from satisfying the hypothesis verbatim. -/
+theorem ctx_fails_validMintingContext_on_exactly_one_conjunct :
     validMintingContext ctx = false ∧
-    failingConjuncts golden = some ["txInfoFee > 0", "validRedeemerMap"] := by
+    failingConjuncts golden = some ["txInfoFee > 0"] := by
   native_decide
 
 /-! ### The witness proper -/

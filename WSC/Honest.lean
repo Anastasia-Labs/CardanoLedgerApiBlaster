@@ -51,10 +51,15 @@ docs and K-MEASUREMENTS.md already cite the file-local names. Mapping:
 2. Stale budget docstrings ("budget 2000" / "budget 9000") removed; the
    authoritative budgets live in `WSC/Prep/*.lean` and are referenced, never
    duplicated, from here.
-3. `LR_CTX` (E5) stated with the clause-by-clause AUDIT TABLE, and **weakened**:
-   two of `validScriptContext`'s conjuncts are NOT entailed by any ledger rule —
-   see `CLABMapOrderAgrees` and the LOUD FLAG in §LR. `LR4`/`LR5` were
-   correspondingly weakened to their justified cores.
+3. `LR_CTX` (E5) stated with the clause-by-clause AUDIT TABLE. It was once
+   **weakened** by a `CLABMapOrderAgrees` side condition, because two of
+   `validScriptContext`'s conjuncts (rows L, M) were not entailed by any ledger
+   rule — CLAB compared `ScriptPurpose`s and `Credential`s in the PLUTUS
+   constructor order, not the ledger's. That was CLAB defect D1/D2 and task Z1
+   **fixed it at the source**, so rows L and M are now JUSTIFIED and the side
+   condition has been DELETED (see `LR_CTX`'s docstring for the full record).
+   `LR4`/`LR5` remain in the weakened, justified-core form: it is all the proofs
+   need, and a weaker axiom is a smaller trust surface.
 4. `NONNEG` (E6) restated as non-negativity of held amounts (`0 ≤ valueOf …`),
    the form the Preservation reduction consumes, instead of re-asserting
    `validTxOutValue` (which duplicated LR1/LR2).
@@ -368,9 +373,11 @@ WHY IT MATTERS: the withdrawal-index witnesses in the WSC redeemers resolve
 unambiguously.
 
 WHAT WAS REMOVED AND WHY: the previous revision asserted CLAB's
-`validWithdrawals` (strict credential ASCENT). That is order-convention
-dependent and is NOT entailed by any ledger rule — see
-`CLABMapOrderAgrees`. -/
+`validWithdrawals` (strict credential ASCENT). At the time that was
+order-convention dependent and not entailed by any ledger rule; since task Z1
+fixed `ltCredential` to the ledger's `ScriptHashObj < KeyHashObj` (defect D2) it
+IS entailed (audit row L), but this axiom is deliberately left in the weaker
+duplicate-freeness form — it is all the proofs consume. -/
 axiom LR4 : ∀ (ctx : ScriptContext), OnChain ctx →
   ∀ w₁ ∈ ctx.scriptContextTxInfo.txInfoWdrl,
   ∀ w₂ ∈ ctx.scriptContextTxInfo.txInfoWdrl,
@@ -398,8 +405,10 @@ WHY IT MATTERS: the issuance `DelegateSeize` arm indexes the redeemer map
 rewarding clause.
 
 WHAT WAS REMOVED AND WHY: the previous revision also asserted
-`validRedeemerMap` (strict ASCENT of purposes). That is REFUTED for WSC's own
-transactions — see `CLABMapOrderAgrees`.
+`validRedeemerMap` (strict ASCENT of purposes). That was REFUTED for WSC's own
+transactions by CLAB defect D1; task Z1 fixed `ltScriptPurpose` to the ledger's
+`ConwayPlutusPurpose` order, so it IS now entailed (audit row M), but this axiom
+is deliberately left in the weaker duplicate-freeness form.
 
 NOTE (ADDENDUM E9): `validScriptInfo` DOES read `scriptContextRedeemer`, but
 only for consistency with the redeemer map, never to constrain its content —
@@ -557,8 +566,8 @@ ledger line numbers are the `cardano-ledger` checkout @ `cd8b7fab8`.
 | I | `validReferenceInputs`: refs ascending, may be empty (:1052-1061) | `Set.toList refInputs` (`Conway/TxInfo.hs:491`) | **JUSTIFIED** |
 | J | `txInfoFee > 0` (:1201) | `FeeTooSmallUTxO` (`Conway/Rules/Utxo.hs:85`) with mainnet `minFeeB = 155381 > 0` | **JUSTIFIED, PARAMETER-DEPENDENT** — it is a protocol-parameter fact, not a pure rule. No WSC proof uses it. NOTE: all 13 goldens have `fee = 0`, so **no golden satisfies `validXContext`** (see the empirical row-set below). |
 | K | `validMintValue`: ada-free, ascending, quantities ≠ 0 (:801-813) | `transMintValue` over `MultiAsset` (`Conway/TxInfo.hs:540-541`) | **JUSTIFIED at PV11+** (ada-freeness is version-dependent) |
-| L | `validWithdrawals`: withdrawals strictly ASCENDING in CLAB's `Credential` order (:923-930) | `transMap … (unWithdrawals …)` = `unsafeFromList ∘ map ∘ Map.toList` — NO re-sorting (`Conway/TxInfo.hs:544-546, 692-694`); the ledger's order is `AccountAddress` = (`Network`, `Credential`) with **`ScriptHashObj < KeyHashObj`** (`libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs:96-99`, `Address.hs:183-191`), whereas CLAB has **`PubKeyCredential < ScriptCredential`** (`V1/Credential.lean:61-66`) | **⚠ NOT JUSTIFIED — REFUTED for MIXED maps.** Agrees whenever all withdrawal credentials are script credentials (WSC's own case) or all are key credentials; FALSE for any transaction mixing the two (e.g. a user claiming staking rewards in the same transaction). |
-| M | `validRedeemerMap`: redeemers strictly ASCENDING in CLAB's `ScriptPurpose` order (:1083-1090) | `transTxRedeemers = unsafeFromList ∘ mapM … ∘ Map.toList` over `Redeemers` keyed by `PlutusPurpose AsIx` — NO re-sorting (`Babbage/TxInfo.hs:217-221`); ledger tag order is **`ConwaySpending < ConwayMinting < ConwayCertifying < ConwayRewarding < ConwayVoting < ConwayProposing`** (`eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs:202-213`, derived `Ord`), whereas CLAB has **`Minting < Spending < Rewarding < Certifying < …`** (`V3/Contexts.lean:20-27, 66-85`) | **⚠⚠ NOT JUSTIFIED — REFUTED for every WSC issuance transaction.** A transaction with BOTH a spending and a minting redeemer is emitted Spending-first by the ledger and is therefore NOT CLAB-sorted. Every programmable-token mint spends a funding/base input, so this hits the P4/P2′ transaction class always. |
+| L | `validWithdrawals`: withdrawals strictly ASCENDING in CLAB's `Credential` order (`validWithdrawals`, V3/Contexts) | `transMap … (unWithdrawals …)` = `unsafeFromList ∘ map ∘ Map.toList` — NO re-sorting (`Conway/TxInfo.hs:544-546, 692-694`); the ledger's key order is `AccountAddress` = (`Network`, `Credential`) with **`ScriptHashObj < KeyHashObj`** (`libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs:96-99`, `Address.hs:183-191`); `ltCredential` (`V1/Credential.lean`) was **FIXED to that order by task Z1** (it previously had the Plutus order `PubKeyCredential < ScriptCredential`) | **JUSTIFIED** (was ⚠ REFUTED for mixed maps — defect D2, now repaired). Side fact, itself a ledger rule: Plutus' key drops the `Network` component, harmless because `validateWrongNetworkWithdrawal` (`Shelley/Rules/Utxo.hs:181,384`) admits only one network per transaction, on which (`Network`,`Credential`) order restricts to `Credential` order. |
+| M | `validRedeemerMap`: redeemers strictly ASCENDING in CLAB's `ScriptPurpose` order (`validRedeemerMap`, V3/Contexts) | `transTxRedeemers = unsafeFromList ∘ mapM … ∘ Map.toList` over `Redeemers` keyed by `PlutusPurpose AsIx` — NO re-sorting (`Babbage/TxInfo.hs:217-221`, used for V3 at `Conway/TxInfo.hs:499,512`); ledger tag order is **`ConwaySpending < ConwayMinting < ConwayCertifying < ConwayRewarding < ConwayVoting < ConwayProposing`** (`Conway/Scripts.hs:202-213`, derived `Ord`); `ltScriptPurpose` (`V3/Contexts.lean`) was **FIXED to that order by task Z1** (it previously had the Plutus constructor order `Minting < Spending < Rewarding < Certifying < …`) | **JUSTIFIED** (was ⚠⚠ REFUTED for every WSC issuance transaction — defect D1, now repaired; that defect is why every `validMintingContext` theorem was vacuous on its own class). Side fact: INTRA-kind, the ledger's `AsIx` index enumerates an already-sorted collection and each Plutus key's leading component sorts the same way (inputs by `TxIn`≡`ltTxOutRef`; policies by `PolicyID`≡`CurrencySymbol`; withdrawals by `Credential` per row L; `Certifying`/`Proposing` compare the index itself; `Voting` by `Voter`, whose ledger `Ord` (`Conway/Governance/Procedures.hs:338-342`) matches `ltVoter`). |
 | N | `validTxRange`: validity range non-empty (:1204, `V1/Contexts.lean:964-967`) | `OutsideValidityIntervalUTxO` (`Alonzo/Rules/Utxo.hs:124,519`) — the current slot lies inside, hence non-empty | **JUSTIFIED** |
 | O | `validSigners`: required signers strictly ascending (:1205, `V1/Contexts.lean:977-984`) | `Set.toList` of `KeyHash` (`transTxBodyReqSignerHashes`, `Alonzo/Plutus/TxInfo.hs:312`) | **JUSTIFIED** |
 | P | `validDatumMap`: datum witnesses ascending by hash (:1207, `V1/Contexts.lean:995-1002`) | `Map.toList` of `TxDats` (`transTxWitsDatums`, `Alonzo/Plutus/TxInfo.hs:316`) | **JUSTIFIED** |
@@ -585,58 +594,70 @@ with `lake env lean`):
   GAP, not a ledger finding. **Consequence: no golden can currently serve as a
   `validXContext` anti-vacuity witness; the only such witness in the library is
   the hand-built `WSC.P3Witness.ctx` (WSC/Props/P3_Base.lean:149).**
-* `validRedeemerMap` = false for the 2 minting goldens with purposes
+* `validRedeemerMap` was false for the 2 minting goldens with purposes
   `[Spending, Minting, Rewarding, Rewarding, Rewarding]` — exactly row M's
-  refutation, reproduced independently.
+  refutation, reproduced independently. **Since task Z1 fixed `ltScriptPurpose`
+  both goldens PASS `validRedeemerMap`** and their only failing conjunct is the
+  zero fee (row J); machine-checked by `WSC/Goldens/Audit.lean`'s
+  `fail_mint_burnonly`, `fail_mint_delegate_transfer_topup` and
+  `no_purpose_kind_order_violation_remains`.
 * `validWithdrawals` = false for the 3 seize goldens: their two script
   credentials are emitted DESCENDING (`0x40…` before `0x14…`), a builder
   artifact (the builder does not sort withdrawals), which also makes their
-  `Rewarding` redeemer entries unsorted.
+  `Rewarding` redeemer entries unsorted. This is UNCHANGED by task Z1's D2 fix,
+  and necessarily so: both credentials are SCRIPT credentials, the case where the
+  old and new `Credential` orders agree, so the attribution of this failure to
+  the builder rather than to CLAB is confirmed rather than disturbed by the fix.
 * `validOutputs` = false for the 2 accepting seize goldens: the residual
   (seized-tokens) output carries NO ada entry at all
   (`[(cs=1b…, [(tn=3063, 1)])]`), which min-ada forbids on chain — again a
   builder artifact, and it is row H's ledger rule that rules it out.
 -/
 
-/-- The two `validScriptContext` conjuncts that are **order-convention
-dependent** and NOT entailed by any Cardano ledger rule (rows L and M of the
-audit table above). `LR_CTX` is conditioned on this rather than asserting it,
-so that no proof can silently inherit a false premise.
-
-STATUS: **REFUTED in general.** For WSC transactions:
-* the withdrawal clause holds (all WSC withdrawal credentials are script
-  credentials, where the two orders agree) unless the transaction also
-  withdraws to a key credential;
-* the redeemer clause FAILS for every transaction that both spends and mints,
-  i.e. for every programmable-token issuance transaction.
-
-CONSEQUENCE (loud): any theorem whose hypothesis is `validMintingContext ctx`
-is VACUOUS on real issuance transactions until this is repaired. The repair is
-in CLAB, not here: `ltScriptPurpose` (`V3/Contexts.lean:66-85`) and
-`ltCredential` (`V1/Credential.lean:61-66`) must be changed to the ledger's
-orders (`Spending < Minting < Certifying < Rewarding < Voting < Proposing`;
-`ScriptCredential < PubKeyCredential`), or `validRedeemerMap`/`validWithdrawals`
-must be weakened to duplicate-freeness (which is all WSC actually needs — see
-LR4/LR5). Filed as the top-priority substrate defect. -/
-def CLABMapOrderAgrees (ctx : ScriptContext) : Prop :=
-  validRedeemerMap ctx.scriptContextTxInfo.txInfoRedeemers = true ∧
-  validWithdrawals ctx.scriptContextTxInfo.txInfoWdrl = true
-
 /-- **LR_CTX (ADDENDUM E5)**: the master context bridge. Every REAL invocation
 of one of our validators receives a context satisfying CLAB's full
-`validScriptContext` — PROVIDED the two order-convention conjuncts hold
-(`CLABMapOrderAgrees`; rows L and M of the table above are the only conjuncts
-not entailed by a ledger rule).
+`validScriptContext`. Every conjunct is a cited Cardano ledger rule — rows A–R of
+the table above.
 
 WHY UNAVOIDABLE: it is the axiom that lets theorems proved under
 `validXContext` hypotheses apply to real invocations at all.
 
-AUDIT / DISCHARGE: rows A–K, N–R of the table are each a cited Cardano ledger
-rule; rows L and M are a CLAB-vs-ledger ordering defect and are quarantined in
-the hypothesis. Discharging `CLABMapOrderAgrees` is a CLAB fix, not a proof
-obligation. -/
+AUDIT / DISCHARGE: rows A–R of the table are each a cited Cardano ledger rule.
+
+**THE `CLABMapOrderAgrees` SIDE CONDITION IS GONE (task Z1).** Earlier revisions
+read `OnChain ctx → CLABMapOrderAgrees ctx → validScriptContext ctx`, where
+
+    CLABMapOrderAgrees ctx :=
+      validRedeemerMap …txInfoRedeemers = true ∧ validWithdrawals …txInfoWdrl = true
+
+quarantined rows L and M, the two conjuncts that were then NOT entailed by any
+ledger rule because CLAB compared `ScriptPurpose`s and `Credential`s in the
+PLUTUS constructor order instead of the ledger's. That was a CLAB defect (D1/D2),
+not a gap in the ledger: it made `validMintingContext` UNSATISFIABLE for any
+transaction that both spends and mints, i.e. it made every minting-purpose
+theorem vacuous on its own target class. It has been REPAIRED at the source —
+`ltScriptPurpose` (`CardanoLedgerApi/V3/Contexts.lean`, and the V1/V2 copy in
+`CardanoLedgerApi/V1/Contexts.lean`) now uses
+`Spending < Minting < Certifying < Rewarding < Voting < Proposing` and
+`ltCredential` (`CardanoLedgerApi/V1/Credential.lean`) now uses
+`ScriptCredential < PubKeyCredential`, each with the `cardano-ledger` citation in
+its docstring. Rows L and M are consequently **JUSTIFIED**, the side condition is
+unnecessary, and it has been deleted rather than left as dead weight — a
+hypothesis nobody can discharge is exactly what hides vacuity.
+
+RESIDUAL side facts folded into rows L/M (documented there, both ledger rules):
+one network per transaction (`validateWrongNetworkWithdrawal`), which is what
+lets Plutus' network-less `Credential` key stand in for the ledger's
+`AccountAddress` key; and `AsIx`-index order agreeing with the Plutus key order
+inside each purpose kind, which holds because the index enumerates an
+already-sorted ledger collection.
+
+NOTE: `LR4`/`LR5` are deliberately left in their WEAKENED form (duplicate-freeness
+of withdrawal/redeemer keys) even though the full order clauses are now
+justified — duplicate-freeness is all any WSC proof consumes, and a weaker axiom
+is a smaller trust surface. -/
 axiom LR_CTX : ∀ (ctx : ScriptContext),
-  OnChain ctx → CLABMapOrderAgrees ctx → validScriptContext ctx
+  OnChain ctx → validScriptContext ctx
 
 /-- **NONNEG (ADDENDUM E6)**: non-negativity of held amounts. Every UTxO a
 transaction touches holds a non-negative amount of every asset.

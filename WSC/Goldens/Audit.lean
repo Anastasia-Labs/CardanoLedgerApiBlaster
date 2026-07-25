@@ -12,7 +12,20 @@ audit table in `WSC/LR-CTX-AUDIT.md` cannot drift from the code.
 HEADLINE (stated loudly, per the task's instruction not to paper over a FALSE):
 **all 13 goldens FAIL their matching `validXContext`.**  Every failure is
 localised to a named conjunct below.  They fall into FIVE classes, and — this is
-the part that matters — they do not all point the same way:
+the part that matters — they do not all point the same way.
+
+UPDATE (task Z1): class **D1 below is now FIXED IN CLAB** and no longer appears in
+any golden's failing-conjunct list.  `ltScriptPurpose` was corrected to the
+ledger's `ConwayPlutusPurpose` order (`CardanoLedgerApi/V3/Contexts.lean`, see its
+docstring for the citations), and `ltCredential` to the ledger's
+`ScriptHashObj < KeyHashObj` (D2, `CardanoLedgerApi/V1/Credential.lean`).  The two
+accepting minting goldens' only remaining failure is the zero fee (A1).  The
+D1 paragraph is kept below as the record of what was wrong and why; the
+`fail_*` theorems and `order_violations_are_all_A2` state the post-fix truth.
+The D2 fix changes no golden verdict — every golden withdrawal/rewarding
+credential is a SCRIPT credential, the case where the old and new orders agree —
+so the seize goldens' A2 failures are untouched, exactly as A2's attribution
+predicted.
 
 * **A1 `txInfoFee = 0`** — 13/13.  HARNESS artifact: a real Cardano transaction
   always pays a positive fee.
@@ -24,32 +37,36 @@ the part that matters — they do not all point the same way:
 * **A3 lovelace-free outputs** — 2/13 (the two accepting seize goldens' residual
   seized-token outputs).  HARNESS artifact: Cardano's min-UTxO-ada rule makes an
   output with no lovelace impossible.
-* **D1 `validRedeemerMap` at a `(Spending, Minting)` pair** — 2/13 (the two
-  accepting minting goldens).  **NOT a harness artifact — a CLAB DEFECT.**  CLAB
-  orders `Minting < Spending` (`ltScriptPurpose`,
-  `CardanoLedgerApi/V3/Contexts.lean:65-84`, the Plutus constructor order), but
+* **D1 `validRedeemerMap` at a `(Spending, Minting)` pair** — was 2/13 (the two
+  accepting minting goldens), **now 0/13: FIXED, see the UPDATE above.**  **NOT a
+  harness artifact — it was a CLAB DEFECT.**  CLAB
+  ordered `Minting < Spending` (`ltScriptPurpose`,
+  `CardanoLedgerApi/V3/Contexts.lean`, the Plutus constructor order), but
   `cardano-ledger` emits `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order
   (`ConwaySpending < ConwayMinting < …`) and does NOT re-sort, so a real
   transaction carrying both a spending and a minting redeemer — i.e. **every**
   programmable-token mint — is not CLAB-sorted.  `validMintingContext` is
-  therefore unsatisfiable on P4's target class.  This was found independently by
-  task Y3 against the `cardano-ledger` sources and is recorded as defect D1 in
-  `WSC/STATUS.md` §3, quarantined in `WSC/Honest.lean`'s `CLABMapOrderAgrees`.
-  The goldens are ledger-CORRECT here; CLAB is what needs fixing.
+  therefore was unsatisfiable on P4's target class, making every
+  `validMintingContext`-hypothesised theorem vacuous there.  This was found
+  independently by task Y3 against the `cardano-ledger` sources, recorded as
+  defect D1 in `WSC/STATUS.md` §3, and REPAIRED by task Z1.
+  The goldens were ledger-CORRECT here; CLAB was what needed fixing.
 * **T1/T2 tamper-intrinsic** — `isBalanced` on the two rejecting goldens that
   tamper by DELETING an output; `validScriptInfo` on the rejecting golden that
   grafts a spending purpose onto a minting transaction's `TxInfo`.
 
-`order_violations_split_into_two_causes` below is what separates A2 from D1
-mechanically: it names the adjacent pair that breaks each order check.
+`order_violations_are_all_A2` below is what pins the cause of each remaining
+order failure mechanically: it names the adjacent pair that breaks each order
+check, and post-fix every such pair is inside ONE purpose kind (A2), never at a
+purpose-KIND boundary (D1).
 
 The counter-evidence that CLAB's predicate is not over-strong in its OTHER
 clauses is `accepting_goldens_pass_modulo_artifacts` at the bottom: with A1/A3
 relaxed and both order checks canonically re-sorted — and with **`isBalanced` and
 every other conjunct still checked verbatim** — all 9 accepting goldens satisfy
-the predicate.  Note honestly that for the two minting goldens that re-sort moves
-the context AWAY from the real ledger order (D1); it is used there only to
-establish "the failure is nothing but order".
+the predicate.  Post-fix the re-sorting is a no-op on the minting goldens (they
+were already in the ledger's order), so it no longer moves any context away from
+reality; it now only repairs the genuinely mis-ordered seize contexts.
 
 Every theorem is `native_decide`; kernel `decide` is unavailable because PCB's
 CBOR decoder is `partial`.
@@ -139,18 +156,20 @@ theorem fail_mint_local_empty_withdrawals_REJECT :
       = some ["txInfoFee > 0"] := by
   native_decide
 
-/-- `programmableTokenMinting.mint-burnonly` (ACCEPTING) — fee (A1) plus
-`validRedeemerMap` failing at the `(Spending, Minting)` pair, i.e. CLAB defect D1
-(see the module header): this golden's redeemer order is the ledger's. -/
+/-- `programmableTokenMinting.mint-burnonly` (ACCEPTING) — the fee (A1) is now the
+ONLY failing conjunct.  Before the D1 fix this golden also failed
+`validRedeemerMap` at its `(Spending, Minting)` pair; its redeemer order was the
+ledger's all along and CLAB's order was wrong (task Z1). -/
 theorem fail_mint_burnonly :
     failingConjuncts programmableTokenMinting_mint_burnonly
-      = some ["txInfoFee > 0", "validRedeemerMap"] := by
+      = some ["txInfoFee > 0"] := by
   native_decide
 
-/-- `programmableTokenMinting.mint-delegate-transfer-topup` (ACCEPTING). -/
+/-- `programmableTokenMinting.mint-delegate-transfer-topup` (ACCEPTING) — likewise
+fee-only since the D1 fix. -/
 theorem fail_mint_delegate_transfer_topup :
     failingConjuncts programmableTokenMinting_mint_delegate_transfer_topup
-      = some ["txInfoFee > 0", "validRedeemerMap"] := by
+      = some ["txInfoFee > 0"] := by
   native_decide
 
 /-- `programmableSeize.seize-1-input` (ACCEPTING) — the worst case: lovelace-free
@@ -241,10 +260,11 @@ theorem A3_only_seize_has_lovelace_free_outputs :
               then 1 else 0)) = true := by
   native_decide
 
-/-- **A2 / D1 are pure ORDER failures.** Canonically re-sorting the withdrawal
-map and the redeemer map — a permutation that touches no value — makes both
-clauses hold in every golden.  (For the two minting goldens this sorts into
-CLAB's order, which per D1 is the WRONG order; see the module header.) -/
+/-- **A2 is a pure ORDER failure.** Canonically re-sorting the withdrawal map and
+the redeemer map — a permutation that touches no value — makes both clauses hold
+in every golden.  Post-Z1 this re-sort is a NO-OP on the two minting goldens
+(their redeemer maps are already in CLAB's = the ledger's order), so it is now
+only doing work on the mis-ordered seize contexts. -/
 theorem order_failures_are_order_only :
     all.all (fun v =>
       match ctxOfHex v.scriptContextHex with
@@ -257,35 +277,47 @@ theorem order_failures_are_order_only :
                c.scriptContextTxInfo.txInfoRedeemers) = true := by
   native_decide
 
-/-- **The A2-vs-D1 split, mechanically.** For each golden, the adjacent pair
-that breaks `validRedeemerMap` (`none` = the check passes):
+/-- **A2 is now the ONLY order cause (D1 is fixed).** For each golden, the
+adjacent pair that breaks `validRedeemerMap` (`none` = the check passes):
 
-* the two accepting MINTING goldens break at `("Spending", "Minting")` — a
-  purpose-KIND boundary, i.e. defect **D1** (CLAB's order disagrees with
-  `cardano-ledger`'s; the golden is ledger-correct);
 * the three SEIZE goldens break at
   `("Rewarding(script)", "Rewarding(script)")` — inside one kind, where CLAB and
   the ledger agree, i.e. harness artifact **A2**;
-* the other eight are sorted.
+* **all ten others are sorted**, including the two accepting MINTING goldens,
+  which before task Z1's fix broke at `("Spending", "Minting")` — a purpose-KIND
+  boundary where CLAB's order, not the transaction, was wrong (defect D1).  That
+  `none` is the machine-checked payoff of the fix: no purpose-KIND violation
+  survives anywhere in the suite.
 
 The withdrawal-map violations are all `("script", "script")`, confirming A2's
-attribution there too. -/
-theorem order_violations_split_into_two_causes :
+attribution there too — and they are unchanged by the D2 fix precisely because
+both credentials are script credentials, the case where the old and new orders
+agree. -/
+theorem order_violations_are_all_A2 :
     all.all (fun v =>
       match ctxOfHex v.scriptContextHex with
       | none => false
       | some ctx =>
           (firstRedeemerOrderViolation ctx ==
-            (if v.validator == "programmableTokenMinting"
-                  && (v.scenario == "mint-burnonly"
-                      || v.scenario == "mint-delegate-transfer-topup")
-             then some ("Spending", "Minting")
-             else if v.validator == "programmableSeize"
+            (if v.validator == "programmableSeize"
              then some ("Rewarding(script)", "Rewarding(script)")
              else none))
           && (firstWithdrawalOrderViolation ctx ==
                 (if v.validator == "programmableSeize"
                  then some ("script", "script") else none))) = true := by
+  native_decide
+
+/-- No golden's redeemer map has a violation at a purpose-KIND boundary any more:
+every surviving violation is `Rewarding`-vs-`Rewarding`.  This is the sharpest
+statement of "D1 is gone from the suite". -/
+theorem no_purpose_kind_order_violation_remains :
+    all.all (fun v =>
+      match ctxOfHex v.scriptContextHex with
+      | none => false
+      | some ctx =>
+          match firstRedeemerOrderViolation ctx with
+          | none => true
+          | some (a, b) => a == b) = true := by
   native_decide
 
 /-! ## Step 3 — the interpretation, machine-checked
