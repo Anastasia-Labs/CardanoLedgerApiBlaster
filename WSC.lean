@@ -238,3 +238,24 @@ import WSC.Props.Shaped.P4LocalShapedR
 import WSC.Props.Shaped.P4DelegateShapedR
 import WSC.Props.Shaped.P2ShapedR
 import WSC.Props.Shaped.RealizableShapes
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TASK C4 — a `LeafSet` over a shape class that is NOT EMPTY (audit F1).
+-- ═══════════════════════════════════════════════════════════════════════════
+-- C1/C2 made the shape classes node-realizable; this is what that buys at the
+-- composition.  `WSC/Props/Shaped/RealizableLeaves.lean` builds the SHAPE-T1R
+-- shape bridge (`exec_T1R` by `rfl`, `bridge_T1R` by `blaster`), instantiates
+-- `Shape := T1RShape hp`, and discharges THREE of the four `LeafSet` fields:
+--   * `p1`  from `WSC.P1R_T1` — the PRODUCTION BYTECODE at budget 4400, witness
+--           K = 2603, reached through `WSC.LR_BUDGET_global` (non-vacuity proved)
+--           and the new bridge.  **The acceptance hypothesis is genuinely used**,
+--           which is not true of any other leaf discharge in this library;
+--   * `p4`  from the SHAPE (T1R mints nothing, so the fourth custody disjunct
+--           holds by computation) — acceptance hypothesis UNUSED, and named `_`;
+--   * `nopre` from the SHAPE (T1R registers nothing).
+-- `p2` is NOT discharged and is carried as the single remaining hypothesis of
+-- `containment_on_realizable_class_of_p2`, i.e. an N = 1 obligation gap.
+-- The class is PROVED INHABITED by a node-realizable context
+-- (`realizable_inhabitant`, 0 project axioms) — the exact contrast with
+-- `ShapeRealizability.t1VacuousLeaves`, whose class is proved EMPTY.
+import WSC.Props.Shaped.RealizableLeaves
