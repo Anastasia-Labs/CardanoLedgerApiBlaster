@@ -282,3 +282,20 @@ import WSC.Props.Shaped.RealizableLeaves
 -- `WSC.LR_BUDGET_seize`, the first use of that bridge anywhere), `p1`/`p4`/
 -- `nopre` by the shape.  ONE of four leaves is bytecode on each side.
 import WSC.Props.Shaped.RealizableLeavesS1R
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TASK E4 — THE SHAPE-COVERAGE QUESTION, stated and answered NEGATIVELY (F2).
+-- ═══════════════════════════════════════════════════════════════════════════
+-- `WSC/Coverage.lean` writes down what it would MEAN for a finite family of
+-- shapes to cover all transactions of a bounded size (`Covers`), and then
+-- refutes it for the twelve node-realizable shapes of C1/C2 — at SHAPE T1R's
+-- OWN size — with three machine-checked witnesses that are
+--   * `validRewardingContext` AND `redeemersExact` (the campaign's own bar),
+--   * ACCEPTED by the production `programmableLogicGlobal` bytecode, and
+--   * halting in exactly 2,603 CEK steps, i.e. indistinguishable from the
+--     shape's own certified inhabitant by the machine.
+-- It also records the one property that needs NO coverage argument (P3, proved
+-- over a fully symbolic context) and the enumeration arithmetic that rules the
+-- enumeration route out (3.05 × 10^14 skeletons at that bound).  Prose,
+-- costings and the recommendation: `WSC/COVERAGE.md`.
+import WSC.Coverage
