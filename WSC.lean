@@ -54,3 +54,25 @@ import WSC.Props.P6_Member
 import WSC.Model.SeizeModel
 import WSC.Model.SeizeDiff
 import WSC.Props.P2_Seize
+-- ── SHAPED-CONTEXT layer (task Z2) ──────────────────────────────────────────
+-- Read WSC/SHAPING-RESULTS.md first.  These modules prove P4a, P4's BurnOnly arm
+-- and P5 against the SAME bytecode at the SAME budgets as the UPLC modules above,
+-- but over a fixed `Data` SKELETON with symbolic scalar leaves ("shaped
+-- contexts").  That breaks the Z3 wall WSC/Props/P4_Minting.lean and
+-- WSC/Props/P5_NonMember.lean record: P4a went from Undetermined-after-3,208 s to
+-- Valid-in-1 s, and P5 from no-verdict-after-87-min to Valid-in-2 s, against the
+-- same flats and the same budgets.  EVERY theorem in this layer is bounded TWICE
+-- — by its CEK budget AND by its shape — and each shape's fixed dimensions are
+-- published in its prep module's header.  Do not quote one bound without the
+-- other.  Unlike the source-model route above, this layer adds NO faithfulness
+-- axiom: it is the real compiled bytecode, symbolically executed.
+import WSC.Shaped.Shape
+import WSC.Shaped.BaseShaped
+import WSC.Shaped.Calib.P3Unshaped
+import WSC.Shaped.Calib.P3Shaped
+import WSC.Shaped.MintingShaped
+import WSC.Shaped.MintingShapedIdx
+import WSC.Shaped.GlobalShaped
+import WSC.Props.Shaped.P4Shaped
+import WSC.Props.Shaped.P4ShapedIdx
+import WSC.Props.Shaped.P5Shaped
