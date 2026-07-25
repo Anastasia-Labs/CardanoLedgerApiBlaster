@@ -1,0 +1,47 @@
+/-
+WSC/Prep/Minting.lean — import + prep of the programmableTokenMinting
+(issuance) policy. Split into its own module so the `#prep_uplc` elaboration
+(budget 600: pipeline-validation only — accept-capable symbolic budgets are
+intractable per the E2 spike; P4 uses shaped contexts with measured budgets)
+is cached per-validator. Provenance: WSC/flats/PROVENANCE.md.
+-/
+import PlutusCore.UPLC
+import CardanoLedgerApi.V3
+import Blaster
+
+namespace WSC
+
+open CardanoLedgerApi.IsData.Class (toTerm)
+open CardanoLedgerApi.V3 (ScriptContext CurrencySymbol ScriptHash mintingInputs)
+open PlutusCore.UPLC.Term (Term)
+
+#import_uplc programmableTokenMinting PlutusV3 double_cbor_hex "WSC/flats/programmableTokenMinting.flat"
+
+/-- Parameter evidence for `programmableTokenMinting` — 2 parameters, then ctx:
+
+1. `protocolParamsCS : PAsData PCurrencySymbol` — protocol-params NFT policy id.
+2. `mintingLogicHash : PAsData PScriptHash` — token-specific minting-logic
+   script hash (MUST be the LAST applied parameter; the offchain
+   issuance-cbor-hex derivation splits the compiled CBOR around it).
+
+* Plutarch signature: `mkProgrammableLogicMinting :: Term s (PAsData
+  PCurrencySymbol :--> PAsData PScriptHash :--> PScriptContext :--> PUnit)`
+  — src/programmable-tokens-onchain/lib/SmartTokens/Contracts/Issuance.hs:132
+  (lambda order `\protocolParamsCS mintingLogicHash' ctx` at :133).
+* Offchain application order: `mkProgrammableLogicMinting # pdata (pconstant
+  protocolParamsCS)` then `applyArguments … [toData $ extractScriptHash $
+  transStakeCredential mintingCred]`
+  — src/programmable-tokens-offchain/lib/ProgrammableTokens/OffChain/Scripts.hs:135-140
+  (parameter-order note at :130-134 and Issuance.hs:12-17).
+* Purpose: MINTING policy — Issuance.hs:139 matches `PMintingScript ownCS'`.
+
+Both parameters are Data-encoded bytestrings (`CurrencySymbol`/`ScriptHash`
+are `ByteString` abbrevs with `toData := Data.B` —
+CardanoLedgerApi/V1/Value.lean:10, CardanoLedgerApi/V1/Scripts.lean:16). -/
+def mintingPolicyInputs (protocolParamsCS : CurrencySymbol) (mintingLogicHash : ScriptHash)
+    (ctx : ScriptContext) : List Term :=
+  toTerm protocolParamsCS :: toTerm mintingLogicHash :: mintingInputs ctx
+
+#prep_uplc appliedMinting programmableTokenMinting mintingPolicyInputs 600
+
+end WSC

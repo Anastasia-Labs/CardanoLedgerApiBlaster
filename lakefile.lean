@@ -15,3 +15,9 @@ lean_lib «CardanoLedgerApi» where
 @[test_driver]
 lean_lib «Tests» where
   -- add library configuration options here
+
+/-- WSC (Wyoming Stable Token / CIP-113 programmable tokens) containment
+proofs: UPLC-level verification of the compiled production validators.
+See WSC/ARCHITECTURE.md. -/
+lean_lib «WSC» where
+  -- root module WSC.lean imports the WSC.* tree

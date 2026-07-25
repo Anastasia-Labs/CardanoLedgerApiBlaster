@@ -12,3 +12,7 @@ build.log
 # vscode
 /.vscode/
 *.orig
+
+# WSC detached build helper (local only)
+.wsc-build.log
+.wsc-build.sh
