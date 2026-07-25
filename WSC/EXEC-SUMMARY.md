@@ -74,6 +74,19 @@ stated assumptions, each assumption labelled with what would discharge it.
    remain unfinished, so nobody should say "containment has been proved". The
    deliverable is the reduction plus the six leaf results — which is a strong
    position, but a different one.
+   **UPDATE (task A2, 2026-07-25).** The four obligations are now discharged for one
+   restricted family of transactions — those that visibly send no programmable token
+   outside the mini-ledger and register no new policy — so for that family the
+   top-level property is proved outright rather than reduced
+   (`WSC.Composition.containment_on_contained_class`). That family deliberately
+   excludes every transaction for which containment depends on the VALIDATORS, so it
+   demonstrates that the lifting argument closes, not that the code is safe. A2 also
+   established a harder limitation: the bounded transaction *shapes* of limitation 2
+   describe transactions **no node would accept** (each bakes one redeemer-map entry
+   while requiring several script witnesses), so the six bytecode results cannot be
+   lifted by restricting the top-level statement to those shapes — the shapes have to
+   be re-cut first. Machine-checked in
+   `WSC/Props/Shaped/ShapeRealizability.lean`; see `WSC/STATUS.md` §0.0a.
 2. **Every result about the bytecode is bounded twice: by a step limit and by a
    fixed transaction *shape*** (a pinned number of inputs, outputs, reference
    inputs and so on, with all the actual values left arbitrary). We have no

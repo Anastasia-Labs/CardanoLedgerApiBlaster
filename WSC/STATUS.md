@@ -22,6 +22,13 @@ favour of this file, and the disagreements are itemised in `WSC/AUDIT.md` §7.
   to four named leaf obligations plus 26 project axioms** (`WSC/Composition.lean`
   `top_claim`; axiom list in `WSC/AUDIT.md` §3.1). The `LeafSet` bundle it consumes
   is **never constructed** anywhere in the library.
+  **(A2) AMENDED:** a `LeafSet` term now exists —
+  `WSC.Composition.containedLeaves` — and `containment_on_contained_class` is the
+  top claim with no `LeafSet` hypothesis, but only over the `ContainedTx` class
+  (§0.0a), whose defining property is that containment holds of it for ACCOUNTING
+  reasons; no UPLC result is used, and for the general class the sentence above
+  still stands. A2 also proved that instantiating `Shape` with a SHAPED class gives
+  a theorem about an EMPTY class (§0.0a item 2).
 * Method: leaf properties proved `by blaster` against the **actual compiled
   production UPLC bytecode**, under a per-validator **CEK step budget** and — in
   the shaped layer — over a fixed `Data` **shape**; a composition theorem lifts the
@@ -94,6 +101,65 @@ publishes "**47** `axiom` declarations — `Honest.lean` (35), `Composition.lean
 SeizeModel 1. The audit's per-file split and its central conclusion ("no `axiom`
 hides in any `Prep/*`, `Shaped/*` or `Props/Shaped/*` module") both reproduce; only
 the totals are 4 low. After A1: 50 / 37 / 10 / 2 / 1.
+
+## 0.0a TASK A2 — a `LeafSet` exists; and the shaped classes are EMPTY
+
+**Read this before anything below that says "the `LeafSet` bundle is never
+constructed".** Task A2 (2026-07-25) actioned audit finding **F1**. Two results, and
+the second is the more important one.
+
+1. **A `LeafSet` term now exists and the top claim is instantiated at it** —
+   `WSC.Composition.containedLeaves : LeafSet hp (ContainedTx hp)` (§11 of that
+   file), all four fields PROVED, and
+   `WSC.Composition.containment_on_contained_class` is `top_claim` with **no
+   `LeafSet` hypothesis**. `#print axioms containedLeaves` carries **no `sorryAx`,
+   no `blaster` verdict, no `<model>_faithful` axiom and no `native_decide`**.
+   THE CLASS: transactions no output of which sends a non-ada policy off-base
+   (`InertOffBase`) and which produce no directory node (`NoRegistration`).
+   Everything else is free — inputs, outputs, mint/burn, spending of mini-ledger
+   UTxOs, redeemer, withdrawals, quantities. The class is proved INHABITED, by a
+   transaction that really moves 5 `MMM.TOK` at a base output
+   (`containedTx_witness`, `contained_witness_moves_tokens`).
+   **THE HONEST LIMIT:** the class excludes exactly the transactions for which
+   containment is a property of the BYTECODE, so the four fields are discharged from
+   `LR_BALANCE_SLOT` + `WSC.NONNEG` + the class definition and **no UPLC result is
+   used**. What is now closed end to end is the LEDGER-LEVEL half (branch analysis,
+   registry-monotonicity quantifier, trace induction) against a constructed
+   antecedent. A variant, `containment_on_inert_class_of_nopre`, drops
+   `NoRegistration` and carries `LeafSet.nopre` as the single remaining hypothesis.
+
+2. **Every SHAPED class is EMPTY as a class of ledger transactions, so a `LeafSet`
+   instantiated at a shaped `Shape` is a VACUOUS theorem.**
+   `WSC/Props/Shaped/ShapeRealizability.lean`. Cause: a tractable `#prep_uplc` needs
+   the redeemer map baked into the `Data` skeleton, so every shape bakes a ONE-entry
+   redeemer map (two for DS1) — while every shape also bakes a TWO-entry withdrawal
+   map whose entries are both SCRIPT credentials. Conway UTXOW (`MissingRedeemers`)
+   requires one redeemer entry per script witness.
+   * `t1_class_is_empty` is **UNCONDITIONAL** and uses only axioms this library
+     already has (`WSC.LR_SPEND_RUNS_VALIDATOR` + `WSC.LR_CTX`): SHAPE T1 spends a
+     mini-ledger input, which requires a `Spending` redeemer entry that T1's
+     singleton `Rewarding` map does not have. **No `sorryAx`.**
+   * L1 / DT1 / M1 / G1 / S1 (and T1 again, by the withdrawal route) are empty under
+     `RedeemerCoverage` — the `MissingRedeemers` rule, stated as a **`Prop`, NOT an
+     axiom**, so no library result becomes stronger because of a negative finding.
+   * `t1VacuousLeaves` builds the shaped `LeafSet` and `t1_no_honest_step` proves no
+     `Reachable.step` can fire in that class. The trap is exhibited, not described.
+   * This **refutes no P-theorem**: `P1_T1`, `P4_disjunction_at_L1`,
+     `P2b_shaped_containment`, `P5_shaped`, `P6` are as true as before. What it
+     refutes is composing a shaped leaf THROUGH a `Shape` restriction.
+   * COST TO FIX, sized in that module: re-cut the shapes with ledger-realistic
+     redeemer maps (a new `#prep_uplc` per shape, ≈1 s each and budget-independent,
+     plus re-verification of every theorem over them). NOT attempted by A2.
+
+**Build after A2 (clean-room, same method as §5): 405 jobs, 83.4 s, 1.65 GB,
+101 solver verdicts (66 `✅ Valid` + 35 `✅ Expected Falsified`), 0 `⚠️`, 0 `❌`,
+0 errors, 20 expected `sorry` warnings, 67 WSC modules.** A2 adds **zero** solver
+verdicts and **zero** `sorry`s — everything it proves is ordinary Lean. `top_claim`'s
+26 project axioms are **unchanged**, verified by `#print axioms`.
+
+**Sentence 2 of §0 below is SHARPENED by A2, not replaced:** the shaped layer is not
+merely bounded by its shape — for the purposes of COMPOSITION its classes are empty.
+Any future coverage argument must make the classes inhabited first.
 
 ## 0. The five sentences that must never be dropped
 

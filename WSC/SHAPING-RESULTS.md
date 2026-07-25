@@ -504,3 +504,44 @@ WSC/Props/Shaped/P4Shaped.lean    P4a + BurnOnly at M1, controls, concrete witne
 WSC/Props/Shaped/P4ShapedIdx.lean P4a + BurnOnly at M2 (supersedes in strength)
 WSC/Props/Shaped/P5Shaped.lean    P5 at G1, controls, corollaries, concrete witness
 ```
+
+---
+
+### §7.1 TASK A2 (2026-07-25) — honest limit 3 was UNDERSTATED, and is now proved
+
+Honest limit 3 above says the one-entry shaped redeemer map "is dodged, not fixed …
+that is precisely the mixed spending+minting map that every real programmable-token
+mint carries", and "what to do next" item 5 asks for CLAB to be fixed "so shaped
+theorems can use realistic multi-entry redeemer maps". Both observations were right,
+and both understated the consequence. Task A2 measured it:
+
+> **A one-entry redeemer map does not merely make the shape unrepresentative — it
+> makes the shape class EMPTY as a class of ledger transactions, so a composition
+> result quantified over a shaped class is VACUOUS.**
+
+`WSC/Props/Shaped/ShapeRealizability.lean`, machine-checked:
+
+* `t1_class_is_empty` — **UNCONDITIONAL**, from `WSC.LR_SPEND_RUNS_VALIDATOR` +
+  `WSC.LR_CTX` (axioms this library already has), no `sorryAx`. SHAPE T1 spends an
+  input at the base credential, which requires a `Spending` redeemer entry; T1's map
+  holds one `Rewarding` entry.
+* L1 / DT1 / M1 / G1 / S1 / DS1 — empty under `RedeemerCoverage`, the Conway
+  `MissingRedeemers` rule, stated as a `Prop` and **not** as an axiom. The witness
+  is a script-credential WITHDRAWAL with no `Rewarding` entry: all five shaped
+  withdrawal maps are `[(.ScriptCredential w0, a0), (.ScriptCredential w1, a1)]`, and
+  for the `Local` arm the shape's own theorem `P4a_local_shaped` PROVES that an
+  accepted L1 mint has `ScriptCredential mlh` in that map — so the uncovered script
+  withdrawal is required by the arm, not an artefact of the shape.
+* `t1VacuousLeaves` / `t1_no_honest_step` — the shaped `LeafSet` is constructible and
+  no `Reachable.step` can fire in its class.
+
+This refutes NO theorem in this document. Every `✅ Valid` verdict recorded above is
+about the real bytecode and stands. What is refuted is the composability of these
+results through the `Shape` parameter of `WSC/Composition.lean`.
+
+Item 5 of "what to do next" is therefore promoted: **re-cut each shape with a
+ledger-realistic redeemer map** (D1/D2 are fixed in CLAB since task Z1, so a
+multi-entry map is now sortable), which means a new `#prep_uplc` per shape — ≈1 s and
+budget-independent, §2.5 — followed by re-verification of every theorem over it. The
+open risk is the enlarged residual: a two-entry map adds constructor structure the
+solver must carry. A2 did not run that experiment.

@@ -23,9 +23,22 @@ Lean).
 **reduction** of it: `WSC.Composition.top_claim` (`WSC/Composition.lean:1608`)
 proves "no reachable ledger state holds a registered programmable token outside
 the base payment credential" *from* a four-field bundle of leaf obligations
-(`LeafSet`) *plus* 26 project axioms — and **no `LeafSet` value is constructed
-anywhere in the library** (grep-verified, `AUDIT.md` §3.1), so the top theorem is
-an implication with an open antecedent. Underneath it, six leaf properties are
+(`LeafSet`) *plus* 26 project axioms. **TASK A2 (2026-07-25) changed this
+sentence and it is the most important paragraph on this page.** A `LeafSet` value
+now IS constructed — `Composition.containedLeaves`, all four fields proved with no
+`sorryAx` and no UPLC result — and `containment_on_contained_class` is the top claim
+with no `LeafSet` hypothesis; but only over the `ContainedTx` class: transactions no
+output of which sends a non-ada policy off-base, and which register no policy. That
+class is proved inhabited (by a transaction that moves 5 `MMM.TOK` at a base output)
+and it excludes exactly the transactions for which containment is a property of the
+BYTECODE. Worse, and this is A2's finding: instantiating the `Shape` parameter with a
+SHAPED context class — the obvious way to plug P1/P2/P4 in — yields a theorem about
+an **EMPTY** class, because every shape in this library bakes a one-entry redeemer map
+while baking two script-credential withdrawals, and Conway UTXOW requires one
+redeemer entry per script witness (`WSC/Props/Shaped/ShapeRealizability.lean`;
+unconditional for SHAPE T1). **So the top claim over the general class is still an
+implication with an open antecedent**, and closing it needs the shapes re-cut with
+ledger-realistic redeemer maps. Underneath it, six leaf properties are
 genuinely proved against the **real compiled production bytecode** (the `.flat`
 files exported from the production build, decoded and executed by a Lean CEK
 machine), each one bounded **twice**: by a concrete CEK step budget `K`, and — for
@@ -209,12 +222,18 @@ collateral field, so it must be closed outside this model.
 
 ### 3.3 Open
 
-1. **The `LeafSet` is never instantiated** — the gap between "reduction" and
-   "proof". Ingredients exist for two of four fields
-   (`leafP1_of_shapedGlobalContainment`, `p4_disjuncts_of_custody`), each with an
-   unproved residue; `p2` needs an unwritten "structure preserved ⟹ contained"
-   lemma; `nopre` ("no tokens before registration") needs the full P4 over a
-   symbolic redeemer plus trace induction and is untouched.
+1. **The `LeafSet` is instantiated only over an ACCOUNTING class (task A2), and
+   cannot be instantiated over a shaped class at all.** `Composition.containedLeaves`
+   (§11 of that file) discharges all four fields over `ContainedTx`; nothing there
+   uses a UPLC result, because the class already says nothing leaves the mini-ledger.
+   For the general class the four fields stand as before — ingredients for two of
+   them (`leafP1_of_shapedGlobalContainment`, `p4_disjuncts_of_custody`), each with
+   an unproved residue; `p2` needs an unwritten "structure preserved ⟹ contained"
+   lemma; `nopre` ("no tokens before registration") needs the full P4 over a symbolic
+   redeemer plus trace induction — and A2 showed the shaped route to them is blocked
+   by class emptiness, not by plumbing. `containment_on_inert_class_of_nopre` is the
+   variant that assumes ONLY `nopre`, so a reader can see how much rests on the field
+   the audit calls the weakest link.
 2. **No shape-coverage argument.** `SHAPE-BRIDGE.md` §10 enumerates three routes
    and offers none; `ShapeBridge.M1Covers` is recorded **false as stated**. §2's
    P2b caveat shows this is not pedantry.
@@ -225,9 +244,10 @@ collateral field, so it must be closed outside this model.
    names exactly the term the 16 `exec_<S>` `rfl`s land on, at every budget.
    `GlobalPreppedAt` is deleted, all five previously-open non-vacuity obligations
    are theorems, and three new K constants (2500 / 3300 / 3800) are published with
-   proved non-vacuity. **`Composition.lean`'s `LeafSet` is still un-instantiated**,
-   so no `bridge_<S>` is applied to anything — item 1 above is the binding gap, not
-   this one. **U1's residual**, stated precisely and deliberately *not*
+   proved non-vacuity. **No `bridge_<S>` is applied to anything**, and task A2
+   explained why the consumer never arrived: the shaped classes a consumer would
+   have to quantify over are empty (item 1). Wiring the bridge in is worthless until
+   the shapes are re-cut. **U1's residual**, stated precisely and deliberately *not*
    axiomatized: `PropExecFaithful` — the theorems are about the optimizer's
    `.prop` term, every witness and every measured K runs `.exec`, and
    `prop = exec` is not definitional (`rfl` fails; the failure is kept as

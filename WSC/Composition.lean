@@ -400,6 +400,26 @@ theorem sumOutsIf_nonneg (p : TxOut → Bool) (cs : CurrencySymbol) (tn : TokenN
       have h2 := ih (fun o' ho' => h o' (List.mem_cons_of_mem _ ho'))
       exact int_add_nonneg' h1 h2
 
+/-- The input-side counterpart of `sumOutsIf_nonneg` (task A2). Needed by §11's
+`p1`/`p2` discharge, which turns conservation into containment by discarding the
+NON-NEGATIVE off-base input term rather than by proving it zero — the leaf fields
+carry no `inOff = 0` hypothesis. -/
+theorem sumInsIf_nonneg (p : TxOut → Bool) (cs : CurrencySymbol) (tn : TokenName) :
+    ∀ (ts : List TxInInfo),
+      (∀ t ∈ ts, (0:Int) ≤ valueOf cs tn t.txInInfoResolved.txOutValue) →
+      0 ≤ sumInsIf p cs tn ts := by
+  intro ts
+  induction ts with
+  | nil => intro _; exact Int.le_refl 0
+  | cons t rest ih =>
+      intro h
+      have h1 : (0:Int) ≤
+          (if p t.txInInfoResolved then valueOf cs tn t.txInInfoResolved.txOutValue else 0) := by
+        by_cases hp : p t.txInInfoResolved = true
+        · rw [if_pos hp]; exact h t (List.mem_cons_self ..)
+        · rw [if_neg (by simpa using hp)]; exact Int.le_refl 0
+      exact int_add_nonneg' h1 (ih (fun t' ht' => h t' (List.mem_cons_of_mem _ ht')))
+
 theorem sumInsIf_eq_zero (p : TxOut → Bool) (cs : CurrencySymbol) (tn : TokenName) :
     ∀ (ts : List TxInInfo),
       (∀ t ∈ ts, p t.txInInfoResolved = true →
@@ -966,6 +986,34 @@ library's budget bridges stop being usable:
 Putting the trigger at `NodeAccepts*` therefore keeps §7's proof honest: it
 consumes no bridge that does not exist. -/
 
+/-! ### §6.1 THE THREE EXTRA HYPOTHESES TASK A2 ADDED TO `p1` / `p2` / `p4`
+
+Each is **already in scope at every use site inside `§7`**, so adding it costs the
+reduction nothing (`nonEscape_of_registered`'s proof passes a term it already had)
+and makes the three fields strictly WEAKER, i.e. strictly easier to discharge.
+They were added because **no shaped discharge of any field is possible without
+them**, which is why F1 had never been actioned:
+
+* **`WithinBudget hp ctx`** — a shaped leaf lives on `appliedXShaped.prop` and the
+  route to `NodeAcceptsX` is `ShapeBridge.bridge_<S>` composed with
+  `WSC.LR_BUDGET_<x>`, whose hypothesis is `nodeStepsX … ctx' ≤ K`. That bound is
+  exactly what `WithinBudget` publishes and there is no other source for it.
+  Supplied at the use site by `htx.2.1`.
+* **`WSC.OnChain ctx'`** (the RE-PURPOSED context, not just `ctx`) — every shaped
+  P-theorem carries `validMintingContext`/`validRewardingContext` of the shaped
+  context as a hypothesis, and the only route to it is `WSC.LR_CTX ctx'`. It also
+  delivers `validScriptInfo ctx'`, which is what pins `ctx'.scriptContextRedeemer`
+  to the entry the transaction's redeemer MAP holds for `ctx'`'s purpose — the step
+  a shaped discharge cannot avoid, because a shape bakes the redeemer into its
+  `Data` skeleton while `LR_*_RUNS_*` hands out an existentially-quantified one.
+  Supplied at the use site by the `LR_*_RUNS_*` axiom that produced `ctx'`.
+* **`cs ≠ adaSymbol` on `p4`** (`p1`/`p2` already had it) — `I`'s own FINDING
+  explains why the ada slot must be excluded everywhere; `noEscape base adaSymbol`
+  is FALSE for any transaction with an off-base output, since every output carries
+  ada. Supplied at the use site by `I`'s quantifier.
+
+NOTHING was removed and no conclusion was weakened. -/
+
 /-- The four leaf hypotheses the branch analysis consumes. -/
 structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Prop where
   /-- **LEAF-P4 (entrance).** *An accepted mint of policy `cs` satisfies one of
@@ -999,9 +1047,11 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   REDEEMER MAP; upgrading that to "`seizeCred ∈ txInfoWdrl`" is `WSC.LR5`'s
   rewarding clause (`validScriptInfo`) and is folded into this hypothesis. -/
   p4 : ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (mlh : ScriptHash),
-    WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+    WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → WithinBudget hp ctx →
+    SameTx ctx ctx' → WSC.OnChain ctx' →
     ctx'.scriptContextScriptInfo = ScriptInfo.MintingScript cs →
     WSC.NodeAcceptsMinting hp.protocolParamsCS mlh ctx' →
+    cs ≠ adaSymbol →
       WSC.noEscape hp.progLogicCred cs ctx.scriptContextTxInfo.txInfoOutputs = true
       ∨ credentialInWithdrawals hp.globalLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true
       ∨ credentialInWithdrawals hp.seizeLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true
@@ -1043,7 +1093,8 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   3-field `dirNodeFields`), this field states it as `¬ coveringIn` (ground-truth
   `authenticDirNode` + full 5-field decode); §7.1 bridges it. -/
   p1 : ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
-    WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+    WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → WithinBudget hp ctx →
+    SameTx ctx ctx' → WSC.OnChain ctx' →
     ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
     WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
     cs ≠ adaSymbol →
@@ -1070,7 +1121,8 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   It also inherits ARCHITECTURE.md's L2.5: P2 does NOT claim the directory node
   the seize redeemer points at is authentic. -/
   p2 : ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
-    WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+    WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → WithinBudget hp ctx →
+    SameTx ctx ctx' → WSC.OnChain ctx' →
     ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.seizeLogicCred →
     WSC.NodeAcceptsSeize hp.protocolParamsCS ctx' →
     cs ≠ adaSymbol →
@@ -1507,13 +1559,13 @@ theorem nonEscape_of_registered (hp : WSC.HonestParams) (Shape : ScriptContext �
     intro hw
     obtain ⟨rg, hocg, haccg⟩ := (WSC.LR_WDRL_RUNS_VALIDATOR hp ctx hdep hoc).1 (by simpa using hw)
     exact leaves.p1 ctx (WSC.withPurpose ctx rg (ScriptInfo.RewardingScript hp.globalLogicCred))
-      cs tn hdep hoc hsh rfl rfl haccg hcs hnocov
+      cs tn hdep hoc hsh hb rfl hocg rfl haccg hcs hnocov
   have viaSeize : credentialInWithdrawals hp.seizeLogicCred
       ctx.scriptContextTxInfo.txInfoWdrl = true → Contain hp.progLogicCred cs tn ctx := by
     intro hw
     obtain ⟨rs, hocs, haccs⟩ := (WSC.LR_WDRL_RUNS_VALIDATOR hp ctx hdep hoc).2 (by simpa using hw)
     exact leaves.p2 ctx (WSC.withPurpose ctx rs (ScriptInfo.RewardingScript hp.seizeLogicCred))
-      cs tn hdep hoc hsh rfl rfl haccs hcs
+      cs tn hdep hoc hsh hb rfl hocs rfl haccs hcs
   by_cases hmint : (0:Int) < WSC.mintOf cs tn ctx.scriptContextTxInfo.txInfoMint
   · -- BRANCH B (entrance via a positive mint)
     have hhas : hasCurrencySymbol cs ctx.scriptContextTxInfo.txInfoMint = true := by
@@ -1523,7 +1575,7 @@ theorem nonEscape_of_registered (hp : WSC.HonestParams) (Shape : ScriptContext �
     obtain ⟨mlh, hmlh⟩ := ts_minting_identity_L hp L cs hdep hreg
     obtain ⟨r, hoc', hacc⟩ := WSC.LR_MINT_RUNS_POLICY hp ctx cs mlh hdep hoc hhas hmlh
     rcases leaves.p4 ctx (WSC.withPurpose ctx r (ScriptInfo.MintingScript cs)) cs mlh
-        hdep hoc hsh rfl rfl hacc with hlocal | hglob | hseize | hburn
+        hdep hoc hsh hb rfl hoc' rfl hacc hcs with hlocal | hglob | hseize | hburn
     · exact nonEscape_of_noEscape hp.progLogicCred cs tn _ hlocal
     · exact nonEscape_of_contain hp ctx cs tn hoc hcs hin (viaGlobal hglob)
     · exact nonEscape_of_contain hp ctx cs tn hoc hcs hin (viaSeize hseize)
@@ -1824,7 +1876,8 @@ difference, and it is applied in `leafP1_of_shapedGlobalContainment` below. -/
 structure ShapedGlobalContainment (hp : WSC.HonestParams)
     (Shape : ScriptContext → Prop) : Prop where
   contain : ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
-    WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+    WSC.OnChain ctx → Shape ctx → WithinBudget hp ctx →
+    SameTx ctx ctx' → WSC.OnChain ctx' →
     ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
     WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
     cs ≠ adaSymbol →
@@ -1846,13 +1899,14 @@ composition, and no new directory assumption enters. -/
 theorem leafP1_of_shapedGlobalContainment (hp : WSC.HonestParams)
     (Shape : ScriptContext → Prop) (hgc : ShapedGlobalContainment hp Shape) :
     ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
-      WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+      WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → WithinBudget hp ctx →
+      SameTx ctx ctx' → WSC.OnChain ctx' →
       ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
       WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
       cs ≠ adaSymbol →
       ¬ WSC.coveringIn hp.directoryNodeCS cs (WSC.dirPreState ctx) →
         Contain hp.progLogicCred cs tn ctx := by
-  intro ctx ctx' cs tn hdep hoc hsh hsame hsi hacc hcs hnocov
+  intro ctx ctx' cs tn hdep hoc hsh hbud hsame hoc' hsi hacc hcs hnocov
   have hraw : coveringRaw hp.directoryNodeCS cs
       ctx.scriptContextTxInfo.txInfoReferenceInputs = false := by
     by_cases hb : coveringRaw hp.directoryNodeCS cs
@@ -1860,7 +1914,7 @@ theorem leafP1_of_shapedGlobalContainment (hp : WSC.HonestParams)
     · exact absurd (coveringIn_of_coveringRaw hp ctx cs hdep hoc hb) hnocov
     · simpa using hb
   exact (contain_iff_modelSums _ _ _ _).mpr
-    (hgc.contain ctx ctx' cs tn hoc hsh hsame hsi hacc hcs hraw)
+    (hgc.contain ctx ctx' cs tn hoc hsh hbud hsame hoc' hsi hacc hcs hraw)
 
 /-! ## §10.3 `LeafSet.p4` — the CUSTODY-ARM vocabulary bridge, PROVED
 
@@ -2002,6 +2056,397 @@ It needs the FULL `LeafSet.p4` disjunction over a symbolic redeemer plus trace
 induction (ARCHITECTURE.md §5.1 `L-mint-needs-reg`); no shaped theorem addresses
 it. Nothing in this task moves it. -/
 
+/-! # §11 A CONSTRUCTED `LeafSet` — audit finding **F1**, closed over one class
+(task A2)
+
+F1: `top_claim` consumes `leaves : LeafSet hp Shape` and **no `LeafSet` term existed
+anywhere in the library**, so the top claim was a reduction with an unconstructed
+antecedent. This section builds one, and is scrupulous about the class it holds
+over and about what that class does NOT contain.
+
+## §11.0 WHY THE CLASS IS NOT A SHAPE CLASS — the finding that decided this
+
+The obvious plan was `Shape :=` "`ctx` is an instance of SHAPE T1/L1/M1/S1", so
+that `p1` comes from `WSC.P1_T1`, `p4` from `WSC.P4_disjunction_at_L1`, and so on.
+**That plan is unsound, and not because the class would be small: because the class
+is EMPTY.** `WSC/Props/Shaped/ShapeRealizability.lean` proves it:
+
+* every shaped context in this library bakes a **one-entry redeemer map** (two for
+  SHAPE DS1) — necessarily, since the map is part of the `Data` skeleton the prep
+  freezes — while baking a **two-entry withdrawal map whose entries are both SCRIPT
+  credentials**;
+* the Conway UTXOW rule (`MissingRedeemers`) requires one redeemer-map entry per
+  script witness. So no shaped context is a real transaction's context.
+* For SHAPE T1 that is provable from the axioms **already in this library**, with no
+  new assumption: SHAPE T1 spends an input at the base credential, so
+  `WSC.LR_SPEND_RUNS_VALIDATOR` runs the base validator on it, and
+  `WSC.LR_CTX` then demands a `Spending` entry in a redeemer map that has only a
+  `Rewarding` one. `WSC.ShapeRealizability.t1_class_is_empty` is that proof.
+  Consequently a `LeafSet hp (t1Shape …)` is CONSTRUCTIBLE and MEANINGLESS: every
+  field holds by `absurd`, and `top_claim` at that `Shape` degenerates to
+  `ts_genesis` because no `Reachable.step` can fire.
+* For the other shapes the same conclusion needs the `MissingRedeemers` rule, which
+  `WSC/Honest.lean` does not have; it is stated there as
+  `ShapeRealizability.RedeemerCoverage` (a `Prop`, NOT an axiom) and the emptiness
+  is proved conditionally on it, shape by shape.
+
+So the honest options were (a) a vacuous shaped `LeafSet`, or (b) a real `LeafSet`
+over a class whose fields are dischargeable WITHOUT a shaped leaf. §11 does (b),
+and `ShapeRealizability.lean` publishes (a) explicitly labelled as the negative
+result it is. Closing F1 with the shaped leaves needs NEW shapes carrying
+ledger-realistic redeemer maps — a prep-and-reprove task, sized in that module.
+
+## §11.1 THE CLASS, dimension by dimension
+
+`InertOffBase hp` (below) is the set of transactions **whose off-base outputs carry
+no non-ada policy at all**: every output either sits at `hp.progLogicCred` or is
+ada-only-as-far-as-any-programmable-policy-is-concerned. `ContainedTx hp` adds
+**this transaction produces no directory node**, which is what discharges `nopre`.
+
+WHAT IS *NOT* RESTRICTED, and this is the point: the number of inputs and outputs;
+whether mini-ledger UTxOs are SPENT (so `p3_lifted` and branch C do fire); whether
+tokens are MINTED or BURNED (branch B fires); the redeemer, the withdrawal map, the
+reference inputs, every quantity, and the policy/token-name identities. The class is
+therefore infinite, ledger-realistic, and closed under the operations a real
+mini-ledger transfer performs — see §11.5 for a concrete member that moves a
+programmable token from one base UTxO to another.
+
+WHAT THE CLASS EXCLUDES, stated as bluntly as possible: **every transaction that
+puts a programmable token at an off-base output.** Those are exactly the
+transactions for which containment is a non-trivial property of the BYTECODE, and
+they are exactly what P1/P2/P4 are about. The `LeafSet` below therefore uses NO
+`by blaster` theorem and NO UPLC result: its four fields are ordinary Lean proofs
+from `LR_BALANCE_SLOT`, `WSC.NONNEG` and the class definition.
+
+## §11.2 WHAT IT DOES BUY, precisely
+
+Not "containment is proved". What it buys is that the LEDGER-LEVEL half of the
+argument — the half no leaf can express — is now closed end to end against a
+constructed antecedent rather than an assumed one:
+
+* the entrance/exit accounting of §7's branch analysis (`lr_utxo_semantics`,
+  `LR_BALANCE_SLOT`, `NONNEG`/`NONNEG_L`, the registry-monotonicity axiom
+  `lr_registration_source`) composes into a per-transaction Preservation step;
+* the TRACE induction of §8 lifts it to every reachable state, with `DIRWF_L`
+  supplying the `NonMember`-exemption exclusion through the proved bridge
+  `covering_excludes_ledger_registration`;
+* the resulting theorem `containment_on_contained_class` quantifies over ledger
+  states and over `cs`/`tn`, i.e. it is a statement of the top claim itself and not
+  of a per-validator lemma.
+
+In one line: **the plumbing is proved to work; what it currently transports is the
+accounting, not the validators.** -/
+
+/-- **The A2 class, part 1.** No output outside the mini-ledger carries any non-ada
+policy. Read as: this transaction visibly sends no programmable token off-base. -/
+def InertOffBase (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
+  ∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs,
+    WSC.payCred o = hp.progLogicCred ∨
+      ∀ cs : CurrencySymbol, cs ≠ adaSymbol → hasCurrencySymbol cs o.txOutValue = false
+
+/-- **The A2 class, part 2.** This transaction registers nothing: no output of it is
+an authentic directory node. It is what makes `LeafSet.nopre` — the field the audit
+calls the weakest link — discharged rather than assumed, and it is a genuine
+restriction: DIRECTORY INSERTS ARE OUT OF SCOPE. §11.6 gives the variant that drops
+this clause and carries `nopre` as the single remaining hypothesis. -/
+def NoRegistration (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
+  ∀ cs : CurrencySymbol,
+    ¬ WSC.registeredIn hp.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoOutputs
+
+/-- **THE A2 SHAPE.** Both clauses. Note it is a predicate on the `ScriptContext`
+alone, exactly as `Shape` requires, and it mentions no prep, no budget and no
+shaped context. -/
+def ContainedTx (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
+  InertOffBase hp ctx ∧ NoRegistration hp ctx
+
+/-! ## §11.3 The four discharges -/
+
+/-- Arithmetic core of the `p1`/`p2` discharge: conservation plus a vanishing escape
+term plus a NON-NEGATIVE off-base input term give containment. Note it does NOT
+need `inOff = 0` — the leaf fields carry no such hypothesis, and the off-base input
+term appears with the RIGHT sign to be discarded. -/
+theorem int_contain_of_escape_zero {iA iO m oA oO : Int}
+    (hbal : iA + iO + m = oA + oO) (ho : oO = 0) (hi : 0 ≤ iO) : oA ≥ iA + m := by omega
+
+/-- The class implies the issuance policy's own ground-truth no-escape scan, for
+every non-ada policy. This single lemma discharges `LeafSet.p4`'s first disjunct AND
+(through `nonEscape_of_noEscape`) the escape term of `p1`/`p2`. -/
+theorem noEscape_of_inertOffBase (base : Credential) (cs : CurrencySymbol)
+    (hcs : cs ≠ adaSymbol) :
+    ∀ (os : List TxOut),
+      (∀ o ∈ os, WSC.payCred o = base ∨
+        ∀ cs' : CurrencySymbol, cs' ≠ adaSymbol → hasCurrencySymbol cs' o.txOutValue = false) →
+      WSC.noEscape base cs os = true := by
+  intro os
+  induction os with
+  | nil => intro _; rfl
+  | cons o rest ih =>
+      intro h
+      simp only [WSC.noEscape, Bool.and_eq_true, Bool.or_eq_true]
+      refine ⟨?_, ih (fun o' ho' => h o' (List.mem_cons_of_mem _ ho'))⟩
+      rcases h o (List.mem_cons_self ..) with hb | hnc
+      · exact Or.inl (by simpa [WSC.payCred] using hb)
+      · exact Or.inr (by simp [hnc cs hcs])
+
+/-- `Contain` on the class — the conclusion BOTH exit leaves ask for, proved from
+the ledger accounting and the class, with the acceptance hypothesis UNUSED. That
+last fact is the honest content of §11: on this class the bytecode is not what
+closes the escape, because the class already says nothing escapes. -/
+theorem contain_of_inertOffBase (hp : WSC.HonestParams) (ctx : ScriptContext)
+    (cs : CurrencySymbol) (tn : TokenName)
+    (hoc : WSC.OnChain ctx) (hcs : cs ≠ adaSymbol) (hsh : InertOffBase hp ctx) :
+    Contain hp.progLogicCred cs tn ctx := by
+  have hne : outOff hp.progLogicCred cs tn ctx = 0 :=
+    nonEscape_of_noEscape hp.progLogicCred cs tn _
+      (noEscape_of_inertOffBase hp.progLogicCred cs hcs _ hsh)
+  have hbal := LR_BALANCE_SLOT ctx hp.progLogicCred cs tn hoc hcs
+  have hnn := (WSC.NONNEG ctx hoc).1
+  have hin : (0:Int) ≤ inOff hp.progLogicCred cs tn ctx :=
+    sumInsIf_nonneg _ cs tn _ (fun t ht => hnn t ht cs tn)
+  exact int_contain_of_escape_zero hbal hne hin
+
+/-- **`LeafSet.p4` ON THE CLASS.** The first disjunct, for every non-ada policy —
+including one this transaction really is minting. What is NOT claimed: nothing here
+says the issuance policy's bytecode enforces the scan (that is
+`WSC.P4_local_noEscape_shaped`, over a shape class §11.0 shows is empty); the class
+hypothesis is what supplies it. -/
+theorem p4_on_containedTx (hp : WSC.HonestParams) :
+    ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (mlh : ScriptHash),
+      WSC.Deployed hp → WSC.OnChain ctx → ContainedTx hp ctx → WithinBudget hp ctx →
+      SameTx ctx ctx' → WSC.OnChain ctx' →
+      ctx'.scriptContextScriptInfo = ScriptInfo.MintingScript cs →
+      WSC.NodeAcceptsMinting hp.protocolParamsCS mlh ctx' →
+      cs ≠ adaSymbol →
+        WSC.noEscape hp.progLogicCred cs ctx.scriptContextTxInfo.txInfoOutputs = true
+        ∨ credentialInWithdrawals hp.globalLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true
+        ∨ credentialInWithdrawals hp.seizeLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true
+        ∨ WSC.mintPos cs ctx.scriptContextTxInfo.txInfoMint = false := by
+  intro ctx ctx' cs mlh _ _ hsh _ _ _ _ _ hcs
+  exact Or.inl (noEscape_of_inertOffBase hp.progLogicCred cs hcs _ hsh.1)
+
+/-- **`LeafSet.p1` ON THE CLASS.** The exemption premise (`¬ coveringIn`) and the
+acceptance premise are both UNUSED — recorded, not hidden. -/
+theorem p1_on_containedTx (hp : WSC.HonestParams) :
+    ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+      WSC.Deployed hp → WSC.OnChain ctx → ContainedTx hp ctx → WithinBudget hp ctx →
+      SameTx ctx ctx' → WSC.OnChain ctx' →
+      ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
+      WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
+      cs ≠ adaSymbol →
+      ¬ WSC.coveringIn hp.directoryNodeCS cs (WSC.dirPreState ctx) →
+        Contain hp.progLogicCred cs tn ctx := by
+  intro ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs _
+  exact contain_of_inertOffBase hp ctx cs tn hoc hcs hsh.1
+
+/-- **`LeafSet.p2` ON THE CLASS.** Same proof as `p1`; the seize validator's
+acceptance is unused. This is the field the audit records as STILL-OPEN in both
+halves, and on this class it needs neither half. -/
+theorem p2_on_containedTx (hp : WSC.HonestParams) :
+    ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+      WSC.Deployed hp → WSC.OnChain ctx → ContainedTx hp ctx → WithinBudget hp ctx →
+      SameTx ctx ctx' → WSC.OnChain ctx' →
+      ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.seizeLogicCred →
+      WSC.NodeAcceptsSeize hp.protocolParamsCS ctx' →
+      cs ≠ adaSymbol →
+        Contain hp.progLogicCred cs tn ctx := by
+  intro ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs
+  exact contain_of_inertOffBase hp ctx cs tn hoc hcs hsh.1
+
+/-- **`LeafSet.nopre` ON THE CLASS** — by the `NoRegistration` clause, the
+hypothesis "this transaction registers `cs`" is contradictory. This is an EXCLUSION,
+not a discharge of ARCHITECTURE.md §5.1's `L-mint-needs-reg`: that argument (a
+policy holds nothing before its first registration) is untouched and still open, and
+§11.6's variant is the honest way to see how much of the claim rests on it. -/
+theorem nopre_on_containedTx (hp : WSC.HonestParams) :
+    ∀ (L : Ledger) (ctx : ScriptContext) (L' : Ledger) (cs : CurrencySymbol)
+      (tn : TokenName),
+      WSC.Deployed hp → LedgerStep L ctx L' → HonestTx hp (ContainedTx hp) ctx →
+      ¬ RegisteredIn hp L cs →
+      WSC.registeredIn hp.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoOutputs →
+        OutOfBase hp.progLogicCred cs tn L = 0 ∧ NonEscape hp.progLogicCred cs tn ctx := by
+  intro L ctx L' cs tn _ _ htx _ hnew
+  exact absurd hnew (htx.2.2.2 cs)
+
+/-- ## §11.4 **THE `LeafSet` TERM — audit finding F1's antecedent, CONSTRUCTED.**
+
+All four fields, over `Shape := ContainedTx hp`. `#print axioms` below shows it
+depends on `WSC.LR7`-free ledger accounting only: `LR_BALANCE_SLOT`, `WSC.NONNEG`,
+`WSC.OnChain`, and NO `sorryAx`, NO `blaster` verdict, NO `<model>_faithful` axiom,
+NO `native_decide`. -/
+theorem containedLeaves (hp : WSC.HonestParams) : LeafSet hp (ContainedTx hp) :=
+  { p4 := p4_on_containedTx hp
+  , p1 := p1_on_containedTx hp
+  , p2 := p2_on_containedTx hp
+  , nopre := nopre_on_containedTx hp }
+
+/-- **THE TOP CLAIM, INSTANTIATED — no `LeafSet` hypothesis left.**
+
+*In an honest deployment, along any trace of transactions that (i) halt within the
+published CEK budgets, (ii) put no non-ada policy at an off-base output and
+(iii) register no new policy, no registered programmable token exists outside the
+mini-ledger.*
+
+SCOPE — read every line before quoting this.
+
+1. **The class is `ContainedTx`** (§11.1). It excludes exactly the transactions for
+   which containment is a property of the bytecode rather than of the class, so this
+   theorem is NOT evidence that the validators enforce containment. It IS evidence
+   that the ledger-level composition around them is sound and complete on a
+   non-trivial, inhabited class (§11.5).
+2. **NO shape-coverage argument exists anywhere in this library** (audit F2), and
+   this theorem does not create one. It is bounded model checking of the composed
+   claim in the E1 sense — every step carries `WithinBudget` — and additionally
+   class-restricted. Never quote it as unbounded.
+3. **The axioms are unchanged from `top_claim`'s**: the `#print axioms` line below is
+   the measurement. In particular `sorryAx` is still present (through `p3_lifted` →
+   `WSC.P3_base_requires_global_or_seize_run`, `blaster`'s `admit`; audit F4), and so
+   are the nine §4/§8 ledger axioms and `WSC.DIRWF_L`. What is GONE relative to
+   `top_claim` is the `LeafSet` hypothesis, nothing else.
+4. **`Genesis` is still an assumption** (`ts_genesis`), so this says "the invariant
+   is preserved", with the base case audited off-chain, not "the invariant holds
+   because we proved the deployment transaction". -/
+theorem containment_on_contained_class (hp : WSC.HonestParams) (hdep : WSC.Deployed hp) :
+    ∀ (L : Ledger), Reachable hp (ContainedTx hp) L → I hp L :=
+  top_claim hp (ContainedTx hp) (containedLeaves hp) hdep
+
+/-- The same, in the plain-English shape: on that class, no UTxO outside the
+mini-ledger holds any registered programmable token. -/
+theorem no_escape_on_contained_class (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
+    (L : Ledger) (hR : Reachable hp (ContainedTx hp) L)
+    (cs : CurrencySymbol) (tn : TokenName)
+    (hcs : cs ≠ adaSymbol) (hreg : RegisteredIn hp L cs) :
+    ∀ u ∈ L, WSC.payCred u.utxoOut ≠ hp.progLogicCred →
+      valueOf cs tn u.utxoOut.txOutValue = (0:Int) :=
+  no_programmable_tokens_outside_mini_ledger hp (ContainedTx hp) (containedLeaves hp)
+    hdep L hR cs tn hcs hreg
+
+/-! ## §11.5 THE CLASS IS INHABITED, and not only by trivial transactions
+
+Task A2's brief: *"Do not fabricate a Shape so narrow it is uninhabited — if you
+restrict, prove the class is INHABITED (exhibit a concrete transaction in it)."*
+
+`WSC.OnChain` is an opaque axiom, so no Lean term can prove a context is on-chain —
+that is true of every witness in this library. What IS provable, and is proved
+below, is that the `Shape` predicate itself holds of a concrete transaction that
+**moves a programmable token between two mini-ledger UTxOs while paying ada change to
+a wallet** — i.e. the class contains the central operation of a live deployment,
+not just transactions that touch nothing.
+
+`contained_witness_moves_tokens` additionally certifies that the witness is not
+degenerate: its base OUTPUT really holds 5 of the policy `MMM.TOK`, so `outAtB` is
+non-zero on it and the invariant it satisfies is not satisfied by emptiness. -/
+
+/-- The base output's value: 2 ada plus 5 `MMM.TOK`. Canonical (`CanonV`) — ada
+first, policies ascending — so it is a value a real `TxOut` can carry. -/
+def containedWitnessBaseValue : Value :=
+  [ (Data.B adaSymbol, Data.Map [(Data.B adaSymbol, Data.I 2000000)])
+  , (Data.B (ByteString.mk "MMM"), Data.Map [(Data.B (ByteString.mk "TOK"), Data.I 5)]) ]
+
+/-- The wallet output's value: 1 ada, nothing else. -/
+def containedWitnessAdaValue : Value :=
+  [(Data.B adaSymbol, Data.Map [(Data.B adaSymbol, Data.I 1000000)])]
+
+/-- A concrete two-output transaction body in the class: output 0 at the base
+credential holding ada + 5 `MMM.TOK`, output 1 at a wallet holding ada only. -/
+def containedWitnessOuts (base : Credential) : List TxOut :=
+  [ { txOutAddress := ⟨base, none⟩
+    , txOutValue := containedWitnessBaseValue
+    , txOutDatum := .NoOutputDatum
+    , txOutReferenceScript := none }
+  , { txOutAddress := ⟨.PubKeyCredential (ByteString.mk "WALLET"), none⟩
+    , txOutValue := containedWitnessAdaValue
+    , txOutDatum := .NoOutputDatum
+    , txOutReferenceScript := none } ]
+
+/-- The base output really holds 5 of `MMM.TOK` — `native_decide` on CLAB's own
+`valueOf`. -/
+theorem containedWitnessBaseValue_holds_five :
+    valueOf (ByteString.mk "MMM") (ByteString.mk "TOK") containedWitnessBaseValue = (5:Int) := by
+  native_decide
+
+/-- The witness's off-base output is ada-only, so the `InertOffBase` clause holds —
+for EVERY `hp`, i.e. the inhabitation does not depend on the deployment. -/
+theorem inertOffBase_containedWitness (base : Credential) :
+    ∀ o ∈ containedWitnessOuts base,
+      WSC.payCred o = base ∨
+        ∀ cs : CurrencySymbol, cs ≠ adaSymbol → hasCurrencySymbol cs o.txOutValue = false := by
+  intro o ho
+  rcases List.mem_cons.mp ho with h | ho
+  · exact Or.inl (by subst h; rfl)
+  · rcases List.mem_cons.mp ho with h | ho
+    · refine Or.inr (fun cs hcs => ?_)
+      subst h
+      have hne : ¬ ((Data.B cs : Data) = Data.B adaSymbol) := by
+        intro hEq
+        exact hcs (by simpa [adaSymbol] using hEq)
+      simp [containedWitnessAdaValue, hasCurrencySymbol, hne]
+    · exact absurd ho (by simp)
+
+/-- Neither witness output carries a datum, so no output of it is a directory node
+and the `NoRegistration` clause holds — again for every `hp`. -/
+theorem noRegistration_containedWitness (dirCS : CurrencySymbol) (base : Credential)
+    (cs : CurrencySymbol) : ¬ WSC.registeredIn dirCS cs (containedWitnessOuts base) := by
+  rintro ⟨o, ho, -, hkey⟩
+  rcases List.mem_cons.mp ho with h | ho
+  · rw [h] at hkey; simp [WSC.dirNodeKey, WSC.dirNodeDatum] at hkey
+  · rcases List.mem_cons.mp ho with h | ho
+    · rw [h] at hkey; simp [WSC.dirNodeKey, WSC.dirNodeDatum] at hkey
+    · exact absurd ho (by simp)
+
+/-- **THE CLASS IS INHABITED.** For every deployment `hp`, every transaction whose
+outputs are `containedWitnessOuts hp.progLogicCred` is in the class. -/
+theorem containedTx_witness (hp : WSC.HonestParams) (ctx : ScriptContext)
+    (h : ctx.scriptContextTxInfo.txInfoOutputs = containedWitnessOuts hp.progLogicCred) :
+    ContainedTx hp ctx := by
+  refine ⟨fun o ho => ?_, fun cs hreg => ?_⟩
+  · exact inertOffBase_containedWitness hp.progLogicCred o (h ▸ ho)
+  · exact noRegistration_containedWitness hp.directoryNodeCS hp.progLogicCred cs (h ▸ hreg)
+
+/-- **THE WITNESS IS NOT DEGENERATE**: the class member above really does hold a
+programmable token at a mini-ledger output — 5 of `MMM.TOK` — so its `outAtB` is
+non-zero and the containment it satisfies is not satisfied vacuously. -/
+theorem contained_witness_moves_tokens (base : Credential) :
+    ∃ o ∈ containedWitnessOuts base,
+      atBaseB base o = true ∧
+      valueOf (ByteString.mk "MMM") (ByteString.mk "TOK") o.txOutValue = (5:Int) := by
+  refine ⟨{ txOutAddress := ⟨base, none⟩
+          , txOutValue := containedWitnessBaseValue
+          , txOutDatum := .NoOutputDatum
+          , txOutReferenceScript := none }, by simp [containedWitnessOuts], ?_, ?_⟩
+  · simp [atBaseB, WSC.payCred]
+  · exact containedWitnessBaseValue_holds_five
+
+/-! ## §11.6 The variant that assumes ONLY `nopre`
+
+Task A2's fallback instruction, taken as an additional deliverable rather than an
+alternative: this drops the `NoRegistration` clause — so DIRECTORY INSERTS ARE BACK
+IN THE CLASS — and carries `LeafSet.nopre` as the single remaining hypothesis. A
+reader can therefore see exactly how much of the claim rests on the one field the
+audit calls the weakest link, with the other three discharged.
+
+`nopre` is NOT dischargeable here and the reason is not vocabulary: it quantifies
+over a LEDGER state and asserts that a policy holds nothing off-base BEFORE its
+first registration, which needs ARCHITECTURE.md §5.1's `L-mint-needs-reg` (every
+positive-mint arm of the issuance policy requires a directory NFT proof, arm 4
+forbids positive mint) lifted over the trace — i.e. the FULL `LeafSet.p4` over a
+symbolic redeemer, which §11.0's finding puts out of reach of the shaped layer. -/
+theorem containment_on_inert_class_of_nopre (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
+    (nopre : ∀ (L : Ledger) (ctx : ScriptContext) (L' : Ledger) (cs : CurrencySymbol)
+        (tn : TokenName),
+      WSC.Deployed hp → LedgerStep L ctx L' → HonestTx hp (InertOffBase hp) ctx →
+      ¬ RegisteredIn hp L cs →
+      WSC.registeredIn hp.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoOutputs →
+        OutOfBase hp.progLogicCred cs tn L = 0 ∧ NonEscape hp.progLogicCred cs tn ctx) :
+    ∀ (L : Ledger), Reachable hp (InertOffBase hp) L → I hp L :=
+  top_claim hp (InertOffBase hp)
+    { p4 := fun ctx ctx' cs mlh _ _ hsh _ _ _ _ _ hcs =>
+        Or.inl (noEscape_of_inertOffBase hp.progLogicCred cs hcs _ hsh)
+    , p1 := fun ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs _ =>
+        contain_of_inertOffBase hp ctx cs tn hoc hcs hsh
+    , p2 := fun ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs =>
+        contain_of_inertOffBase hp ctx cs tn hoc hcs hsh
+    , nopre := nopre } hdep
+
 /-! # §9 DISCHARGE STATUS — what the library actually supplies, per hypothesis
 
 Vocabulary (as `WSC/STATUS.md` §1): `PROVED-UNSHAPED` = a `by blaster` theorem over
@@ -2035,6 +2480,22 @@ proved anywhere.
 | `nonEscape_of_registered`, `preservation`, `top_claim` | **PROVED** from `LeafSet` + the axioms |
 
 ## §9.2 The four leaf hypotheses
+
+**READ THIS BEFORE THE FOUR ENTRIES BELOW — TASK A2 (2026-07-25).** Every entry
+below assesses a field against the SHAPED leaves, i.e. it presumes the missing work
+is per-field plumbing at `Shape :=` "an instance of SHAPE T1 / L1 / M1 / S1". A2's
+finding is that this presumption is wrong: **each of those classes is EMPTY as a
+class of ledger transactions** (`WSC/Props/Shaped/ShapeRealizability.lean`; for
+SHAPE T1 provably so from `WSC.LR_SPEND_RUNS_VALIDATOR` + `WSC.LR_CTX` alone, with
+no new assumption and no `sorryAx`), because a tractable prep bakes a one-entry
+redeemer map while the shapes bake two SCRIPT-credential withdrawals and Conway
+UTXOW requires one redeemer entry per script witness. So the entries below describe
+work that would produce a VACUOUS instantiation, and they are kept as the accurate
+record of the shaped route's remaining obligations, NOT as a plan.
+
+WHAT IS DISCHARGED, and over which class, is §11: all four fields over
+`ContainedTx hp`, by ordinary Lean from `LR_BALANCE_SLOT` + `WSC.NONNEG` + the class,
+with NO UPLC result used. Read §11.0-§11.2 for what that does and does not buy.
 
 **`LeafSet.p4` — STILL-OPEN.** The four-way disjunction over a fully symbolic
 context is `Undetermined` after 3,208 s of Z3 (`WSC/Props/P4_Minting.lean`).
@@ -2346,6 +2807,17 @@ Three observations that belong in any published summary:
 #print axioms WSC.Composition.preservation
 #print axioms WSC.Composition.top_claim
 #print axioms WSC.Composition.no_programmable_tokens_outside_mini_ledger
+-- task A2, §11: the CONSTRUCTED `LeafSet` and the top claim with no `LeafSet`
+-- hypothesis.  `containedLeaves` must show NO `sorryAx`; the two instantiated
+-- theorems must show exactly `top_claim`'s list (audit F1 / §11.4 claim 3).
+#print axioms WSC.Composition.noEscape_of_inertOffBase
+#print axioms WSC.Composition.contain_of_inertOffBase
+#print axioms WSC.Composition.containedLeaves
+#print axioms WSC.Composition.containedTx_witness
+#print axioms WSC.Composition.contained_witness_moves_tokens
+#print axioms WSC.Composition.containment_on_contained_class
+#print axioms WSC.Composition.no_escape_on_contained_class
+#print axioms WSC.Composition.containment_on_inert_class_of_nopre
 
 end WSC.Composition
 

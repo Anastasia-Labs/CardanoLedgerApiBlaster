@@ -710,3 +710,129 @@ Items 1, 2, 3, 6 and 7 stand **verbatim**. Two need an amendment:
   (ii) every published `K` constant's justification, and (iii) the base/keystone
   path — all three now state and witness on the same `Runs.XRun K` term. When
   quoting item 5, name which layer.
+
+---
+
+# APPENDIX B — TASK A2 RESOLUTION LOG (2026-07-25)
+
+Appended by task A2. **§1-§8 and Appendix A are NOT edited.** A2's mandate was
+audit finding **F1** — construct a `LeafSet` term so the top claim stops being a
+reduction with an unconstructed antecedent.
+
+## B.1 Rebuild, re-measured after A2
+
+Same clean-room method as §1.1 / A.1 (`rm -rf .lake/build/lib/lean/WSC*` then
+`lake build WSC WSC.ShapeBridge`).
+
+| | §1.2 (U3) | after A1 | **after A2** |
+|---|---|---|---|
+| jobs / wall / RSS | 401 / 93.7 s / 1.61 GB | 404 / 80.9 s / 1.66 GB | **405 / 83.4 s / 1.65 GB** |
+| solver verdicts | 98 (64 V + 34 EF) | 101 (66 V + 35 EF) | **101 (66 V + 35 EF)** |
+| `⚠️` / `❌` / errors | 0 / 0 / 0 | 0 / 0 / 0 | **0 / 0 / 0** |
+| `sorry` warnings | 21 | 20 | **20** |
+| WSC modules built | 66 | 66 | **67** |
+
+**A2 adds ZERO solver verdicts and ZERO `sorry`s.** That is the point, not an
+accident: everything A2 proves is ordinary Lean (list inductions, `rfl`, `omega`,
+two `native_decide`s on CLAB's `valueOf`). The one new module,
+`WSC/Props/Shaped/ShapeRealizability.lean`, costs **1.3 s**; `WSC/Composition.lean`
+costs **5.4 s** (was 4.4 s).
+
+`top_claim`'s axiom list re-measured: **byte-identical to §3.1 and to A.1** — 26
+project axioms + `sorryAx` + the two `native_decide` axioms + the three
+Lean-standard ones. A2 neither added nor removed an axiom anywhere.
+
+## B.2 F1 — the answer is NOT the one the finding anticipated
+
+F1's own sentence — *"U2 proved the ingredients for two of the four fields … `p2` /
+`nopre` are untouched"* — presumes the missing work is per-field plumbing over a
+shaped `Shape`. **It is not.** A2's finding:
+
+> **Every shaped class in this library is EMPTY as a class of ledger transactions,
+> so any `LeafSet` instantiated at a shaped `Shape` is a vacuous theorem.**
+
+Cause, one line: a tractable `#prep_uplc` needs the redeemer map baked into the
+`Data` skeleton, so every shape bakes a ONE-entry map (two for DS1) — while every
+shape also bakes a TWO-entry withdrawal map whose entries are both SCRIPT
+credentials (`p1ShapedWdrl`, `localShapedWdrl`, `mintShapedWdrl`,
+`globalShapedWdrl`, `seizeShapedWdrl` are all
+`[(.ScriptCredential w0, a0), (.ScriptCredential w1, a1)]`). Conway UTXOW
+(`MissingRedeemers`) requires one redeemer entry per script witness.
+
+Machine-checked in `WSC/Props/Shaped/ShapeRealizability.lean`:
+
+| result | strength |
+|---|---|
+| `t1_class_is_empty` | **UNCONDITIONAL** — from `WSC.LR_SPEND_RUNS_VALIDATOR` + `WSC.LR_CTX`, axioms this library already has. SHAPE T1 spends a base input, so a `Spending` redeemer entry is required and the map has only a `Rewarding` one. `#print axioms`: `[propext, Quot.sound, WSC.Deployed, WSC.LR_CTX, WSC.LR_SPEND_RUNS_VALIDATOR, WSC.NodeAcceptsBase, WSC.OnChain]` — **no `sorryAx`** |
+| `{l1,dt1,m1,g1,s1,t1}_class_is_empty_under_coverage` | conditional on `RedeemerCoverage`, the `MissingRedeemers` rule, stated as a **`Prop`, not an axiom** |
+| `ds1_uncovered_wdrl_exists` | DS1's two-entry map still covers only one of its two script withdrawals (`w0 ≠ w1` is forced by `validWithdrawals`) |
+| `t1VacuousLeaves` + `t1_no_honest_step` + `t1_top_claim_is_vacuous` | the shaped `LeafSet` **is** constructible — every field by `absurd` — and next to it the proof that no `Reachable.step` can fire, so it is worth nothing |
+
+This does **not** refute any P-theorem. `P1_T1` etc. remain exactly as true as
+before: the bytecode really does accept those skeletons and really does imply those
+postconditions. What is refuted is the composability of a shaped leaf **through a
+`Shape` restriction**.
+
+## B.3 F1 — what IS delivered: a non-vacuous `LeafSet`
+
+`WSC/Composition.lean` §11: `containedLeaves : LeafSet hp (ContainedTx hp)`, all four
+fields proved, over the class
+
+* **`InertOffBase`** — no output outside the mini-ledger carries any non-ada policy;
+* **`NoRegistration`** — no output of this transaction is an authentic directory node.
+
+Not restricted: number of inputs/outputs, spending of mini-ledger UTxOs (branch C
+and `p3_lifted` do fire), minting and burning (branch B fires), the redeemer, the
+withdrawal map, reference inputs, every quantity, every policy identity.
+`containment_on_contained_class` is `top_claim` with **no `LeafSet` hypothesis**;
+`containedTx_witness` + `contained_witness_moves_tokens` prove the class inhabited by
+a transaction that really moves 5 `MMM.TOK` at a base output.
+`containment_on_inert_class_of_nopre` drops `NoRegistration` and carries `nopre` as
+the SINGLE remaining hypothesis.
+
+`#print axioms containedLeaves` = `[propext, Quot.sound, WSC.Deployed, WSC.NONNEG,
+WSC.NodeAccepts{Global,Minting,Seize}, WSC.OnChain, WSC.nodeSteps{Base,Global,Minting},
+WSC.Composition.LR_BALANCE_SLOT, WSC.Composition.LedgerStep]` — **no `sorryAx`, no
+`blaster` verdict, no `<model>_faithful`, no `native_decide`**. (The `NodeAccepts*` /
+`nodeSteps*` entries are there because the field TYPES mention them.)
+
+**HONEST LIMIT, stated as bluntly as the finding deserves:** the class excludes
+exactly the transactions for which containment is a property of the BYTECODE, so the
+four fields are discharged from `LR_BALANCE_SLOT` + `WSC.NONNEG` + the class, and
+**not one UPLC result is used**. What the instantiation buys is that the
+ledger-level half — the branch analysis, the registry-monotonicity quantifier and
+the trace induction — is now closed against a constructed antecedent. F1's second
+sentence ("nothing in this repository proves the top-level claim") therefore still
+stands for the general class.
+
+## B.4 Effect on the other findings
+
+* **F2 (no shape coverage) — SHARPENED, not closed.** F2 says the shaped layer is
+  bounded model checking. B.2 adds that for COMPOSITION the shaped layer is not
+  merely narrow, it is empty. Any future coverage argument must first make the
+  classes inhabited.
+* **F3 (the shape bridge is consumed by nothing) — explained, still open.** A1
+  restated the budget bridges onto `Runs.XRun K`; A2 shows why the remaining
+  consumer never appeared. `ShapeBridge.bridge_*` is still consumed by nothing, and
+  wiring it in is worthless until the shapes are re-cut.
+* **F9 (stale `LeafSet` docstrings)** — the `p1`/`p2`/`p4` fields gained three
+  hypotheses (`WithinBudget hp ctx`, `WSC.OnChain ctx'`, and `cs ≠ adaSymbol` on
+  `p4`), each already in scope at every use site, each needed by ANY shaped
+  discharge; §6.1 of that file documents them. The fields are strictly WEAKER, so
+  `preservation`/`top_claim` are unchanged in strength.
+* **F4, F5, F6, F7, F8, F10, F11, F12** — untouched by A2.
+
+## B.5 What a reviewer should not believe, after A2
+
+Add one item to §8:
+
+> **Do not believe that instantiating `Shape` with a shaped context class turns the
+> shaped P-theorems into a ledger-level result.** It produces a true theorem about an
+> empty class. `WSC/Props/Shaped/ShapeRealizability.lean` proves the emptiness — for
+> SHAPE T1 outright, for the rest under the Conway `MissingRedeemers` rule — and
+> exhibits the vacuous `LeafSet` so the trap is visible rather than described.
+
+And amend §8's reading of F1: a `LeafSet` term now exists
+(`Composition.containedLeaves`) and the top claim is instantiated at it, but only
+over the `ContainedTx` class of B.3, whose defining property is that containment
+holds of it for accounting reasons. **The general claim is still not proved.**

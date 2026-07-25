@@ -1,0 +1,495 @@
+/-
+WSC/Props/Shaped/ShapeRealizability.lean — **why audit finding F1 cannot be closed
+with the shapes this library has** (task A2).
+
+════════════════════════════════════════════════════════════════════════════
+THE FINDING, IN ONE PARAGRAPH
+════════════════════════════════════════════════════════════════════════════
+`WSC/Composition.lean`'s `top_claim` consumes `leaves : LeafSet hp Shape`, and
+`Shape` is exactly the hook a shaped leaf needs: instantiate `Shape` with "`ctx` is
+an instance of SHAPE T1", discharge `LeafSet.p1` from `WSC.P1_T1`, and F1 is closed.
+**That plan produces a theorem about an EMPTY class.**
+
+Every shaped context in this library bakes a **one-entry redeemer map** — two for
+SHAPE DS1 — because the redeemer map is part of the `Data` skeleton `#prep_uplc`
+freezes, and a symbolic map is exactly what makes the prep intractable. Every shaped
+context ALSO bakes a **two-entry withdrawal map whose entries are both SCRIPT
+credentials** (`p1ShapedWdrl`, `localShapedWdrl`, `mintShapedWdrl`,
+`globalShapedWdrl`, `seizeShapedWdrl` — all five are
+`[(.ScriptCredential w0, a0), (.ScriptCredential w1, a1)]`). The Conway UTXOW rule
+`MissingRedeemers` requires one redeemer-map entry per script witness, and a
+script-credential withdrawal IS a script witness (that is the very rule
+`WSC.LR_WDRL_RUNS_VALIDATOR` encodes). So no shaped context is the context of any
+transaction a node would accept.
+
+For SHAPE T1 this is provable **from the axioms already in this library, with no new
+assumption at all** (§1). For the other shapes it needs the `MissingRedeemers` rule,
+which `WSC/Honest.lean` does not state; §2 states it as a `Prop` — `RedeemerCoverage`,
+NOT an axiom — and proves the emptiness conditionally on it, shape by shape.
+
+════════════════════════════════════════════════════════════════════════════
+PROVENANCE — THE OBSERVATION IS NOT NEW, THE PROOF AND ITS CONSEQUENCE ARE
+════════════════════════════════════════════════════════════════════════════
+`WSC/SHAPING-RESULTS.md` §7 already recorded, as honest limit 3, that *"SHAPE M1/M2
+have a ONE-entry redeemer map … but that is precisely the mixed spending+minting map
+that every real programmable-token mint carries"*, and its "what to do next" item 5
+asked for CLAB to be fixed so shaped theorems could use realistic multi-entry maps.
+Both were right. What was NOT said, and is what this module establishes, is the
+consequence: a one-entry map does not merely make a shape unrepresentative — with the
+axioms of `WSC/Honest.lean` it makes the shape class **empty**, so a composition
+result quantified over a shaped class is VACUOUS rather than narrow. (CLAB's ordering
+defects D1/D2 were fixed by task Z1, so a multi-entry shaped map is now sortable; the
+blocker is prep-and-reprove work, not the substrate.)
+
+════════════════════════════════════════════════════════════════════════════
+WHAT THIS MODULE IS AND IS NOT
+════════════════════════════════════════════════════════════════════════════
+It is NOT a refutation of any P-theorem. `WSC.P1_T1`, `WSC.P4_disjunction_at_L1`,
+`WSC.P2a_shaped_structure`, `WSC.P5_shaped` and the rest are exactly as true as
+before: each says *"IF the real compiled bytecode accepts this `Data` skeleton with
+these symbolic scalars THEN <postcondition>"*, and the bytecode really does. What
+this module shows is that the antecedent's `ScriptContext` cannot be a LEDGER
+context, which matters for one thing only — **composition**. A shaped theorem
+remains evidence about the validator's logic; it cannot be plugged into a
+ledger-level claim through a `Shape` restriction without emptying the claim.
+
+WHAT WOULD FIX IT, sized: re-shape with a ledger-realistic redeemer map. Adding the
+missing entries changes the `Data` skeleton, so each affected shape needs a new
+`#prep_uplc` (measured cost of a shaped prep: ≈1 s, and budget-independent —
+`WSC/SHAPING-RESULTS.md` §2.5) and each theorem over it must be re-verified by
+`blaster` (the risk: the extra map entries enlarge the residual). The cheapest
+variant is a shape whose withdrawal entries are PUBKEY credentials wherever the
+validator does not need a script there — SHAPE T1 needs `w0` to be the global
+validator's own script credential, and `w1` only to be *some* entry the redeemer's
+`transferWdrlIdxs = [1]` can name, so `w1` pubkey plus a `Spending` redeemer entry
+for the base input may be enough. That experiment is NOT run here.
+
+════════════════════════════════════════════════════════════════════════════
+LAYOUT
+════════════════════════════════════════════════════════════════════════════
+* §1 SHAPE T1 — emptiness, UNCONDITIONAL (`WSC.LR_SPEND_RUNS_VALIDATOR` + `LR_CTX`)
+* §2 `RedeemerCoverage` and the conditional emptiness of L1 / M1 / G1 / S1 / DT1 / DS1
+* §3 the VACUOUS `LeafSet` at SHAPE T1, built and labelled as such
+* §4 axiom census
+-/
+import WSC.Composition
+import WSC.Shaped.GlobalShapedP1
+import WSC.Shaped.MintingLocalShaped
+import WSC.Shaped.MintingDelegateShaped
+import WSC.Shaped.MintingShaped
+import WSC.Shaped.GlobalShaped
+import WSC.Shaped.SeizeShaped
+
+namespace WSC.ShapeRealizability
+
+open CardanoLedgerApi.V3 (Credential CurrencySymbol ScriptContext ScriptInfo ScriptPurpose
+                          ScriptHash TxInInfo TxOutRef findRedeemer validScriptContext
+                          validScriptInfo)
+open PlutusCore.Data (Data)
+open PlutusCore.ByteString (ByteString)
+open PlutusCore.Integer (Integer)
+
+/-! # §0 Two generic lemmas about CLAB's own `validScriptInfo` -/
+
+/-- **If the transaction's redeemer map has no entry for the running script's
+purpose, the ledger's own `validScriptInfo` is FALSE.** This is CLAB's transcription
+(`CardanoLedgerApi/V3/Contexts.lean:1035-1037`) of the Conway rule that the redeemer
+handed to a script is its `Redeemers` entry (`Babbage/TxInfo.hs:217-221`) — audit row
+B of `WSC/Honest.lean`'s LR-CTX table. -/
+theorem validScriptInfo_false_of_no_redeemer (ctx : ScriptContext)
+    (h : findRedeemer ctx.scriptContextScriptInfo.toScriptPurpose
+           ctx.scriptContextTxInfo.txInfoRedeemers = none) :
+    validScriptInfo ctx = false := by
+  unfold validScriptInfo
+  simp [h]
+
+/-- Consequence: such a context cannot be `WSC.OnChain`, because `WSC.LR_CTX` asserts
+`validScriptContext` of every on-chain context. -/
+theorem not_onChain_of_no_redeemer (ctx : ScriptContext)
+    (h : findRedeemer ctx.scriptContextScriptInfo.toScriptPurpose
+           ctx.scriptContextTxInfo.txInfoRedeemers = none) :
+    ¬ WSC.OnChain ctx := by
+  intro hoc
+  have h2 := WSC.LR_CTX ctx hoc
+  rw [validScriptContext, validScriptInfo_false_of_no_redeemer ctx h] at h2
+  simp at h2
+
+/-! # §1 SHAPE T1 — the class is EMPTY, and no new assumption is needed
+
+SHAPE T1's input 0 sits at `ScriptCredential plc`, and a `LeafSet` discharged from
+`WSC.P1_T1` must identify that with `hp.progLogicCred` (otherwise the shaped
+theorem's `Model.outSum (.ScriptCredential plc) …` is not the composition's
+`outAtB hp.progLogicCred …` and the leaf says nothing about the mini-ledger). So the
+transaction SPENDS a mini-ledger UTxO, `WSC.LR_SPEND_RUNS_VALIDATOR` runs the base
+validator on it, and `WSC.LR_CTX` then demands a `Spending` entry in SHAPE T1's
+redeemer map — which holds exactly one `Rewarding` entry. -/
+
+/-- SHAPE T1's redeemer map has NO `Spending` entry, for any `TxOutRef`. Kernel
+computation (`rfl`): the two `ScriptPurpose` constructors differ, so
+`beqScriptPurpose` returns `false` without inspecting the symbolic hashes. -/
+theorem t1_no_spending_redeemer (o : TxOutRef) (w0 : ByteString) :
+    findRedeemer (.Spending o)
+      [(ScriptPurpose.Rewarding (.ScriptCredential w0), p1ShapedRedeemer)] = none := rfl
+
+/-- **THE T1 SHAPE CLASS IS EMPTY — machine-checked, no new assumption.**
+
+*No on-chain transaction of an honest deployment has SHAPE T1's `TxInfo`, once the
+shape's base credential `plc` is the deployment's `progLogicCred`.*
+
+The scalars are universally quantified exactly as in `WSC.P1_T1`, so this is a
+statement about the whole shape class, not about one instance.
+
+TRUST COST: `WSC.Deployed`, `WSC.OnChain`, `WSC.LR_SPEND_RUNS_VALIDATOR`,
+`WSC.LR_CTX` — nothing else, and NO `sorryAx` (see §4). -/
+theorem t1_class_is_empty
+    (hp : WSC.HonestParams) (ctx : ScriptContext)
+    (cs tn plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx)
+    (hbase : hp.progLogicCred = Credential.ScriptCredential plc)
+    (hsh : ctx.scriptContextTxInfo =
+      (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  -- the mini-ledger input SHAPE T1 spends
+  have ht : p1ShapedBaseIn plc owner inAda cs tn qIn ∈ ctx.scriptContextTxInfo.txInfoInputs := by
+    rw [hsh]; exact List.mem_cons_self ..
+  have hpc : WSC.payCred (p1ShapedBaseIn plc owner inAda cs tn qIn).txInInfoResolved
+      = hp.progLogicCred := by rw [hbase]; rfl
+  obtain ⟨r, d, hoc', -⟩ :=
+    WSC.LR_SPEND_RUNS_VALIDATOR hp ctx _ hdep hoc ht hpc
+  refine not_onChain_of_no_redeemer _ ?_ hoc'
+  show findRedeemer (.Spending _) ctx.scriptContextTxInfo.txInfoRedeemers = none
+  rw [hsh]
+  exact t1_no_spending_redeemer _ w0
+
+/-! # §2 The other shapes: empty under the `MissingRedeemers` rule
+
+`WSC/Honest.lean` has no axiom saying "every script the transaction needs has a
+redeemer-map entry". It is a real Conway rule, and the library already needed a
+piece of it once: `WSC/Composition.lean` §10.3's `SeizeWdrlOfScoped` is the
+CONVERSE direction ("a redeemer-map entry for a rewarding purpose implies the reward
+account is withdrawn from") and its docstring records that `WSC.LR5` does not supply
+it either.
+
+It is stated here as a `Prop`, deliberately NOT as an axiom: nothing in this library
+is allowed to become stronger because of a negative result. -/
+
+/-- **THE MISSING LEDGER RULE (a `Prop`, not an axiom).** *A script-credential
+withdrawal requires a `Rewarding` redeemer-map entry for that credential.*
+
+LEDGER RULE: Conway UTXOW — `scriptsNeeded` includes the script of every
+script-credential withdrawal, and `MissingRedeemers` rejects a transaction that does
+not carry a redeemer for a needed script (`Alonzo/Rules/Utxow.hs`); the Plutus
+`txInfoRedeemers` map IS that redeemer set (`Babbage/TxInfo.hs:217-221`, audit row B).
+It is the same rule `WSC.LR_WDRL_RUNS_VALIDATOR` relies on to conclude that the
+global/seize validator RAN — stated here about the redeemer MAP instead of about
+acceptance. -/
+def RedeemerCoverage : Prop :=
+  ∀ (ctx : ScriptContext) (h : ScriptHash) (n : Integer),
+    WSC.OnChain ctx →
+    (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl →
+      findRedeemer (.Rewarding (.ScriptCredential h))
+        ctx.scriptContextTxInfo.txInfoRedeemers ≠ none
+
+/-- The shape-independent shell: a transaction whose withdrawal map contains a
+script credential with no `Rewarding` redeemer entry cannot exist. -/
+theorem empty_of_uncovered_wdrl (rc : RedeemerCoverage) (ctx : ScriptContext)
+    (h : ScriptHash) (n : Integer) (hoc : WSC.OnChain ctx)
+    (hw : (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl)
+    (hr : findRedeemer (.Rewarding (.ScriptCredential h))
+      ctx.scriptContextTxInfo.txInfoRedeemers = none) : False :=
+  rc ctx h n hoc hw hr
+
+/-- A `Minting`-keyed singleton redeemer map covers no `Rewarding` purpose. `rfl`. -/
+theorem minting_map_covers_no_rewarding (ownCS : CurrencySymbol) (c : Credential) (r : Data) :
+    findRedeemer (.Rewarding c) [(ScriptPurpose.Minting ownCS, r)] = none := rfl
+
+/-- **SHAPE L1 (P4's `Local` arm, budget 2500) — EMPTY under `RedeemerCoverage`.**
+Its withdrawal entry 0 is `ScriptCredential w0` and its redeemer map is the single
+`Minting ownCS` entry. (Its OWN theorem `WSC.P4a_local_shaped` proves that an
+accepted L1 mint has `ScriptCredential mlh` in that withdrawal map — so the
+uncovered script withdrawal is not an artefact of the shape, it is what the arm
+requires.) -/
+theorem l1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+    (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (o0h : ByteString) (outAda0 : Integer) (c0 tn0 : ByteString) (qq0 : Integer)
+    (o1h : ByteString) (outAda1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hsh : ctx.scriptContextTxInfo =
+      (localShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl rc ctx w0 a0 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_self ..
+  · rw [hsh]; exact minting_map_covers_no_rewarding _ _ _
+
+/-- **SHAPE DT1 (P4's `DelegateTransfer` arm, budget 2500) — EMPTY under
+`RedeemerCoverage`.** Same skeleton and the same singleton `Minting` map. -/
+theorem dt1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+    (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (o0h : ByteString) (outAda0 : Integer) (c0 tn0 : ByteString) (qq0 : Integer)
+    (o1h : ByteString) (outAda1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hsh : ctx.scriptContextTxInfo =
+      (dtShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl rc ctx w0 a0 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_self ..
+  · rw [hsh]; exact minting_map_covers_no_rewarding _ _ _
+
+/-- **SHAPE M1 (P4's `BurnOnly` arm, budget 900) — EMPTY under `RedeemerCoverage`.**
+The one shape whose leaf the composition can reach at the PUBLISHED `K_mint = 900`,
+and its class is empty too. -/
+theorem m1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+    (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (dest : ByteString) (outAda qOut : Integer)
+    (w0 w1 : ByteString) (a0 a1 : Integer)
+    (fee : Integer) (txid : ByteString) (oidx : Integer)
+    (lo hi : Integer) (tid : ByteString)
+    (hsh : ctx.scriptContextTxInfo =
+      (mintShapedCtx ownCS tn q owner inAda qIn dest outAda qOut
+        w0 w1 a0 a1 fee txid oidx lo hi tid).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl rc ctx w0 a0 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_self ..
+  · rw [hsh]; exact minting_map_covers_no_rewarding _ _ _
+
+/-- A `Rewarding w0`-keyed singleton redeemer map covers `Rewarding w1` only if
+`w1 = w0`. The side condition `w0 ≠ w1` below is forced on any real transaction by
+`validWithdrawals`' strict ordering (`WSC.LR4`), so it costs nothing. -/
+theorem rewarding_purpose_beq_false (w0 w1 : ByteString) (hne : w1 ≠ w0) :
+    (ScriptPurpose.Rewarding (Credential.ScriptCredential w0) ==
+      ScriptPurpose.Rewarding (Credential.ScriptCredential w1)) = false := by
+  refine beq_eq_false_iff_ne.mpr ?_
+  intro h
+  injection h with h
+  injection h with h
+  exact hne h.symm
+
+theorem rewarding_singleton_covers_only_itself (w0 w1 : ByteString) (r : Data)
+    (hne : w1 ≠ w0) :
+    findRedeemer (.Rewarding (.ScriptCredential w1))
+      [(ScriptPurpose.Rewarding (.ScriptCredential w0), r)] = none := by
+  show (if (ScriptPurpose.Rewarding (Credential.ScriptCredential w0) ==
+             ScriptPurpose.Rewarding (Credential.ScriptCredential w1)) = true
+        then some r else none) = none
+  rw [rewarding_purpose_beq_false w0 w1 hne]
+  simp
+
+/-- **SHAPE G1 (P5, budget 1600) — EMPTY under `RedeemerCoverage`.** Withdrawal
+entry 1 (`ScriptCredential w1`) has no redeemer entry: the map holds only the
+validator's OWN `Rewarding w0`. -/
+theorem g1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+    (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
+    (cs tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda : Integer)
+    (dest : ByteString) (outAda qOut : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hne : w1 ≠ w0)
+    (hsh : ctx.scriptContextTxInfo =
+      (globalShapedCtx cs tn q owner inAda dest outAda qOut
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl rc ctx w1 a1 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
+  · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
+
+/-- **SHAPE T1 again — EMPTY under `RedeemerCoverage` TOO**, by the withdrawal route
+rather than the spending route, i.e. even a re-shaping that removed the base input
+would not rescue it. -/
+theorem t1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+    (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
+    (cs tn plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hne : w1 ≠ w0)
+    (hsh : ctx.scriptContextTxInfo =
+      (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl rc ctx w1 a1 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
+  · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
+
+/-- **SHAPE S1 (P2, budget 3800) — EMPTY under `RedeemerCoverage`.** Same withdrawal
+route as G1/T1. -/
+theorem s1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+    (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
+    (mlH inStk : ByteString) (i0Ada : Integer) (mlCS mlTn : ByteString) (i0Qty : Integer)
+    (dIn : ByteString)
+    (wallet : ByteString) (i1Ada : Integer) (i1CS i1Tn : ByteString) (i1Qty : Integer)
+    (oStk : ByteString) (o0Ada o0Qty : Integer) (dOut : ByteString)
+    (escH : ByteString) (o1Ada : Integer) (o1CS o1Tn : ByteString) (o1Qty : Integer)
+    (mCS mTn : ByteString) (mQ : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hne : w1 ≠ w0)
+    (hsh : ctx.scriptContextTxInfo =
+      (seizeShapedCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn wallet i1Ada i1CS i1Tn i1Qty
+        oStk o0Ada o0Qty dOut escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl rc ctx w1 a1 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
+  · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
+
+/-! ### §2.1 SHAPE DS1 — the only two-entry redeemer map, and it is still short
+
+SHAPE DS1's map is `[(.Minting ownCS, …), (.Rewarding (.ScriptCredential sCred), …)]`
+(`WSC/Shaped/MintingDelegateShaped.lean:190-193`), i.e. it covers ONE of the two
+script withdrawals. Since `validWithdrawals` forces `w0 ≠ w1`, at least one of them
+is not `sCred`, so the class is empty under `RedeemerCoverage` for every `sCred`.
+Recorded here in the form the proof takes: the two cases, each with its own witness
+credential. -/
+/-- A `[Minting ownCS, Rewarding sCred]` map covers `Rewarding w` only if `w = sCred`.
+-/
+theorem mintingRewarding_map_covers_only (ownCS : CurrencySymbol) (sCred w : ByteString)
+    (r0 r1 : Data) (hne : w ≠ sCred) :
+    findRedeemer (.Rewarding (.ScriptCredential w))
+      [(ScriptPurpose.Minting ownCS, r0),
+       (ScriptPurpose.Rewarding (.ScriptCredential sCred), r1)] = none := by
+  show (if (ScriptPurpose.Minting ownCS ==
+            ScriptPurpose.Rewarding (Credential.ScriptCredential w)) = true then some r0
+        else if (ScriptPurpose.Rewarding (Credential.ScriptCredential sCred) ==
+                 ScriptPurpose.Rewarding (Credential.ScriptCredential w)) = true then some r1
+        else none) = none
+  rw [show (ScriptPurpose.Minting ownCS ==
+      ScriptPurpose.Rewarding (Credential.ScriptCredential w)) = false from rfl,
+    rewarding_purpose_beq_false sCred w hne]
+  simp
+
+/-- **SHAPE DS1's two-entry map is STILL short of coverage.** Its withdrawal map has
+the two script credentials `w0`, `w1` and its redeemer map covers only `sCred`; since
+`validWithdrawals` forces `w0 ≠ w1`, at least one of the two is uncovered. -/
+theorem ds1_uncovered_wdrl_exists (ownCS sCred w0 w1 : ByteString) (r0 r1 : Data)
+    (hne : w0 ≠ w1) :
+    findRedeemer (.Rewarding (.ScriptCredential w0))
+      [(ScriptPurpose.Minting ownCS, r0),
+       (ScriptPurpose.Rewarding (.ScriptCredential sCred), r1)] = none
+    ∨ findRedeemer (.Rewarding (.ScriptCredential w1))
+      [(ScriptPurpose.Minting ownCS, r0),
+       (ScriptPurpose.Rewarding (.ScriptCredential sCred), r1)] = none := by
+  by_cases h : w0 = sCred
+  · exact Or.inr (mintingRewarding_map_covers_only ownCS sCred w1 r0 r1
+      (fun hEq => hne (h.trans hEq.symm)))
+  · exact Or.inl (mintingRewarding_map_covers_only ownCS sCred w0 r0 r1 h)
+
+/-! # §3 THE VACUOUS `LeafSet` AT SHAPE T1 — built, and labelled
+
+Task A2 asked for a `LeafSet` term. Here is the one the shaped route yields, so that
+nobody has to take §1 on trust: all four fields hold, by `absurd` on §1's emptiness
+proof, and `WSC/Composition.lean`'s `top_claim` instantiates at it. **It is worth
+NOTHING**, and `t1_no_honest_step` is the proof of that: no `Reachable.step` can
+fire, so the instantiated top claim is `ts_genesis` with extra syntax.
+
+It is included because F1's exact wording is "no `LeafSet` term is ever constructed
+anywhere in the library", and the correct response to that is not to construct one
+and declare victory — it is to construct one, show what it is worth, and put the
+non-vacuous one (`WSC/Composition.lean` §11) beside it. -/
+
+/-- SHAPE T1 as a `Shape` predicate: `ctx` shares its `TxInfo` with some instance of
+SHAPE T1 whose base credential is the deployment's. This is EXACTLY the
+instantiation a `LeafSet` discharged from `WSC.P1_T1` needs. -/
+def t1Shape (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
+  ∃ plc, hp.progLogicCred = Credential.ScriptCredential plc ∧
+    ∃ cs tn owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+      pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+      key next tlsH ilsH gsCS w0 w1 a0 a1 fee,
+      ctx.scriptContextTxInfo =
+        (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+          pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+          key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo
+
+/-- §1, packaged over the `Shape` predicate. -/
+theorem t1Shape_is_empty (hp : WSC.HonestParams) (ctx : ScriptContext)
+    (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx) (hsh : t1Shape hp ctx) : False := by
+  obtain ⟨plc, hbase, cs, tn, owner, inAda, qIn, ext, in2Ada, qIn2, outAda, qOut, dest,
+    escAda, qEsc, pHash, pCS, pTn, pAda, pQty, dirCS, glc, slc, nHash, nCS, nTn, nAda, nQty,
+    key, next, tlsH, ilsH, gsCS, w0, w1, a0, a1, fee, hEq⟩ := hsh
+  exact t1_class_is_empty hp ctx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest
+    escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+    key next tlsH ilsH gsCS w0 w1 a0 a1 fee hdep hoc hbase hEq
+
+/-- **THE VACUOUS `LeafSet`.** Every field by `absurd`. Do not cite this as a
+discharge of any leaf: cite `WSC/Composition.lean`'s `containedLeaves` for a real
+one, and cite this only as the demonstration that a shaped `Shape` instantiation is
+worthless. -/
+theorem t1VacuousLeaves (hp : WSC.HonestParams) (hdep : WSC.Deployed hp) :
+    Composition.LeafSet hp (t1Shape hp) :=
+  { p4 := fun ctx _ _ _ _ hoc hsh _ _ _ _ _ _ =>
+      (t1Shape_is_empty hp ctx hdep hoc hsh).elim
+  , p1 := fun ctx _ _ _ _ hoc hsh _ _ _ _ _ _ _ =>
+      (t1Shape_is_empty hp ctx hdep hoc hsh).elim
+  , p2 := fun ctx _ _ _ _ hoc hsh _ _ _ _ _ _ =>
+      (t1Shape_is_empty hp ctx hdep hoc hsh).elim
+  , nopre := fun _ ctx _ _ _ _ _ htx _ _ =>
+      (t1Shape_is_empty hp ctx hdep htx.1 htx.2.2).elim }
+
+/-- **AND HERE IS WHY IT IS WORTH NOTHING.** No transaction can take a step in the
+T1 class, so `Reachable hp (t1Shape hp)` is `Genesis` and the instantiated top claim
+below carries no information beyond `WSC.Composition.ts_genesis`. -/
+theorem t1_no_honest_step (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
+    (ctx : ScriptContext) (htx : Composition.HonestTx hp (t1Shape hp) ctx) : False :=
+  t1Shape_is_empty hp ctx hdep htx.1 htx.2.2
+
+/-- The instantiated top claim at SHAPE T1 — TRUE, and VACUOUS. Kept next to
+`t1_no_honest_step` so the two cannot be quoted apart. -/
+theorem t1_top_claim_is_vacuous (hp : WSC.HonestParams) (hdep : WSC.Deployed hp) :
+    ∀ (L : Composition.Ledger), Composition.Reachable hp (t1Shape hp) L →
+      Composition.I hp L :=
+  Composition.top_claim hp (t1Shape hp) (t1VacuousLeaves hp hdep) hdep
+
+/-! # §4 AXIOM CENSUS — printed at build time -/
+#print axioms WSC.ShapeRealizability.validScriptInfo_false_of_no_redeemer
+#print axioms WSC.ShapeRealizability.not_onChain_of_no_redeemer
+#print axioms WSC.ShapeRealizability.t1_no_spending_redeemer
+#print axioms WSC.ShapeRealizability.t1_class_is_empty
+#print axioms WSC.ShapeRealizability.l1_class_is_empty_under_coverage
+#print axioms WSC.ShapeRealizability.m1_class_is_empty_under_coverage
+#print axioms WSC.ShapeRealizability.g1_class_is_empty_under_coverage
+#print axioms WSC.ShapeRealizability.s1_class_is_empty_under_coverage
+#print axioms WSC.ShapeRealizability.ds1_uncovered_wdrl_exists
+#print axioms WSC.ShapeRealizability.t1VacuousLeaves
+#print axioms WSC.ShapeRealizability.t1_no_honest_step
+
+end WSC.ShapeRealizability

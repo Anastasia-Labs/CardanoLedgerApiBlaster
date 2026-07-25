@@ -170,3 +170,15 @@ import WSC.Props.Shaped.NonVacuity
 -- the connective between a shaped theorem and the ledger side.  The 25 verdicts
 -- here are unchanged in statement and were re-run.
 import WSC.ShapeBridge
+-- ── task A2: SHAPE REALIZABILITY — why audit F1 cannot be closed by a shaped
+-- `Shape` instantiation.  Every shaped context in this library bakes a one-entry
+-- redeemer map (two for DS1) while baking two SCRIPT-credential withdrawals, and
+-- the Conway `MissingRedeemers` rule needs one entry per script witness.  For
+-- SHAPE T1 the resulting class is PROVABLY EMPTY from axioms this library already
+-- has (`LR_SPEND_RUNS_VALIDATOR` + `LR_CTX`, no `sorryAx`); for L1/M1/G1/S1/DT1/DS1
+-- it is empty under the `MissingRedeemers` rule, stated there as a `Prop` and NOT
+-- as an axiom.  The module also builds the VACUOUS `LeafSet` at SHAPE T1 and, next
+-- to it, the proof that no honest step can fire in that class — read it before
+-- quoting any composition result over a shape.  The NON-vacuous `LeafSet` is
+-- `WSC/Composition.lean` §11 (`containedLeaves`).
+import WSC.Props.Shaped.ShapeRealizability

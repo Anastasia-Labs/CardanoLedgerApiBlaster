@@ -484,3 +484,48 @@ ledger-supplied `ScriptContext` by this module.
 | `WSC/Shaped/Probe/B1Accept.lean` | `#eval` search for an accepting SHAPE B1 leaf assignment |
 | `WSC/Shaped/Probe/UnshapedCost.lean` | unshaped `programmableLogicGlobal` prep at 3300 — cost probe, not expected to complete |
 | `WSC/Shaped/Probe/AxAudit.lean` | standalone `#print axioms` run |
+
+---
+
+## §12 TASK A2 (2026-07-25) — WHY THE BRIDGE HAS NO CONSUMER, PROVED
+
+A1 restated the four `LR_BUDGET_*` axioms onto `Runs.XRun K` so that the 16
+kernel-checked `exec_<S>` `rfl`s are the connective between a shaped theorem and the
+ledger side (§11 above). What was left was to build the consumer: a
+`Composition.LeafSet hp Shape` with `Shape :=` "an instance of SHAPE T1 / L1 / M1 /
+S1". Task A2 tried, and found the obstacle is not plumbing:
+
+> **Every shaped class in this library is EMPTY as a class of ledger transactions.**
+> A tractable `#prep_uplc` needs the redeemer map inside the frozen `Data` skeleton,
+> so every shape bakes a ONE-entry redeemer map (two for DS1) — while every shape
+> bakes a TWO-entry withdrawal map whose entries are BOTH script credentials
+> (`p1ShapedWdrl`, `localShapedWdrl`, `mintShapedWdrl`, `globalShapedWdrl`,
+> `seizeShapedWdrl`). Conway UTXOW (`MissingRedeemers`) requires one redeemer-map
+> entry per script witness, and a script-credential withdrawal is one — that is the
+> very rule `WSC.LR_WDRL_RUNS_VALIDATOR` encodes.
+
+`WSC/Props/Shaped/ShapeRealizability.lean` proves it. For SHAPE T1 the proof needs no
+new assumption at all: T1 spends an input at the base credential (it must, or the
+shaped conclusion's `Model.outSum (.ScriptCredential plc)` is not the composition's
+`outAtB hp.progLogicCred`), so `WSC.LR_SPEND_RUNS_VALIDATOR` runs the base validator
+on the transaction and `WSC.LR_CTX` then demands a `Spending` redeemer entry that
+T1's singleton `Rewarding` map does not contain. `#print axioms t1_class_is_empty` =
+`[propext, Quot.sound, WSC.Deployed, WSC.LR_CTX, WSC.LR_SPEND_RUNS_VALIDATOR,
+WSC.NodeAcceptsBase, WSC.OnChain]` — **no `sorryAx`**. For L1 / DT1 / M1 / G1 / S1 /
+DS1 the emptiness is proved under `RedeemerCoverage`, the `MissingRedeemers` rule
+stated as a `Prop` and deliberately **not** as an axiom.
+
+Consequences for this document:
+
+* §5's Tier A / Tier B analysis, §11's restatement and every `bridge_<S>` verdict
+  stand unchanged — none of them is about realizability.
+* §10's three routes to shape coverage are now known to be **necessary but not
+  sufficient**: a coverage argument over classes that are empty proves nothing. The
+  first step is re-cutting the shapes with ledger-realistic redeemer maps (new prep
+  per shape — ≈1 s, budget-independent — then re-verification of every theorem over
+  it; the risk is the enlarged residual).
+* The line above, *"NOT delivered, and not claimable: the `LeafSet` is still
+  un-instantiated (audit F1)"*, is amended: a `LeafSet` IS now constructed
+  (`WSC/Composition.lean` §11, `containedLeaves`) but over an ACCOUNTING class that
+  uses no UPLC result, and the shaped instantiation is exhibited as vacuous
+  (`ShapeRealizability.t1VacuousLeaves` next to `t1_no_honest_step`).
