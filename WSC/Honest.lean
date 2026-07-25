@@ -139,7 +139,10 @@ open CardanoLedgerApi.V3 (Credential CurrencySymbol TokenName Value MintValue
                           validInputs validOutputs validScriptInfo
                           validScriptContext validRewardingContext
                           validMintingContext validSpendingContext)
-open CardanoLedgerApi.V3.Contexts (validMintValue validWithdrawals validRedeemerMap)
+open CardanoLedgerApi.V3.Contexts (validMintValue validWithdrawals validRedeemerMap
+                          findRedeemer redeemerCoverage noExtraRedeemers redeemersExact
+                          findRedeemer_rewarding_ne_none_of_coverage
+                          findRedeemer_spending_ne_none_of_coverage)
 open PlutusCore.Data (Data)
 open PlutusCore.Integer (Integer)
 open PlutusCore.ByteString (ByteString)
@@ -612,7 +615,7 @@ ledger line numbers are the `cardano-ledger` checkout @ `cd8b7fab8`.
 | G | `validInputs`: inputs strictly ascending in `TxOutRef` (:1025) | `Set.toList txInputs` over an ordered `Set TxIn` (`Conway/TxInfo.hs:490`); ledger `TxIn` Ord = (`TxId`,`TxIx`) = CLAB `ltTxOutRef` (`V3/Tx.lean:62-64`) | **JUSTIFIED** |
 | H | `validInputs`/`validReferenceInputs`/`validOutputs`: `validTxOutValue` on every value — ada-first, ada > 0, policies+names strictly ascending, quantities > 0 (`V1/Contexts.lean:769-784`) | ascending order from `Map.foldrWithKey'` in `transMultiAsset` (`Alonzo/Plutus/TxInfo.hs:327-334`); ada > 0 from min-ada (`validateOutputTooSmallUTxO`, `Babbage/Rules/Utxo.hs:303`); quantities > 0 because a UTxO cannot hold a non-positive amount | **JUSTIFIED** |
 | I | `validReferenceInputs`: refs ascending, may be empty (:1052-1061) | `Set.toList refInputs` (`Conway/TxInfo.hs:491`) | **JUSTIFIED** |
-| J | `txInfoFee > 0` (:1201) | `FeeTooSmallUTxO` (`Conway/Rules/Utxo.hs:85`) with mainnet `minFeeB = 155381 > 0` | **JUSTIFIED, PARAMETER-DEPENDENT** — it is a protocol-parameter fact, not a pure rule. No WSC proof uses it. NOTE: all 13 goldens have `fee = 0`, so **no golden satisfies `validXContext`** (see the empirical row-set below). |
+| J | `txInfoFee > 0` (:1201) | `FeeTooSmallUTxO` (`Conway/Rules/Utxo.hs:85`) with mainnet `minFeeB = 155381 > 0` | **JUSTIFIED, PARAMETER-DEPENDENT** — it is a protocol-parameter fact, not a pure rule. No WSC proof uses it. (An earlier revision of this row said "all 13 goldens have `fee = 0`, so no golden satisfies `validXContext`". **That is STALE and was corrected by task C3**: the builder fix re-dumped every golden with a positive fee — measured `500000` or `2000000` on all 13 — and all 9 accepting goldens now satisfy `validXContext` verbatim. See the corrected empirical row-set below.) |
 | K | `validMintValue`: ada-free, ascending, quantities ≠ 0 (:801-813) | `transMintValue` over `MultiAsset` (`Conway/TxInfo.hs:540-541`) | **JUSTIFIED at PV11+** (ada-freeness is version-dependent) |
 | L | `validWithdrawals`: withdrawals strictly ASCENDING in CLAB's `Credential` order (`validWithdrawals`, V3/Contexts) | `transMap … (unWithdrawals …)` = `unsafeFromList ∘ map ∘ Map.toList` — NO re-sorting (`Conway/TxInfo.hs:544-546, 692-694`); the ledger's key order is `AccountAddress` = (`Network`, `Credential`) with **`ScriptHashObj < KeyHashObj`** (`libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs:96-99`, `Address.hs:183-191`); `ltCredential` (`V1/Credential.lean`) was **FIXED to that order by task Z1** (it previously had the Plutus order `PubKeyCredential < ScriptCredential`) | **JUSTIFIED** (was ⚠ REFUTED for mixed maps — defect D2, now repaired). Side fact, itself a ledger rule: Plutus' key drops the `Network` component, harmless because `validateWrongNetworkWithdrawal` (`Shelley/Rules/Utxo.hs:181,384`) admits only one network per transaction, on which (`Network`,`Credential`) order restricts to `Credential` order. |
 | M | `validRedeemerMap`: redeemers strictly ASCENDING in CLAB's `ScriptPurpose` order (`validRedeemerMap`, V3/Contexts) | `transTxRedeemers = unsafeFromList ∘ mapM … ∘ Map.toList` over `Redeemers` keyed by `PlutusPurpose AsIx` — NO re-sorting (`Babbage/TxInfo.hs:217-221`, used for V3 at `Conway/TxInfo.hs:499,512`); ledger tag order is **`ConwaySpending < ConwayMinting < ConwayCertifying < ConwayRewarding < ConwayVoting < ConwayProposing`** (`Conway/Scripts.hs:202-213`, derived `Ord`); `ltScriptPurpose` (`V3/Contexts.lean`) was **FIXED to that order by task Z1** (it previously had the Plutus constructor order `Minting < Spending < Rewarding < Certifying < …`) | **JUSTIFIED** (was ⚠⚠ REFUTED for every WSC issuance transaction — defect D1, now repaired; that defect is why every `validMintingContext` theorem was vacuous on its own class). Side fact: INTRA-kind, the ledger's `AsIx` index enumerates an already-sorted collection and each Plutus key's leading component sorts the same way (inputs by `TxIn`≡`ltTxOutRef`; policies by `PolicyID`≡`CurrencySymbol`; withdrawals by `Credential` per row L; `Certifying`/`Proposing` compare the index itself; `Voting` by `Voter`, whose ledger `Ord` (`Conway/Governance/Procedures.hs:338-342`) matches `ltVoter`). |
@@ -621,6 +624,7 @@ ledger line numbers are the `cardano-ledger` checkout @ `cd8b7fab8`.
 | P | `validDatumMap`: datum witnesses ascending by hash (:1207, `V1/Contexts.lean:995-1002`) | `Map.toList` of `TxDats` (`transTxWitsDatums`, `Alonzo/Plutus/TxInfo.hs:316`) | **JUSTIFIED** |
 | Q | `validVoterMap`, `validTreasuryAmount`, `validTreasuryDonation` (:1208-1210) | `transVotingProcedures` over ordered maps (`Conway/TxInfo.hs:696-699`); treasury fields are `Maybe Coin` and `Nothing`/positive by construction (`:518-523`) | **JUSTIFIED**; unused by WSC |
 | R | `isBalanced` (:1211, :1150-1154) | Conway `UTXO` `ValueNotConservedUTxO` | **JUSTIFIED** |
+| **S** | **NOT A CONJUNCT OF `validScriptContext`** — the redeemer map covers EVERY script the transaction needs, not only the running one. CLAB states it separately as `redeemerCoverage` / `noExtraRedeemers` / `redeemersExact` (`CardanoLedgerApi/V3/Contexts.lean`, added by task C3) and it is assumed here as `LR_REDEEMER_COVERAGE` below | `hasExactSetOfRedeemers` (`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:239-262`), spec comment at `:237-238`: `dom (txrdmrs tx) = { rdptr txb sp ∣ (sp,h) ∈ scriptsNeeded utxo tx, h ↦ s ∈ txscripts txw, s ∈ Scriptph2 }`. Reached from Conway via `ConwayUTXOW.transitionRules = [Babbage.babbageUtxowTransition]` (`Conway/Rules/Utxow.hs:195`) → `Babbage/Rules/Utxow.hs:351`. **EXACT SET EQUALITY**, both halves enforced by `extSymmetricDifference` (`Utxow.hs:378-383`): `ExtraRedeemers` and `MissingRedeemers` (`:259-262`). `scriptsNeeded = getConwayScriptsNeeded` (`Conway/UTxO.hs:63-74`) quantifies over SIX sources — spending inputs at script addresses (`Alonzo/UTxO.hs:360-373`), script-credential withdrawals (`:375-384`), **every** mint policy id (`:386-394`), script-witnessed certificates (`Conway/TxCert.hs:736-758`), script-credential voters, guardrails-carrying proposals | **THE ROW THAT WAS MISSING.** Its absence is audit finding **F2**: a shape with two script-credential withdrawals and a ONE-entry redeemer map satisfies `validRewardingContext` (rows A–R) while being unbuildable, because rows B/E constrain only the RUNNING script's entry. Now stated. **NOT** folded into `validScriptContext` on purpose: the ledger filters `scriptsNeeded` to non-native scripts (`Utxow.hs:247-251`) and `TxInfo` does not record a script's language, so a coverage CONJUNCT would be over-strong — it would reject a genuine transaction witnessed by a native timelock, for which the rule requires no entry and the `ExtraRedeemers` half forbids one. See the `redeemerCoverage` section header in CLAB for the full argument |
 
 MISSING-BUT-SOUND (ledger rules CLAB does NOT assert; omitting them only
 weakens the precondition, which strengthens the theorems):
@@ -636,30 +640,62 @@ EMPIRICAL CORROBORATION (task Y3, this session). All 13 golden
 `WSC/goldens/ctx-audit/GenCtxAuditDetail.py`; each writes a Lean file to run
 with `lake env lean`):
 
-* `validXContext` = **false for all 13** — every golden has `txInfoFee = 0`
-  (row J). The goldens are builder-produced, not chain-captured
-  (`WSC/goldens/MANIFEST.md` "Extraction provenance"), so this is a GOLDEN-SUITE
-  GAP, not a ledger finding. **Consequence: no golden can currently serve as a
-  `validXContext` anti-vacuity witness; the only such witness in the library is
-  the hand-built `WSC.P3Witness.ctx` (WSC/Props/P3_Base.lean:149).**
-* `validRedeemerMap` was false for the 2 minting goldens with purposes
-  `[Spending, Minting, Rewarding, Rewarding, Rewarding]` — exactly row M's
-  refutation, reproduced independently. **Since task Z1 fixed `ltScriptPurpose`
-  both goldens PASS `validRedeemerMap`** and their only failing conjunct is the
-  zero fee (row J); machine-checked by `WSC/Goldens/Audit.lean`'s
-  `fail_mint_burnonly`, `fail_mint_delegate_transfer_topup` and
-  `no_purpose_kind_order_violation_remains`.
-* `validWithdrawals` = false for the 3 seize goldens: their two script
-  credentials are emitted DESCENDING (`0x40…` before `0x14…`), a builder
-  artifact (the builder does not sort withdrawals), which also makes their
-  `Rewarding` redeemer entries unsorted. This is UNCHANGED by task Z1's D2 fix,
-  and necessarily so: both credentials are SCRIPT credentials, the case where the
-  old and new `Credential` orders agree, so the attribution of this failure to
-  the builder rather than to CLAB is confirmed rather than disturbed by the fix.
-* `validOutputs` = false for the 2 accepting seize goldens: the residual
-  (seized-tokens) output carries NO ada entry at all
-  (`[(cs=1b…, [(tn=3063, 1)])]`), which min-ada forbids on chain — again a
-  builder artifact, and it is row H's ledger rule that rules it out.
+**THIS BLOCK WAS STALE AND IS CORRECTED BY TASK C3.** It described the goldens as
+they stood BEFORE task Z1 fixed CLAB (defects D1/D2) and before the wsc-poc
+builder fix re-dumped every vector (positive fee, ledger-ordered withdrawals,
+min-ada on every output). Every bullet below is re-measured at this revision and
+names the `WSC/Goldens/Audit.lean` theorem that pins it. The four superseded
+claims are listed at the end so the record is not silently rewritten.
+
+* `validXContext` = **true for 10 of 13, including all 9 ACCEPTING goldens**, with
+  every conjunct checked verbatim — no relaxation, no artifacts
+  (`every_accepting_golden_satisfies_its_precondition`,
+  `verdicts_are_exactly_as_tabulated`). The 3 remaining FALSE verdicts are
+  tamper-intrinsic to rejecting vectors
+  (`remaining_failures_are_tamper_intrinsic`). **LR-CTX therefore has direct
+  empirical support for all four validator shapes**, and the goldens — not only
+  the hand-built `WSC.P3Witness.ctx` — now serve as `validXContext` anti-vacuity
+  witnesses.
+* **Row S, re-measured (task C3).** All 13 goldens satisfy `redeemerCoverage`
+  (`every_golden_is_redeemer_covered`), and all 9 accepting goldens satisfy the
+  FULL exact-set rule `redeemersExact` — the needed-purpose multiset matches
+  `txInfoRedeemers` entry-for-entry, at 2–5 entries, across `Spending`,
+  `Rewarding` and `Minting` purposes
+  (`every_accepting_golden_has_exact_redeemers`,
+  `redeemer_needed_and_present_counts`). **This is the evidence that row S is not
+  over-strong: the real vectors are redeemer-covered, while every shape in
+  `WSC/Shaped/` is not.**
+* **NEW FINDING (task C3), and it is the reason row S matters beyond the shapes.**
+  `mint-local-empty-withdrawals-REJECT` violates `ExtraRedeemers`: its tamper
+  empties `txInfoWdrl` but leaves the `Rewarding` redeemer entry behind, so it
+  needs one purpose and carries two
+  (`extra_redeemers_in_mint_local_empty_withdrawals`). It passes every conjunct of
+  `validScriptContext`, which is why `WSC/Goldens/Audit.lean` previously called it
+  *"the suite's only clean negative control"*. **That claim is retracted: with row
+  S the suite has NO clean negative control** — no golden is both a well-formed
+  ledger context and rejected by the bytecode.
+* Row M: `validRedeemerMap` was false for the 2 minting goldens with purposes
+  `[Spending, Minting, Rewarding, Rewarding, Rewarding]` — row M's refutation,
+  reproduced independently. Since task Z1 fixed `ltScriptPurpose` **both goldens
+  PASS**, and post-builder-fix they have **no failing conjunct at all**
+  (`fail_mint_burnonly`, `fail_mint_delegate_transfer_topup`,
+  `no_purpose_kind_order_violation_remains`).
+* Rows L/M order checks: **no order violation of any kind remains in any of the
+  13** (`no_order_violations_remain`, `order_failures_are_order_only`).
+
+SUPERSEDED CLAIMS, kept so the correction is auditable — each was true of the
+pre-fix vectors under `WSC/goldens/pre-fix/` and is FALSE at this revision:
+1. *"`validXContext` = false for all 13 — every golden has `txInfoFee = 0`"* —
+   fees are now `500000`/`2000000` on all 13 (row J).
+2. *"no golden can serve as a `validXContext` anti-vacuity witness"* — 10 can.
+3. *"`validWithdrawals` = false for the 3 seize goldens"* (two script credentials
+   emitted DESCENDING) — repaired by the builder's `canonicaliseWdrl`, which also
+   fixed their `Rewarding` redeemer entries. The ATTRIBUTION was correct: both
+   credentials are SCRIPT credentials, where the old and new `Credential` orders
+   agree, so this was a builder artifact and not CLAB's D2.
+4. *"`validOutputs` = false for the 2 accepting seize goldens"* (lovelace-free
+   residual output) — repaired by the builder's `ensureMinAda`. Again the
+   attribution was correct, and row H is the rule that ruled it out.
 -/
 
 /-- **LR_CTX (ADDENDUM E5)**: the master context bridge. Every REAL invocation
@@ -706,6 +742,85 @@ justified — duplicate-freeness is all any WSC proof consumes, and a weaker axi
 is a smaller trust surface. -/
 axiom LR_CTX : ∀ (ctx : ScriptContext),
   OnChain ctx → validScriptContext ctx
+
+/-- **LR_REDEEMER_COVERAGE (ADDENDUM E5, row S)** — the conjunct `LR_CTX` cannot
+carry, because `validScriptContext` does not contain it.
+
+Every REAL invocation's transaction has a redeemer-map entry for EVERY script it
+needs, not only for the script currently running. This is Conway UTXOW's
+`MissingRedeemers` half of `hasExactSetOfRedeemers`; the full citation chain is
+row **S** of the audit table above.
+
+WHY IT IS A SEPARATE AXIOM AND NOT A STRONGER `LR_CTX`.
+Three reasons, in order of force:
+
+1. **CLAB deliberately does not put it in `validScriptContext`.** The ledger
+   filters `scriptsNeeded` to non-native scripts (`Alonzo/Rules/Utxow.hs:247-251`)
+   and `TxInfo` never records which language a script is written in, so a
+   `validTxInfo` conjunct would be OVER-STRONG — it would reject a genuine
+   node-built transaction whose script witness is a native timelock, for which
+   the ledger requires no redeemer entry and, by the `ExtraRedeemers` half,
+   forbids one. Keeping the rule as a named assumption puts it where the audit
+   can see it instead of hiding an unsound strengthening inside a `Bool`.
+2. **A conjunction would silently break consumers.** `LR_CTX` is applied at
+   `WSC/Composition.lean` and `WSC/Props/Shaped/ShapeRealizability.lean` as
+   `LR_CTX ctx h : validScriptContext ctx`; turning its conclusion into a
+   conjunction changes every such site. Two axioms compose, one conjunction does
+   not.
+3. **It keeps the trust surface honest and countable.** This is a genuinely NEW
+   assumption — the library did not have it before task C3 — and it should appear
+   in the axiom census as one, not be absorbed into an existing name.
+
+WHAT IT IS ASSUMED FOR: `WSC/Props/Shaped/ShapeRealizability.lean` states the
+emptiness of SHAPES L1/M1/G1/S1/DT1/DS1 under a `RedeemerCoverage` HYPOTHESIS
+because no axiom supplied the rule. This axiom supplies it, so those results can
+become unconditional. `redeemerCoverage_wdrl` / `redeemerCoverage_spend` below are
+the two forms those proofs consume.
+
+EMPIRICAL SUPPORT — stronger than for most rows in the table, and it is the
+check that the rule is not over-strong. All 13 goldens satisfy
+`redeemerCoverage` and all 9 ACCEPTING goldens satisfy the full exact-set rule
+`redeemersExact`, with the needed-purpose multiset matching `txInfoRedeemers`
+entry-for-entry (2–5 entries, `Spending`/`Rewarding`/`Minting`, all four
+validators): `WSC/Goldens/Audit.lean`'s `every_golden_is_redeemer_covered`,
+`every_accepting_golden_has_exact_redeemers`,
+`redeemer_needed_and_present_counts` — all `native_decide` on the CBOR-decoded
+real contexts.
+
+SCOPE, stated as narrowly as the measurement warrants: this is the
+`MissingRedeemers` half only. The `ExtraRedeemers` half is CLAB's
+`noExtraRedeemers` and is **not** assumed here, because nothing needs it — and
+because it is the direction that would be WEAKER than the ledger rule in the
+presence of a native script witness, not stronger. Assume it separately if a
+proof ever wants it. -/
+axiom LR_REDEEMER_COVERAGE : ∀ (ctx : ScriptContext),
+  OnChain ctx → redeemerCoverage ctx.scriptContextTxInfo
+
+/-- **The form `ShapeRealizability` consumes.** A script-credential withdrawal in
+an on-chain transaction forces a `Rewarding` redeemer-map entry for that
+credential. This is literally the statement of that module's `RedeemerCoverage`
+`Prop`, so a proof that took `rc : RedeemerCoverage` can be closed by passing
+`WSC.redeemerCoverage_wdrl` instead — making the shape-emptiness results
+unconditional. -/
+theorem redeemerCoverage_wdrl (ctx : ScriptContext) (h : ScriptHash) (n : Integer)
+    (hoc : OnChain ctx)
+    (hw : (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl) :
+    findRedeemer (.Rewarding (.ScriptCredential h))
+      ctx.scriptContextTxInfo.txInfoRedeemers ≠ none :=
+  findRedeemer_rewarding_ne_none_of_coverage (LR_REDEEMER_COVERAGE ctx hoc) hw
+
+/-- Companion for the spending side: spending a script-addressed input in an
+on-chain transaction forces a `Spending` entry for that input's `TxOutRef`.
+`WSC/Props/Shaped/ShapeRealizability.lean`'s `t1_class_is_empty` reaches the same
+conclusion through `LR_SPEND_RUNS_VALIDATOR` + `LR_CTX` for the RUNNING script;
+this covers every script-addressed input, running or not. -/
+theorem redeemerCoverage_spend (ctx : ScriptContext) (t : TxInInfo) (sh : ScriptHash)
+    (hoc : OnChain ctx)
+    (ht : t ∈ ctx.scriptContextTxInfo.txInfoInputs)
+    (hsc : t.txInInfoResolved.txOutAddress.addressCredential = .ScriptCredential sh) :
+    findRedeemer (.Spending t.txInInfoOutRef)
+      ctx.scriptContextTxInfo.txInfoRedeemers ≠ none :=
+  findRedeemer_spending_ne_none_of_coverage (LR_REDEEMER_COVERAGE ctx hoc) ht hsc
 
 /-- **NONNEG (ADDENDUM E6)**: non-negativity of held amounts. Every UTxO a
 transaction touches holds a non-negative amount of every asset.

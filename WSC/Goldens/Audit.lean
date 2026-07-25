@@ -383,14 +383,117 @@ theorem accepting_goldens_pass_modulo_artifacts :
 /-- Per-golden form, including the rejecting ones.  Three of the four rejecting
 goldens still fail — correctly: two delete an output (breaking `isBalanced`) and
 one grafts a spending purpose onto a minting `TxInfo`.  The fourth
-(`mint-local-empty-withdrawals-REJECT`) passes, i.e. it IS a well-formed ledger
-context that the bytecode rejects — making it the suite's only clean negative
-control. -/
+(`mint-local-empty-withdrawals-REJECT`) passes.
+
+**CORRECTED (task C3).**  Earlier revisions of this docstring concluded from that
+pass that the golden "IS a well-formed ledger context that the bytecode rejects —
+making it the suite's only clean negative control".  That conclusion is **FALSE**,
+and it was false only because `validScriptContext` did not check the rule that
+catches it: the golden empties `txInfoWdrl` but leaves the `Rewarding` redeemer
+entry behind, so it violates Conway UTXOW's `ExtraRedeemers`
+(`extra_redeemers_in_mint_local_empty_withdrawals` below).  **The suite has no
+clean negative control.** -/
 theorem relaxed_verdicts :
     all.all (fun v =>
       relaxedVerdict v ==
         some (v.accepts || v.scenario == "mint-local-empty-withdrawals-REJECT"))
       = true := by
+  native_decide
+
+/-! ## Step 4 — the `MissingRedeemers` / `ExtraRedeemers` rule (task C3)
+
+`validScriptContext` does **not** contain the Conway UTXOW rule
+`hasExactSetOfRedeemers` (`Alonzo/Rules/Utxow.hs:239-262`, reached from Conway at
+`Babbage/Rules/Utxow.hs:351`); CLAB states it separately as
+`CardanoLedgerApi.V3.Contexts.redeemerCoverage` / `noExtraRedeemers` /
+`redeemersExact`, and `WSC/Honest.lean` assumes it as row **S** /
+`LR_REDEEMER_COVERAGE`.  Its omission is audit finding **F2**: it is exactly why
+every shaped context — two script withdrawals, one redeemer entry — satisfied
+`validRewardingContext` while being unbuildable by a node.
+
+This section is the empirical evidence that the new predicate is **not
+over-strong**.  If it were, real transactions would fail it; they do not.  All 13
+goldens satisfy coverage, and all 9 accepting ones satisfy the FULL exact-set
+rule with the needed-purpose multiset matching the redeemer map entry-for-entry
+across all four validators, at 2–5 entries, spanning `Spending`, `Rewarding` and
+`Minting` purposes.
+
+The needed-purpose list is in the ledger's `getConwayScriptsNeeded`
+concatenation order (spending, rewarding, certifying, minting, voting,
+proposing), while `txInfoRedeemers` is in `ConwayPlutusPurpose` order
+(`Spending < Minting < Certifying < Rewarding < …`).  The rule compares SETS
+(`Set.fromList` in `extSymmetricDifference`, `Utxow.hs:381`), so the differing
+orders are irrelevant and both predicates test membership only. -/
+
+/-- **Every golden — all 13, accepting and rejecting — satisfies
+`redeemerCoverage`.** Nothing in this suite is missing a redeemer entry for a
+script it needs.  Contrast every shape in `WSC/Shaped/`, which has two script
+withdrawals and one redeemer entry. -/
+theorem every_golden_is_redeemer_covered :
+    all.all (fun v =>
+      match ctxOfHex v.scriptContextHex with
+      | none => false
+      | some ctx =>
+          CardanoLedgerApi.V3.Contexts.redeemerCoverage ctx.scriptContextTxInfo)
+      = true := by
+  native_decide
+
+/-- **The headline for C3.** Every ACCEPTING golden satisfies the full exact-set
+rule — both `MissingRedeemers` and `ExtraRedeemers` — with no relaxation.  This
+is the measurement that shows the new conjunct excludes no real transaction. -/
+theorem every_accepting_golden_has_exact_redeemers :
+    all.all (fun v =>
+      !v.accepts ||
+      (match ctxOfHex v.scriptContextHex with
+       | none => false
+       | some ctx =>
+           CardanoLedgerApi.V3.Contexts.redeemersExact ctx.scriptContextTxInfo))
+      = true := by
+  native_decide
+
+/-- **NEW FINDING (task C3).** `mint-local-empty-withdrawals-REJECT` violates
+`ExtraRedeemers`: its tamper empties `txInfoWdrl` (`wdrl = 0`) but leaves the
+`Rewarding` redeemer entry in place, so it needs exactly one purpose (`Minting`)
+and carries two.  It is therefore **not** a context any node would build, and the
+`relaxed_verdicts` docstring's former claim that it is the suite's only clean
+negative control is retracted there. -/
+theorem extra_redeemers_in_mint_local_empty_withdrawals :
+    (match ctxOfHex
+        programmableTokenMinting_mint_local_empty_withdrawals_REJECT.scriptContextHex with
+     | none => false
+     | some ctx =>
+         ctx.scriptContextTxInfo.txInfoWdrl.length == 0
+         && CardanoLedgerApi.V3.Contexts.redeemerCoverage ctx.scriptContextTxInfo
+         && !CardanoLedgerApi.V3.Contexts.noExtraRedeemers ctx.scriptContextTxInfo)
+      = true := by
+  native_decide
+
+/-- The measured `(needed purposes, redeemer entries)` pair for every golden, in
+`all` order.  This pins `WSC/AUDIT.md` §8 F2's redeemer-count table to the code:
+the two counts agree on 12 of 13, and the one disagreement is the
+`ExtraRedeemers` outlier above. -/
+theorem redeemer_needed_and_present_counts :
+    all.map (fun v =>
+      match ctxOfHex v.scriptContextHex with
+      | none => (0, 0)
+      | some ctx =>
+          ((CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed
+              ctx.scriptContextTxInfo).length,
+           ctx.scriptContextTxInfo.txInfoRedeemers.length))
+      = [ (2, 2)   -- base-spend-no-global-or-seize-invoked-REJECT
+        , (3, 3)   -- base-spend-transfer-tx                      (ACCEPTING)
+        , (3, 3)   -- transfer-containment-violation-REJECT
+        , (3, 3)   -- transfer-member-single-policy               (ACCEPTING)
+        , (3, 3)   -- transfer-mixed-many-policies                (ACCEPTING)
+        , (2, 2)   -- transfer-nonmember-covering-node            (ACCEPTING)
+        , (3, 3)   -- seize-1-input-missing-residual-output-REJECT
+        , (3, 3)   -- seize-1-input                               (ACCEPTING)
+        , (4, 4)   -- seize-2-inputs-partial-with-noise           (ACCEPTING)
+        , (5, 5)   -- mint-burnonly                               (ACCEPTING)
+        , (5, 5)   -- mint-delegate-transfer-topup                (ACCEPTING)
+        , (1, 2)   -- mint-local-empty-withdrawals-REJECT   <-- ExtraRedeemers
+        , (2, 2)   -- mint-local-registered-by-ref                (ACCEPTING)
+        ] := by
   native_decide
 
 end WSC.Goldens.Audit
