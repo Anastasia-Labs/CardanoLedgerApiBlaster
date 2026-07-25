@@ -903,9 +903,33 @@ theorem bridge_G1
             (globalShapedCtx cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
             dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
 
+/-! ### F22 — READ BEFORE QUOTING `bridge_GIdx` OR `bridge_GNIdx`
+
+Audit finding **F22** (informational, `WSC/AUDIT.md` §8) about the next two
+theorems, recorded here so nobody meets them without it:
+
+* **They are the only results over their two terms.** Nothing else in the library
+  mentions `appliedGlobalShapedIdx1600` or `appliedGlobalShapedNIdx1600`, and
+  **neither is load-bearing** — grep finds them cited only in
+  `WSC/SHAPE-BRIDGE.md` and in §RESIDUAL's own narrative below. No property, no
+  `LeafSet` and no composed result consumes either one.
+* **An `↔` between two unsatisfiable statements is true.** So the bare
+  biconditional is not by itself evidence that anything accepts.
+* **CLOSED AT THE G STAGE (2026-07-25) for the vacuity half.**
+  `WSC.globalShapedCtxIdx_at_0_1` (`WSC/Shaped/GlobalShapedIdx.lean`, `rfl`) shows
+  SHAPE G2 at `(pIdx, nIdx) = (0, 1)` IS SHAPE G1, and
+  `G1NonVacuity.propIdx_accepts_1600` / `propNIdx_accepts_1600` below chain it
+  through these two bridges to exhibit a CONCRETE accepting instance of each
+  shaped prop. Both accept-classes are therefore **non-empty at budget 1600**, and
+  neither bridge is vacuous. What that does NOT do is make them load-bearing: they
+  still are not. -/
+
 /-- **LEVEL 3, SHAPE GIdx — THE SHAPE BRIDGE, prop level.**  The shaped prep's
 optimized term accepts exactly when the UNSHAPED prep's optimized term accepts on
-the `ScriptContext` the shape denotes.  Solver-verified (`blaster`). -/
+the `ScriptContext` the shape denotes.  Solver-verified (`blaster`).
+
+NOT load-bearing, and non-vacuous only via `propIdx_accepts_1600` — see the F22
+stanza immediately above. -/
 theorem bridge_GIdx
     (ppCS : CurrencySymbol)
     (cs tn : ByteString) (q : Integer)
@@ -926,7 +950,10 @@ theorem bridge_GIdx
 
 /-- **LEVEL 3, SHAPE GNIdx — THE SHAPE BRIDGE, prop level.**  The shaped prep's
 optimized term accepts exactly when the UNSHAPED prep's optimized term accepts on
-the `ScriptContext` the shape denotes.  Solver-verified (`blaster`). -/
+the `ScriptContext` the shape denotes.  Solver-verified (`blaster`).
+
+NOT load-bearing, and non-vacuous only via `propNIdx_accepts_1600` — see the F22
+stanza above `bridge_GIdx`. -/
 theorem bridge_GNIdx
     (ppCS : CurrencySymbol)
     (cs tn : ByteString) (q : Integer)
@@ -1444,6 +1471,58 @@ theorem ctx_valid : CardanoLedgerApi.V3.validRewardingContext ctx = true := by n
 
 /-- The UNSHAPED 1600 prep's OPTIMIZED term accepts it. -/
 theorem prop_accepts_1600 : isSuccessful (appliedGlobal1600.prop ppCS ctx) := by blaster
+
+/-! #### F22 — the two GIdx/GNIdx accept-classes are NOT empty
+
+The bridges `bridge_GIdx` / `bridge_GNIdx` are `↔`s, and an `↔` between two
+unsatisfiable statements is true. The two theorems below rule that reading out, by
+inheriting `prop_accepts_1600` through `WSC.globalShapedCtxIdx_at_0_1` (`rfl`):
+SHAPE G2 at `(pIdx, nIdx) = (0, 1)` and SHAPE G3 at `nIdx = 1` are SHAPE G1 on the
+nose, so `ctx` above is a member of both, and both shaped props accept it at budget
+1600.
+
+**What this settles and what it does not.** SETTLED: neither bridge is vacuous.
+NOT settled, and not claimed: neither bridge becomes load-bearing — nothing in the
+library consumes them — and neither theorem says anything about the SYMBOLIC index
+values, which is what SHAPES G2/G3 exist to explore (`GlobalShapedIdx.lean`'s
+header records that P5 is FALSIFIED at SHAPE G2 with `pIdx = 1, nIdx = 1`, which is
+exactly why G3 pins `pIdx = 0`). -/
+
+/-- **SHAPE G2's prop ACCEPTS a concrete context at budget 1600**, so `bridge_GIdx`
+is not an `↔` between two false statements. -/
+theorem propIdx_accepts_1600 :
+    isSuccessful
+      (appliedGlobalShapedIdx1600.prop ppCS (ByteString.mk "MMM") (ByteString.mk "TOK") 7
+        (ByteString.mk "OWNER") 200
+        (ByteString.mk "DEST") 150 7
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+        (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+        (ByteString.mk "AAA") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "GLOBAL") (ByteString.mk "ZZZZ") 0 0
+        50 0 1) := by
+  rw [bridge_GIdx]
+  exact prop_accepts_1600
+
+/-- **SHAPE G3's prop ACCEPTS the same context**, so `bridge_GNIdx` is not an `↔`
+between two false statements either. -/
+theorem propNIdx_accepts_1600 :
+    isSuccessful
+      (appliedGlobalShapedNIdx1600.prop ppCS (ByteString.mk "MMM") (ByteString.mk "TOK") 7
+        (ByteString.mk "OWNER") 200
+        (ByteString.mk "DEST") 150 7
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+        (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+        (ByteString.mk "AAA") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "GLOBAL") (ByteString.mk "ZZZZ") 0 0
+        50 1) := by
+  rw [bridge_GNIdx]
+  exact prop_accepts_1600
 
 /-- **`WSC.GlobalNonVacuous appliedGlobal1600.prop`, unfolded and PROVED.**  Stated
 in unfolded form so this module need not import `WSC/Honest.lean` (which pulls

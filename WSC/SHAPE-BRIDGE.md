@@ -1,10 +1,36 @@
 # SHAPE BRIDGE — the link from `appliedXShaped.prop` to a ledger-supplied `ScriptContext`
 
-Task **U1**. Deliverable module: `WSC/ShapeBridge.lean` (1,616 lines, 16 shapes,
-whole-module build 38 s, 19 expected `sorry` warnings).
+Task **U1**. Deliverable module: `WSC/ShapeBridge.lean`.
 Branch `wsc-containment-proofs`; canonical HEAD was `0e2a99d` at task start and
 `92f3255` (task U2, "axiom/prep hygiene + wire the shaped leaves into the LeafSet")
 when this was written — §8 is stated against `92f3255`.
+
+> ## ⚠️ NUMBERS RECONCILED AT THE G STAGE (H1, 2026-07-25)
+>
+> **The authority for every campaign-level number is `WSC/AUDIT.md` §1, not this
+> file.** This document is task U1's deliverable and its body is left as U1 wrote
+> it; only the stale figures are corrected here, in one place, so that the body can
+> still be read as the record of its own stage.
+>
+> | figure | as written by U1 | **current, verified** |
+> |---|---|---|
+> | `WSC/ShapeBridge.lean` length | 1,616 lines | **1,705 lines** |
+> | whole-module cold build | 38 s | **45 s** (G3, box under concurrent load; ≈38 s on a quiet box) |
+> | expected `sorry` warnings in this module | 19 | **19 — unchanged** (`AUDIT.md` §2: all 20 build-wide `sorry` warnings less the one pre-existing PCB warning) |
+> | shapes bridged | 16 | **16 — unchanged** (6 Tier A + 10 Tier B). Not to be confused with the **13** re-cut shapes of `WSC/Coverage.lean`'s family, which is a different roster for a different purpose |
+> | whole-library build | not stated | **432 jobs, 162 verdicts (103 ✅ Valid + 59 ✅ Expected Falsified), 0 errors**, of which this module contributes **19 V + 6 F** |
+>
+> **Two substantive corrections to the body**, both flagged again at their own
+> sections:
+>
+> 1. **§10 is out of date on coverage.** It says *"No such argument is offered"*.
+>    Since task E4 there IS an artifact: `WSC/Coverage.lean` states coverage in Lean
+>    and proves it **FALSE** for the re-cut family. See the note at §10.
+> 2. **§F22 — `bridge_GIdx` and `bridge_GNIdx` are NOT load-bearing.** Nothing in
+>    the library consumes them; their non-vacuity was unwitnessed until the G stage
+>    and is now supplied by `G1NonVacuity.propIdx_accepts_1600` /
+>    `propNIdx_accepts_1600` through the `rfl` reduction
+>    `WSC.globalShapedCtxIdx_at_0_1`. See `AUDIT.md` §8 F22.
 
 This module discharges the obligation `WSC/Composition.lean` §9.4 names
 ("SHAPE BRIDGE — an obligation created by the shaped-context route", *"expected to
@@ -460,9 +486,22 @@ A coverage argument would require **one** of:
    contexts) with a separately argued compilation-fidelity bridge — one faithfulness
    axiom per model, which is exactly the trade the UPLC route was chosen to avoid.
 
-**No such argument is offered.** `WSC/ShapeBridge.lean` writes the obligation down as
-`M1Covers : Prop` — unproved, **not** an axiom, and noted there as *false as stated*
-for M1 alone. The honest framing remains the one ARCHITECTURE publishes: **bounded
+**No such argument is offered — BY THIS MODULE.** `WSC/ShapeBridge.lean` writes the
+obligation down as `M1Covers : Prop` — unproved, **not** an axiom, and noted there as
+*false as stated* for M1 alone.
+
+> **SUPERSEDED IN PART (task E4, re-checked at the G stage 2026-07-25).** The
+> sentence above was written when coverage was an UNKNOWN. It no longer is.
+> `WSC/Coverage.lean` states coverage in Lean (`Covers`) and **proves it FALSE**
+> for the **thirteen** re-cut shapes at `SizeBound 2 2 2 2 0` — SHAPE T1R's own
+> size — with three node-realizable witnesses the production bytecode accepts in
+> exactly 2,603 CEK steps, the shape's own step count; no project axiom, no
+> `sorryAx`. Route 1 of the three above is additionally **priced out**: ≈971
+> single-core CPU-years for one property at the smallest bound admitting a real
+> transfer. Read `WSC/COVERAGE.md` and `WSC/AUDIT.md` §8 F2-coverage instead of
+> this paragraph. What survives from it unchanged is the DIAGNOSIS — that shapes
+> cannot be parameterised over list lengths and constructor tags — which is
+> precisely the mechanism `Coverage.lean`'s three counterexamples exploit. The honest framing remains the one ARCHITECTURE publishes: **bounded
 model checking beneath the axiomatic layer**, now bounded in two dimensions (step
 budget `K`, shape `σ`), with the second dimension formally connected to the
 ledger-supplied `ScriptContext` by this module.

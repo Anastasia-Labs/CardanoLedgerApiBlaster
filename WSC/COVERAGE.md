@@ -15,7 +15,7 @@ earlier hope is closed off, with a proof.
 ## 0. THE ONE-PARAGRAPH ANSWER
 
 Coverage is now **stated in Lean** (`Coverage.Covers`), and it is **false** for
-the twelve node-realizable shapes of tasks C1/C2 — not at some larger
+the thirteen node-realizable shapes of tasks C1/C2 and the G stage — not at some larger
 transaction size, but at **SHAPE T1R's own size**. Three witnesses prove it, each
 of which is (i) `validRewardingContext` **and** `redeemersExactAllPlutus`, i.e. realizable
 at exactly the bar `WSC.t1R_realizable` meets, (ii) **accepted by the real
@@ -26,9 +26,9 @@ inputs, and a transfer with an unbounded validity interval (the default every
 wallet emits). None is exotic. (That last characterisation — "what every wallet
 emits" — is a statement about the world, not a measurement in this repository;
 what IS machine-checked is that an unbounded validity interval is
-`validRewardingContext` and outside all twelve shapes.) The arithmetic explains why no repair by enumeration is available: at
+`validRewardingContext` and outside all thirteen shapes.) The arithmetic explains why no repair by enumeration is available: at
 that bound there are at least **3.05 × 10¹⁴** distinct `Data` skeletons against a
-family of **12**, and even the smallest bound that admits a single real transfer
+family of **13**, and even the smallest bound that admits a single real transfer
 has **9.27 × 10⁹** — ≈ 971 single-core CPU-years at the campaign's own measured
 prep+solve rate, for one property. The recommendation is therefore **not** a
 coverage programme: it is to fix Blaster defect **D6** and prove over fully
@@ -106,7 +106,7 @@ A shape freezes two kinds of thing, and the distinction decides everything:
 | **leaf scalars** | every `ByteString`, every `Integer` (hashes, quantities, ada amounts, fee, redeemer indices) | **yes** — they are the shape's free leaves, and they are symbolic |
 | **list lengths and constructor tags** — the `Data` skeleton | how many inputs / reference inputs / outputs / withdrawals / redeemer entries / signatories / certificates / datum witnesses / mint policies / token names per policy; `Credential` tag; staking-reference tag; datum tag; `Option` presence; validity-interval bound tags | **no.** Freezing them is precisely what makes `#prep_uplc` tractable. Escaping one needs a NEW SHAPE — a new prep, new theorems, a new vacuity probe |
 
-The twelve re-cut shapes and their free-leaf counts (the builders' own arities,
+The thirteen re-cut shapes and their free-leaf counts (the builders' own arities,
 counted mechanically from their `def` signatures):
 
 | shape | builder | free leaves | in | ref | out | wdrl | mint |
@@ -120,13 +120,21 @@ counted mechanically from their `def` signatures):
 | M1R | `mintRCtx` | 18 | 1 | 0 | 1 | 1 | 1 |
 | M2R | `mintRCtxIdx` | 19 | 1 | 0 | 1 | 1 | 1 |
 | L1R | `localRCtx` | 36 | 1 | 2 | 2 | 1 | 1 |
+| L2R | `localRCtxIdx` | 37 | 1 | 2 | 2 | 1 | 1 |
 | DT1R | `dtRCtx` | 39 | 1 | 2 | 2 | 2 | 1 |
 | DS1R | `dsRCtx` | 39 | 1 | 2 | 2 | 2 | 1 |
 | S1R | `seizeRCtx` | 51 | 2 | 2 | 2 | 2 | 1 |
-| **total** | | **421** | | | | | |
+| **total** | | **458** | | | | | |
 
-**421 free leaves is the whole symbolic surface of the campaign.** Everything
+**458 free leaves is the whole symbolic surface of the campaign.** Everything
 else about every context the library reasons about is a constant.
+
+> **TWELVE → THIRTEEN, at the G stage (2026-07-25).** SHAPE **L2R**
+> (`localRCtxIdx`, 37 leaves = L1R's 36 plus the registration index) joined the
+> family when audit **F19** closed. `Covers` is an existential over the family, so
+> a LARGER family is easier to satisfy and harder to refute — every negative result
+> in §4 is therefore now stated over a strictly larger family and says strictly
+> more than it did at E4. The total moved 421 → 458.
 
 ### 2.1 Five things ALL TWELVE freeze — proved, at every leaf assignment
 
@@ -134,7 +142,7 @@ else about every context the library reasons about is a constant.
 (`#print axioms` = `[propext, Quot.sound]` — no solver, no `native_decide`, no
 project axiom):
 
-| field | what the twelve shapes allow | what the ledger allows |
+| field | what the thirteen shapes allow | what the ledger allows |
 |---|---|---|
 | `txInfoSignatories` | 0 or 1 (`[]` or `[owner]`) | any sorted list of required signers |
 | `txInfoReferenceInputs` | 0, 1 or 2 | any list |
@@ -143,9 +151,10 @@ project axiom):
 | `txInfoData` | `[]` | any sorted datum witness map |
 
 Two of the five (`txInfoTxCerts`, `txInfoData`) are dimensions **no shape in the
-library has ever populated**: all **31** shaped `ScriptContext` builders under
-`WSC/Shaped/` (19 files) assign `txInfoTxCerts := []` and `txInfoData := []`,
-31/31, verified by grep at this revision.
+library has ever populated**: all **32** shaped `ScriptContext` builders under
+`WSC/Shaped/` (20 files) assign `txInfoTxCerts := []` and `txInfoData := []`,
+32/32, verified by grep at this revision. (31/31 over 19 files at E4; the +1 is
+G1's `WSC/Shaped/MintingLocalShapedRIdx.lean`, SHAPE L2R.)
 
 ---
 
@@ -178,7 +187,7 @@ profiles. Machine-checked by `native_decide` in `Coverage.lean` §9:
 | smallest that admits ONE real transfer | 1 | 2 | 1 | ≤1 | **9,269,489,664** | `skeletons_at_minimal_transfer_size` |
 | SHAPE T1R's own | ≤2 | ≤2 | ≤2 | ≤2 | **305,258,198,870,016** | `skeletons_at_T1R_size` |
 
-Against a family of **12**.
+Against a family of **13**.
 
 **Why the middle row is the decision-relevant one.** The global/transfer
 validator cannot run at all without its protocol-params reference input, and the
@@ -221,7 +230,7 @@ out of reach at every bound at which the question is meaningful.
 | `not_covers_at_T1R_size` | `¬ Covers recutFamily ValidRewarding (SizeBound 2 2 2 2 0)` | `propext, ofReduceBool, trustCompiler, Quot.sound` — **no `sorryAx`, no project axiom** |
 | `not_covers_at_T1R_size'` | the same, from an independent witness | same |
 | `not_covers_with_three_reference_inputs` | `¬ Covers recutFamily ValidRewarding (SizeBound 2 3 2 2 0)` | same |
-| `family_invariants` | all twelve shapes satisfy all five invariants at every leaf assignment | `propext, Quot.sound` |
+| `family_invariants` | all thirteen shapes satisfy all five invariants at every leaf assignment | `propext, Quot.sound` |
 | `ctxOk_in_family` | the transcription control | `propext` |
 
 The bound in the first two is **SHAPE T1R's own size**: ≤2 inputs, ≤2 reference
@@ -267,7 +276,7 @@ That third measurement is the honest quantification of what a shape bound costs.
 This section exists because getting this distinction wrong would be the worst
 outcome of the task.
 
-* **PROVED FALSE:** *"the twelve re-cut shapes cover the ledger-valid rewarding
+* **PROVED FALSE:** *"the thirteen re-cut shapes cover the ledger-valid rewarding
   contexts at `SizeBound 2 2 2 2 0`"*. There is a Lean term for its negation, it
   carries no `sorryAx` and no project axiom, and three independent witnesses
   discharge it.
@@ -329,7 +338,7 @@ What it needs, per property, per bound:
    (SHAPE T1R's two-script withdrawal map): ~15 lines, both directions, no
    solver. SHAPE T1R has 39 free leaves over 16 `TxInfo` fields, two structured
    reference-input datums, a redeemer map and a `Data`-encoded redeemer; the
-   twelve shapes have 421 leaves between them.
+   thirteen shapes have 458 leaves between them.
 
 **Cost: 971 CPU-years at the smallest meaningful bound, for one property.** Route
 A is closed.
@@ -368,7 +377,7 @@ programme could offer at any affordable bound.
 Two of the five frozen dimensions could be un-frozen without new shapes, because
 they are ledger fields the validators never dereference:
 
-* `txInfoTxCerts` and `txInfoData` are `[]` in all twelve shapes. A shape variant
+* `txInfoTxCerts` and `txInfoData` are `[]` in all thirteen shapes. A shape variant
   carrying one entry each would cost one prep (~1.3 s) per shape.
 
 This would not change any coverage verdict — the *list-length* axes (§4.2) remain
@@ -384,7 +393,8 @@ third is a constructor tag; **no parameterisation reaches any of them.**
 
 > *Coverage — REFUTED for the current family, and priced.* `WSC/Coverage.lean`
 > states `Covers` and proves `¬ Covers recutFamily ValidRewarding
-> (SizeBound 2 2 2 2 0)` — at SHAPE T1R's own size — with three node-realizable
+> (SizeBound 2 2 2 2 0)` — at SHAPE T1R's own size, over all THIRTEEN re-cut
+> shapes — with three node-realizable
 > witnesses the production bytecode accepts in exactly 2,603 steps, the shape's
 > own step count. The enumeration route is priced at 9.27 × 10⁹ skeletons
 > (≈971 CPU-years, one property) at the smallest bound admitting a real transfer.
@@ -406,9 +416,15 @@ And `AUDIT.md` §9 gains one entry:
 # the module (≈1.7 s cold once its imports are built)
 lake build WSC.Coverage
 
-# the whole library with it: expect 430 jobs, 158 ✅ markers
-# (101 Valid + 57 Expected Falsified — UNCHANGED: this module runs no solver),
+# the whole library with it: expect 432 jobs, 162 ✅ markers
+# (103 Valid + 59 Expected Falsified — this module still runs no solver; the
+#  +2 jobs and +4 markers since E4 are the G stage's, reconciled in AUDIT.md §1.3),
 # 0 errors, 20 `sorry` warnings, 5 unused-variable warnings
+#
+# NUMBERS RECONCILED AT THE G STAGE (2026-07-25). This block used to say
+# "430 jobs, 158 ✅ markers (101 Valid + 57 Expected Falsified)", which was the
+# E4-era state. WSC/AUDIT.md §1.2 is the authority for the current figures:
+# 432 jobs, 1:46-2:10 wall, 1.50-1.66 GB (load-dependent), 94 WSC modules.
 lake build WSC WSC.ShapeBridge 2>&1 | tee build.log
 grep -o '✅ [A-Za-z ]*' build.log | sort | uniq -c
 grep -c 'error:' build.log
@@ -434,7 +450,7 @@ grep "Coverage\." build.log | grep "depends on axioms"
 
 | path | role |
 |---|---|
-| `WSC/Coverage.lean` | the deliverable: `Covers`, `SizeBound`, the 12 shape ranges, `ShapeInvariants` + 12 per-shape proofs, the refutation schema, 3 counterexamples with realizability / acceptance / step-count measurements, the P3 no-coverage-needed statement, `wdrl_range_char`, the skeleton arithmetic, the axiom audit |
+| `WSC/Coverage.lean` | the deliverable: `Covers`, `SizeBound`, the 13 shape ranges, `ShapeInvariants` + 13 per-shape proofs, the refutation schema, 3 counterexamples with realizability / acceptance / step-count measurements, the P3 no-coverage-needed statement, `wdrl_range_char`, the skeleton arithmetic, the axiom audit |
 | `WSC/COVERAGE.md` | this document |
 | `WSC/SHAPE-BRIDGE.md` §10 | the three routes, recorded by task U1 and unsolved — Route 1 is the one priced out here |
 | `WSC/AUDIT.md` §8 F2 | the finding this answers, in its coverage half only |

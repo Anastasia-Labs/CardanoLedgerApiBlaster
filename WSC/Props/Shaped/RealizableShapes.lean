@@ -35,9 +35,10 @@ ordinary Lean — no axiom, no solver, no `sorryAx`.
 | P4a (C1) | M1 | Valid | **EMPTY** under coverage | **M1R** | **Valid** | **REALIZABLE** | 784 |
 | P4 BurnOnly scan | M1 | Valid | EMPTY | **M1R** | **Valid** | REALIZABLE | 784 |
 | P4 BurnOnlyOk | M1 | Valid | EMPTY | **M1R** | **Valid** | REALIZABLE | 784 |
-| P4a, index free | M2 | Valid | EMPTY | **M2R** | **Valid** | REALIZABLE | — |
-| P4 BurnOnly, index free | M2 | Valid | EMPTY | **M2R** | **Valid** | REALIZABLE | — |
+| P4a, index free | M2 | Valid | EMPTY | **M2R** | **Valid** | REALIZABLE | 784 |
+| P4 BurnOnly, index free | M2 | Valid | EMPTY | **M2R** | **Valid** | REALIZABLE | 784 |
 | P4-Local `noEscape` | L1 | Valid | EMPTY | **L1R** | **Valid** | REALIZABLE | 1681 |
+| P4-Local `noEscape`, reg index free | L2 | Valid | EMPTY | **L2R** | **Valid** | REALIZABLE | 1681 |
 | P4a on Local | L1 | Valid | EMPTY | **L1R** | **Valid** | REALIZABLE | 1681 |
 | P4-Local registration | L1 | Valid | EMPTY | **L1R** | **Valid** | REALIZABLE | 1681 |
 | P4 `LocalCustodyOk` | L1 | Valid | EMPTY | **L1R** | **Valid** | REALIZABLE | 1681 |
@@ -59,12 +60,26 @@ level, for a reason that is structural rather than lucky: the context reaches th
 machine as ONE constant term (`CardanoLedgerApi/V3/Contexts.lean:717-726`), and the
 only arm that walks the redeemer map at all is `DelegateSeize`.
 
-**WHAT IS STILL NOT RE-CUT, and is therefore still stated over a PROVED-EMPTY
-class:** SHAPE L2 (`WSC/Shaped/MintingLocalShapedIdx.lean`, the free-REGISTRATION-
-index rung consumed by `P4_local_noEscape_shapedIdx`). Its value was a measurement
-about index-dependence, not a custody claim, and the withdrawal map is orthogonal
-to it — but the theorem's class is empty and this module says so rather than
-letting it pass.
+**EVERY SHAPE IS NOW RE-CUT — CORRECTED AT THE G STAGE (2026-07-25).** This
+paragraph used to read *"WHAT IS STILL NOT RE-CUT … SHAPE L2"*, and that is
+**false as of `f4486ca`**: SHAPE **L2R** (`WSC/Shaped/MintingLocalShapedRIdx.lean`)
+is the re-cut of the free-REGISTRATION-index rung, it is node-realizable, and it
+carries the full four-item bar. That is audit finding **F19**, closed; the roster
+is **13 of 13** re-cut shapes (T1R, T2R, T6R, T7R, G1R, G6R, M1R, M2R, L1R,
+**L2R**, DT1R, DS1R, S1R), with no 3/4 row left.
+
+What remains true is the *statement about the OLD shape*: SHAPE L2
+(`WSC/Shaped/MintingLocalShapedIdx.lean`) is still proved empty, so
+`WSC.P4_local_noEscape_shapedIdx` — the theorem over it — is still a TRUE and
+UNCOMPOSABLE measurement about index-dependence, and it is **superseded by
+`WSC.P4_local_noEscape_RIdx`** (`WSC/Props/Shaped/P4LocalShapedR.lean`) over SHAPE
+L2R. Both are retained: the pre/post pair is what makes §1's before/after table
+machine-checkable.
+
+**NAMING, recorded because an auditor tripped on it.** L2R's realizability theorem
+is `WSC.L2RWitness.ctx_realizable` (`P4LocalShapedR.lean`). There is no
+`l2r_realizable` in that file; §2 below declares one here, as a plain alias, in the
+same shape as the other six roster entries.
 
 **WHAT "REALIZABLE" MEANS HERE, exactly.** `Realizability.Realizable` =
 `validScriptContext` (CLAB's strongest ledger predicate) **+** the
@@ -155,6 +170,26 @@ theorem m2r_realizable : Realizability.Realizable WSC.M2RWitness.ctx :=
 /-- SHAPE L1R (`Local`). -/
 theorem l1r_realizable : Realizability.Realizable WSC.L1RWitness.ctx :=
   WSC.L1RWitness.ctx_realizable
+
+/-- **SHAPE L2R** (`Local`, REGISTRATION index symbolic) — added at the G stage so
+that the roster is 13 of 13 and no re-cut shape is missing from it.
+
+A plain alias of `WSC.L2RWitness.ctx_realizable`
+(`WSC/Props/Shaped/P4LocalShapedR.lean`), which is the real name; there is no
+`l2r_realizable` in that module, and this declaration exists so that nobody has to
+invent one.
+
+**READ IT WITH THE CAVEAT L2R'S OWN MODULE CARRIES.** `L2RWitness.ctx` is
+`rfl`-equal to `L1RWitness.ctx` (`L2RWitness.ctx_eq_L1R`), i.e. the accepting
+witness at L2R IS L1R's witness at `regIdx = 1`. So this row is NOT independent
+evidence from `l1r_realizable`; what is genuinely new at SHAPE L2R is the
+SYMBOLIC quantification in `WSC.P4_local_noEscape_RIdx` and the REJECTING witness
+at `regIdx = 0` (`L2RWitness.exec_rejects_regIdx0`), neither of which is a
+realizability fact. Deliberately NOT given a `#print axioms` line in §3: it is a
+definitional alias, and this hygiene pass does not move the sealed axiom census of
+`WSC/AUDIT.md` §3. -/
+theorem l2r_realizable : Realizability.Realizable WSC.L2RWitness.ctx :=
+  WSC.L2RWitness.ctx_realizable
 
 /-- SHAPE DT1R (`DelegateTransfer`). -/
 theorem dt1r_realizable : Realizability.Realizable WSC.DelegateRWitness.ctxDT :=

@@ -1,3 +1,39 @@
+> ## ⚠️ HISTORICAL — task Z2's own record. SUPERSEDED for every status claim.
+> **Dated pointer added at the G stage (H1, 2026-07-25).** This document is the
+> measurement ladder of **task Z2**, an early stage, and it is deliberately **not
+> rewritten**: its value is that it records what was true then, including the
+> failures. Read it as history. For current status the authorities are, in order:
+> `WSC/AUDIT.md` (§7.6 and §11 are the current truth), then `WSC/STATUS.md`, then
+> `WSC/README.md`.
+>
+> **What has moved since Z2, so that no row below is mistaken for the state today:**
+>
+> * **§7's "where this leaves the campaign" table is stale in every row.** P1, P2
+>   and P6 are no longer "not attempted" — **all six properties P1–P6 are proved
+>   against the real compiled production validators**, and all four P4 arms are
+>   exercised. §7's "what to do next" list is entirely done.
+> * **Every shape named below has been RE-CUT.** The shapes of this document
+>   (M1, M2, G1, G3, L1, L2, …) were later proved to be classes that no ledger
+>   transaction can inhabit — their redeemer maps do not cover the script witnesses
+>   they bake (Conway UTXOW `MissingRedeemers`;
+>   `WSC/Props/Shaped/ShapeRealizability.lean`). The live roster is the **13**
+>   re-cut shapes T1R T2R T6R T7R G1R G6R M1R M2R L1R **L2R** DT1R DS1R S1R
+>   (`WSC/Props/Shaped/RealizableShapes.lean`). In particular §2.4/§6.2's SHAPE L2
+>   rung is superseded by SHAPE **L2R** and `WSC.P4_local_noEscape_RIdx`.
+> * **Coverage has an answer, and it is "no".** §7's *"a shape-coverage argument
+>   that does not exist yet"* is superseded: `WSC/Coverage.lean` **refutes**
+>   coverage for the 13-shape family at SHAPE T1R's own size, and `WSC/COVERAGE.md`
+>   prices the enumeration route at ≈971 CPU-years for one property.
+> * **Current verified build state** (`WSC/AUDIT.md` §1.2, two clean-room runs):
+>   **432 jobs, 1:46–2:10 wall, 162 verdicts = 103 ✅ Valid + 59 ✅ Expected
+>   Falsified, 0 errors, 20 `sorry` warnings, 5 unused-variable, 94 WSC modules.**
+>   None of the per-stanza timings below has been re-measured at that revision and
+>   they should not be quoted as current.
+> * **Still true, and the reason to keep this file:** the headline finding — that
+>   shaping the `ScriptContext` breaks the Z3 wall, with the 5,241 s-no-verdict vs
+>   ≈2 s comparison — is unchanged and is cited from `WSC/COVERAGE.md` §6 to this
+>   day.
+
 # SHAPED-CONTEXT UPLC VERIFICATION — measurement ladder and results (task Z2)
 
 **Headline.** Shaping the `ScriptContext` breaks the Z3 wall that blocked every

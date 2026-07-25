@@ -403,7 +403,29 @@ of it — including the negative values `pcheckedDrop` explicitly rejects
 
 MEASURED: `✅ Valid`, 2.2 s at a 300 s Z3 cap. Contrast the REGISTRATION conjunct
 at the same shape, which is `Undetermined` (Bound 2c) — the no-escape property is
-index-independent, the registration property is not. -/
+index-independent, the registration property is not.
+
+**⚠️ SUPERSEDED, AND OVER A CLASS THAT IS PROVED EMPTY (G-stage, 2026-07-25).**
+Read this theorem as a MEASUREMENT, never as a custody guarantee:
+
+* **Its class is empty.** SHAPE L2 (`WSC/Shaped/MintingLocalShapedIdx.lean`) is a
+  pre-C2 shape whose redeemer map does not cover the script witnesses the same
+  shape bakes, so by Conway UTXOW's `MissingRedeemers` no ledger transaction is a
+  member — `WSC/Props/Shaped/ShapeRealizability.lean` proves it, and
+  `WSC/Props/Shaped/RealizableShapes.lean` §1 records the coverage bit as `false`
+  at SHAPE L2's own witness. A theorem over an empty class is TRUE and
+  UNCOMPOSABLE (`WSC/AUDIT.md` §4c). Nothing in the composition consumes it.
+* **It is superseded by `WSC.P4_local_noEscape_RIdx`**
+  (`WSC/Props/Shaped/P4LocalShapedR.lean`) over **SHAPE L2R**
+  (`WSC/Shaped/MintingLocalShapedRIdx.lean`) — the re-cut of this rung, whose
+  class is node-realizable and which carries the full four-item bar (theorem,
+  vacuity probe at its own prep term, two-sided CEK witness, realizability
+  theorem). That is audit finding **F19**, closed. The retirement of this theorem
+  was the whole point of the L2R rung.
+
+This stanza is a comment. The theorem is retained, unchanged, because the
+pre/post pair is what makes `RealizableShapes.lean`'s before/after table
+machine-checkable. -/
 theorem P4_local_noEscape_shapedIdx :
   ∀ (ppCS : CurrencySymbol) (mlh : ScriptHash)
     (ownCS tn : ByteString) (q : Integer)

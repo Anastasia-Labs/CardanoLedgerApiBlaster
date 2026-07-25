@@ -1032,8 +1032,8 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   remaining arms shape by shape, and §10.3's `p4_disjuncts_of_custody` (below) is
   what turns them into this field. Current state, ALL verified by the U3
   clean-room rebuild: arm 4 at SHAPES M1/M2 @900 (`WSC.P4_burnonly_arm_shaped`,
-  `WSC.P4_burn_only_shapedIdx`), arm 1 at SHAPES L1/L2 @2500
-  (`WSC.P4_disjunction_at_L1`, `WSC.P4_local_noEscape_shapedIdx`), arm 2 at SHAPE
+  `WSC.P4_burn_only_shapedIdx`), arm 1 at SHAPES L1/**L2R** @2500
+  (`WSC.P4_disjunction_at_L1`, `WSC.P4_local_noEscape_RIdx`), arm 2 at SHAPE
   DT1 @2500 (`WSC.P4_disjunction_at_DT1`), arm 3 at SHAPE DS1 @2500
   (`WSC.P4_disjunction_at_DS1`). What is STILL missing is therefore NOT the arms:
   it is (i) a shape-COVERAGE argument, (ii) the shape bridge instantiated at these
@@ -1041,6 +1041,18 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   `LeafSet` is built from them), and (iii) a minting budget bridge at 2500 —
   `WSC.LR_BUDGET_minting` is published at 900 only, below the 1,257/1,466/1,681
   the three new arms cost.
+
+  **RE-POINTED AT THE G STAGE (2026-07-25).** The arm-1 citation above used to
+  read "SHAPES L1/L2 … `WSC.P4_local_noEscape_shapedIdx`". SHAPE L2's class is
+  proved empty (`WSC/Props/Shaped/ShapeRealizability.lean`), so that name could
+  never have supported an arm; it is superseded by `WSC.P4_local_noEscape_RIdx`
+  over the node-realizable SHAPE **L2R**
+  (`WSC/Shaped/MintingLocalShapedRIdx.lean`, `WSC/Props/Shaped/P4LocalShapedR.lean`),
+  which is what the line now cites. **This is a NARRATIVE fix only: neither name
+  is a dependency of this structure or of anything built from it** — the `p4`
+  field below is a hypothesis, and `#print axioms` on every composed result shows
+  no P4-Local theorem is reached. The correction changes what a reader is pointed
+  at, not what anything proves.
 
   NOTE on the `DelegateSeize` arm: `WSC/Spec.lean`'s `DelegateSeizeOk` concludes
   `seizeScopedToNodeOf`, which exhibits a `Rewarding seizeCred` entry in the
