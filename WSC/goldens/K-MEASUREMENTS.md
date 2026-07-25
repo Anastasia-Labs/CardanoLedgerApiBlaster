@@ -4,7 +4,7 @@ Answers SPIKE-FINDINGS open issue 2 ("the minimum non-vacuous seize budget is
 unknown — measure actual CEK steps of a concrete accepting run before choosing
 K") and supplies the numbers ARCHITECTURE.md's `LR-BUDGET` axiom quantifies over.
 
-**Headline. The four production validators halt in 208 – 4,647 CEK steps on real
+**Headline. The four production validators halt in 208 - 5,079 CEK steps on real
 golden transactions — four orders of magnitude below the ceiling we allowed for,
 and the measurement itself costs 3 ms per golden. So the numbers are small and
 cheap to get; the bad news is on the other side of the ledger. Symbolic
@@ -15,7 +15,7 @@ base is proved and comfortable (K = 208, prep 600 = 11 s); minting has a genuine
 affordable non-vacuous budget (K_novac = 784, prep ≈ 20 s) and should be attacked
 next; global's cheapest accept (1,554) is affordable at 26–36 min of prep — and
 that accept is the covering-node scenario, i.e. exactly P5's subject, so P5 at
-UPLC is newly within reach; while seize (2,570) and the containment-carrying
+UPLC is newly within reach; while seize (3,002) and the containment-carrying
 global transfers (3,262 / 3,726) are out of reach by 3 to 9 orders of magnitude,
 so P2 and P1 cannot be done this way. The blocker was never the
 validators' step counts — it is symbolic-prep cost as a function of budget.**
@@ -24,9 +24,26 @@ validators' step counts — it is symbolic-prep cost as a function of budget.**
 
 > ## ⛔ CORRECTION NOTICE (task A1, 2026-07-25) — read before quoting ANY prep cost
 >
-> **§3's CEK step counts are correct and unaffected.** They are what this document
-> is for, they were cross-checked to the unit against the ledger's `ExBudget` for
-> all 9 accepting goldens, and every later task has reproduced them.
+> **AMENDED BY TASK C3, 2026-07-25 — §3's step counts were NOT all unaffected.**
+> The sentence that stood here ("§3's CEK step counts are correct and unaffected")
+> was true when written of the vectors then on disk, and is FALSE of the vectors on
+> disk now: the wsc-poc builder fix (positive fee, ledger-ordered withdrawals,
+> min-ada on every output) re-dumped every golden and every applied flat, and
+> **4 of the 13 rows moved**. §3 is corrected in place from a fresh run of
+> `KMeasure.lean` against the current `WSC/goldens/applied/*.flat` (Appendix A′);
+> the superseded run is retained verbatim as Appendix A. The moved rows are
+> `seize-1-input` 2,570 → **3,002**, `seize-2-inputs-partial-with-noise`
+> 4,647 → **5,079**, `seize-1-input-missing-residual-output-REJECT`
+> 1,938 → **2,261**, `transfer-containment-violation-REJECT` 2,970 → **2,737**
+> (the only one that went DOWN). The other 9 rows reproduce to the unit.
+>
+> The audit's finding **F13** flagged the two ACCEPTING seize rows; it did not
+> flag the two REJECTING rows, which this re-measurement adds.
+>
+> **The cross-check still holds, and it is the reason to trust the new numbers:**
+> PCB's own metered budget equals the ledger's `ExBudget` in the golden JSON
+> exactly, for all 9 accepting goldens, on the CURRENT vectors — including
+> `60,231,630 / 163,820` and `105,501,594 / 274,735` for the two seize rows.
 >
 > **§5.1's PREP-COST table is wrong by 6–58×, and so is every prep-cost figure in
 > the headline paragraph above** ("prep 600 = 11 s", "prep ≈ 20 s", "26–36 min",
@@ -151,19 +168,19 @@ program.
 | programmableTokenMinting.mint-delegate-transfer-topup | yes | Halt | **1,257** | 26,455,938 | 69,372 | **exact** | 21,047 | 55.2 |
 | programmableTokenMinting.mint-local-registered-by-ref | yes | Halt | **1,681** | 34,116,362 | 92,870 | **exact** | 20,295 | 55.2 |
 | programmableTokenMinting.mint-local-empty-withdrawals-REJECT | no | Error | 1,627 | — | — | n/a | — | — |
-| programmableSeize.seize-1-input | yes | Halt | **2,570** | 51,571,527 | 140,357 | **exact** | 20,067 | 54.6 |
-| programmableSeize.seize-2-inputs-partial-with-noise | yes | Halt | **4,647** | 96,841,491 | 251,272 | **exact** | 20,840 | 54.1 |
-| programmableSeize.seize-1-input-missing-residual-output-REJECT | no | Error | 1,938 | — | — | n/a | — | — |
+| programmableSeize.seize-1-input | yes | Halt | **3,002** | 60,231,630 | 163,820 | **exact** | 20,064 | 54.6 |
+| programmableSeize.seize-2-inputs-partial-with-noise | yes | Halt | **5,079** | 105,501,594 | 274,735 | **exact** | 20,772 | 54.1 |
+| programmableSeize.seize-1-input-missing-residual-output-REJECT | no | Error | 2,261 | — | — | n/a | — | — |
 | programmableLogicGlobal.transfer-nonmember-covering-node | yes | Halt | **1,554** | 29,160,036 | 86,035 | **exact** | 18,765 | 55.4 |
 | programmableLogicGlobal.transfer-member-single-policy | yes | Halt | **3,262** | 62,665,145 | 177,810 | **exact** | 19,211 | 54.5 |
 | programmableLogicGlobal.transfer-mixed-many-policies | yes | Halt | **3,726** | 78,031,424 | 204,737 | **exact** | 20,942 | 54.9 |
-| programmableLogicGlobal.transfer-containment-violation-REJECT | no | Error | 2,970 | — | — | n/a | — | — |
+| programmableLogicGlobal.transfer-containment-violation-REJECT | no | Error | 2,737 | — | — | n/a | — | — |
 
 Halt values are `VCon`s (the `PUnit` result); applied-program node counts are 145
 (base), 1,285 (minting), 1,976 (seize), 3,448 (global) — identical within a
 validator family because each whole `Data` argument is a single `Const` node.
 
-Rejecting goldens error at 286 / 1,627 / 1,938 / 2,970 steps, i.e. BEFORE their
+Rejecting goldens error at 286 / 1,627 / 2,261 / 2,737 steps, i.e. BEFORE their
 accepting siblings finish — as expected for early-exit condition failures — and
 they stay `Error` at 10× budget.
 
@@ -186,7 +203,7 @@ easiest way to publish a vacuous theorem:
 |---|---|---|---|---|---|
 | programmableLogicBase | **208** (base-spend-transfer-tx) | 208 | 312 | 416 | **600 — covers it (2.9× K_max); P3 PROVED, non-vacuous** |
 | programmableTokenMinting | **784** (mint-burnonly) | 1,681 | 2,522 | 3,362 | 600 — no accepting witness within it (600 < K_novac = 784) |
-| programmableSeize | **2,570** (seize-1-input) | 4,647 | 6,971 | 9,294 | 600/1,000 — VACUOUS, measured (spike vacuity probes returned Valid) |
+| programmableSeize | **3,002** (seize-1-input) | 5,079 | 7,619 | 10,158 | 600/1,000 — VACUOUS, measured (spike vacuity probes returned Valid) |
 | programmableLogicGlobal | **1,554** (transfer-nonmember-covering-node) | 3,726 | 5,589 | 7,452 | 600 — VACUOUS, measured (`Prep/Global.lean`'s own probe) |
 
 Caveat, stated precisely: K_novac is an UPPER bound on the true minimum
@@ -195,7 +212,7 @@ fewer steps; e.g. base's bootstrap witness in Props/P3_Base.lean accepts inside
 600 and the golden needs only 208). It is exactly what a non-vacuity claim needs
 — a witness — not a lower bound on the threshold. K_cover, conversely, covers
 only transactions no bigger than these goldens: seize/global cost scales with
-input/output/policy counts (seize 1→2 inputs: 2,570→4,647; global 1→5 policies:
+input/output/policy counts (seize 1→2 inputs: 3,002→5,079; global 1→5 policies:
 3,262→3,726), so a K_cover chosen for a 2-input seize says NOTHING about a
 10-input seize. ARCHITECTURE.md's per-shape/bounded-transaction stance is
 therefore mandatory, and any published K must name the shape it covers.
@@ -380,7 +397,7 @@ its @2,000 non-completion):
 | 1,554 | global K_novac | ≈ 26 min | **bracketed by the measured 1,600 = 35.7 min** |
 | 1,681 | minting K_max | ≥ 45 min | **1,700 measured: did NOT finish in 48.6 min** |
 | 2,522 | minting K_cover ×1.5 | ≥ 4.8 days | — |
-| 2,570 | seize K_novac | ≥ 15 days | seize @2,000 already >77 min, never completed |
+| 2,570 | seize K_novac (**now 3,002** — C3) | ≥ 15 days | seize @2,000 already >77 min, never completed |
 | 3,262 / 3,726 | global K_max (P1's real shapes) | ≈ 7 y / 182 y | — |
 | 6,971 | seize K_cover ×1.5 (2-input seize) | astronomical | — |
 
@@ -421,10 +438,11 @@ and the builtin only lowers the ON-CHAIN step count (already counted in §3), no
 the symbolic unrolling of the rest of the validator.
 
 **programmableSeize — (c) OUT OF REACH BY ORDERS OF MAGNITUDE.** The smallest
-accepting seize run is 2,570 steps. Symbolic prep at 2,000 already never
+accepting seize run is **3,002** steps (2,570 on the pre-fix vectors this
+section's fit was written against; the conclusion moves further out, not in). Symbolic prep at 2,000 already never
 completed in 77 minutes (≥ 15× above the smooth fit for seize, which is how we
-know about the cliff); 2,570 is ≥ 15 days on global's measured slope and realistically
-unbounded, and the ×1.5 coverage budget 6,971 is astronomical. Every "seize accept ⟹ …" theorem at any prep budget we
+know about the cliff); 3,002 is ≥ 15 days on global's measured slope and realistically
+unbounded, and the ×1.5 coverage budget 7,619 is astronomical. Every "seize accept ⟹ …" theorem at any prep budget we
 can afford (≤ ~1,000) is provably vacuous — which is exactly what the spike's
 vacuity probes at 600/1,000 reported. **P2 over a fully symbolic ScriptContext is
 dead at UPLC level**; it needs either shaped contexts with concrete
@@ -452,13 +470,13 @@ source-model (B3) route.
    non-vacuity floor — which at ~113 steps per doubling is 10–16 doublings, i.e.
    3–5 orders of magnitude in time. Redirect to (i) shaped/partially-concrete
    contexts with measured per-shape K — the numbers in §3 are exactly the
-   per-shape budgets to use (2,570 for 1-input seize, 3,262 for single-policy
+   per-shape budgets to use (3,002 for 1-input seize, 3,262 for single-policy
    transfer, …) — and/or (ii) the source-model route for P1/P2 with a separately
    argued compilation-fidelity bridge.
 5. **The LR-BUDGET axiom is now quantitative.** For each validator, state
    `LR-BUDGET_v` as "a real node run of v on a transaction of shape S halts in
    ≤ K_v(S) CEK steps", with K_v(S) taken from §3 × margin, and record that the
-   ledger's own ExBudget for those runs is 4.5M–96.8M CPU (≈ 20k CPU/step) —
+   ledger's own ExBudget for those runs is 4.5M–105.5M CPU (≈ 20k CPU/step) —
    i.e. all of the goldens sit far inside the 10^10 CPU per-tx mainnet limit, so
    the axiom is not a hidden restriction on realistic transactions of that shape.
    A prep-side speedup (memoized/opaque recursive-CEK abstraction in Blaster,
@@ -532,7 +550,12 @@ done
 
 ---
 
-## Appendix A — verbatim output of `lake env lean KMeasure.lean`
+## Appendix A — verbatim output of `lake env lean KMeasure.lean` (task X1, **SUPERSEDED**)
+
+**SUPERSEDED by Appendix A′ (task C3).** This run measured the PRE-BUILDER-FIX
+applied flats. It is retained verbatim because four of its rows are quoted
+throughout the repository and a reader must be able to see exactly what was
+measured and when. Do not quote it: quote Appendix A′.
 
 (`Successfully decoded double CBOR hex '<file>'` lines from the importer omitted;
 one per golden, all 13 successful. Total wall 3.209 s.)
@@ -551,6 +574,51 @@ programmableLogicGlobal.transfer-member-single-policy: K=3262 outcome=KMeasure.O
 programmableLogicGlobal.transfer-nonmember-covering-node: K=1554 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=3448 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=29160036,mem=86035] | count_ms=1 confirm_ms=0 budget_ms=5
 programmableLogicGlobal.transfer-mixed-many-policies: K=3726 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=3448 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=78031424,mem=204737] | count_ms=2 confirm_ms=0 budget_ms=11
 programmableLogicGlobal.transfer-containment-violation-REJECT: K=2970 outcome=KMeasure.Outcome.error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=3448 halt=n/a | pcbBudget[n/a(rejecting)] | count_ms=2 confirm_ms=0 budget_ms=4
+```
+
+## Appendix A′ — re-measurement on the CURRENT applied flats (task C3, 2026-07-25)
+
+**This is the authoritative run.** Same `KMeasure.lean`, same method, same PCB
+(`/home/gumbo/iohk/PlutusCoreBlaster`, branch `cip153-value-builtins`, commit
+`9f9ca8c76baf3b5efdb63c33ca0091efa606b474`, working tree clean), against
+`WSC/goldens/applied/*.flat` as they stand at this revision.
+
+Four rows differ from Appendix A, all four traceable to the wsc-poc builder fix
+that re-dumped every vector:
+
+| golden | Appendix A (pre-fix) | **Appendix A′ (current)** | Δ |
+|---|---|---|---|
+| `programmableSeize.seize-1-input` | 2,570 | **3,002** | +432 |
+| `programmableSeize.seize-2-inputs-partial-with-noise` | 4,647 | **5,079** | +432 |
+| `programmableSeize.seize-1-input-missing-residual-output-REJECT` | 1,938 | **2,261** | +323 |
+| `programmableLogicGlobal.transfer-containment-violation-REJECT` | 2,970 | **2,737** | **−233** |
+
+The other 9 reproduce to the unit. The three seize rows move together and in the
+same direction, consistent with a common cause (the residual seized-token output
+gained a lovelace entry under `ensureMinAda`, so every value walk over it costs
+more); the global rejecting row moves DOWN, i.e. it now fails EARLIER, which is
+also consistent — its tamper is detected before the extra work is reached.
+
+**Cross-check, and the reason these numbers are trustworthy:** for all 9
+accepting goldens PCB's own metered `pcbBudget[cpu=…,mem=…]` below equals the
+`exBudgetCpu`/`exBudgetMem` recorded in the golden JSON **exactly**, so the
+"`PCB budget = ledger?` **exact**" column of §3 is re-earned on the current
+vectors rather than inherited.
+
+```
+programmableLogicBase.base-spend-transfer-tx: K=208 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=145 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=4525794,mem=11715] | count_ms=0 confirm_ms=0 budget_ms=1
+programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT: K=286 outcome=KMeasure.Outcome.error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=145 halt=n/a | pcbBudget[n/a(rejecting)] | count_ms=1 confirm_ms=0 budget_ms=0
+programmableTokenMinting.mint-local-registered-by-ref: K=1681 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1285 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=34116362,mem=92870] | count_ms=1 confirm_ms=0 budget_ms=4
+programmableTokenMinting.mint-burnonly: K=784 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1285 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=14215312,mem=43421] | count_ms=1 confirm_ms=0 budget_ms=2
+programmableTokenMinting.mint-delegate-transfer-topup: K=1257 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1285 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=26455938,mem=69372] | count_ms=1 confirm_ms=0 budget_ms=3
+programmableTokenMinting.mint-local-empty-withdrawals-REJECT: K=1627 outcome=KMeasure.Outcome.error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=1285 halt=n/a | pcbBudget[n/a(rejecting)] | count_ms=1 confirm_ms=0 budget_ms=2
+programmableSeize.seize-1-input: K=3002 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1976 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=60231630,mem=163820] | count_ms=2 confirm_ms=0 budget_ms=8
+programmableSeize.seize-2-inputs-partial-with-noise: K=5079 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1976 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=105501594,mem=274735] | count_ms=3 confirm_ms=0 budget_ms=13
+programmableSeize.seize-1-input-missing-residual-output-REJECT: K=2261 outcome=KMeasure.Outcome.error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=1976 halt=n/a | pcbBudget[n/a(rejecting)] | count_ms=1 confirm_ms=0 budget_ms=3
+programmableLogicGlobal.transfer-member-single-policy: K=3262 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=3448 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=62665145,mem=177810] | count_ms=2 confirm_ms=0 budget_ms=8
+programmableLogicGlobal.transfer-nonmember-covering-node: K=1554 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=3448 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=29160036,mem=86035] | count_ms=1 confirm_ms=0 budget_ms=4
+programmableLogicGlobal.transfer-mixed-many-policies: K=3726 outcome=KMeasure.Outcome.halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=3448 halt=PlutusCore.UPLC.CekValue.CekValue.VCon (PlutusCo | pcbBudget[cpu=78031424,mem=204737] | count_ms=3 confirm_ms=0 budget_ms=11
+programmableLogicGlobal.transfer-containment-violation-REJECT: K=2737 outcome=KMeasure.Outcome.error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=3448 halt=n/a | pcbBudget[n/a(rejecting)] | count_ms=2 confirm_ms=0 budget_ms=4
 ```
 
 ## Appendix B — verbatim prep-probe output

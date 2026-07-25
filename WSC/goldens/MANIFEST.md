@@ -122,8 +122,8 @@ rejecting goldens (counting evaluation aborts).
 | programmableTokenMinting.mint-burnonly | yes | 14,215,312 / 43,421 | `BurnOnly 2`, burn −1 alongside global TransferAct |
 | programmableTokenMinting.mint-delegate-transfer-topup | yes | 26,455,938 / 69,372 | `DelegateTransfer 2 0 1 0`, top-up mint delegated to global |
 | programmableTokenMinting.mint-local-empty-withdrawals-REJECT | no | — | Local-arm ctx with `txInfoWdrl := []` |
-| programmableSeize.seize-1-input | yes | 51,571,527 / 140,357 | `SeizeAct` (via `mkSeizeActRedeemerFromAbsoluteInputIdxs 1 [0] 0 0 1`), 1 seized input |
-| programmableSeize.seize-2-inputs-partial-with-noise | yes | 96,841,491 / 251,272 | 2 seized inputs, partial seize, non-programmable noise tokens preserved |
+| programmableSeize.seize-1-input | yes | 60,231,630 / 163,820 | `SeizeAct` (via `mkSeizeActRedeemerFromAbsoluteInputIdxs 1 [0] 0 0 1`), 1 seized input |
+| programmableSeize.seize-2-inputs-partial-with-noise | yes | 105,501,594 / 274,735 | 2 seized inputs, partial seize, non-programmable noise tokens preserved |
 | programmableSeize.seize-1-input-missing-residual-output-REJECT | no | — | residual (seized-tokens) output removed |
 | programmableLogicGlobal.transfer-member-single-policy | yes | 62,665,145 / 177,810 | `TransferAct [1] [1] [] 0`, registered policy, 2 base outputs |
 | programmableLogicGlobal.transfer-nonmember-covering-node | yes | 29,160,036 / 86,035 | non-programmable policy exits via covering (does-not-exist) node proof |
@@ -143,8 +143,19 @@ rejecting goldens (counting evaluation aborts).
   above); re-derive against mainnet PV11 params before quoting on-chain costs.
 - Lean-side CEK step counts (per-validator `#prep_uplc` budgets K) are to be
   measured on these ctxs by a later task, per SPIKE-FINDINGS open issue 2.
-  **DONE — see `K-MEASUREMENTS.md`** (task X1). Measured K: base 208, minting
-  784/1,257/1,681, seize 2,570/4,647, global 1,554/3,262/3,726 CEK steps.
+  **DONE — see `K-MEASUREMENTS.md`** (task X1, re-measured by task C3). Measured
+  K: base 208, minting 784/1,257/1,681, seize **3,002/5,079**, global
+  1,554/3,262/3,726 CEK steps.
+- **ExBudget / K CORRECTION (task C3, 2026-07-25 — audit finding F13).** The two
+  accepting `programmableSeize` rows above published `51,571,527 / 140,357` and
+  `96,841,491 / 251,272`, which are the PRE-BUILDER-FIX values; the JSONs in this
+  directory record `60,231,630 / 163,820` and `105,501,594 / 274,735`. Both rows
+  are corrected above, re-read from the JSONs. **Every other row in this table was
+  compared against its JSON and is exact** — the staleness is confined to those
+  two. The matching K's moved too (2,570 → 3,002, 4,647 → 5,079), and so did two
+  REJECTING goldens' K's that F13 did not flag (`seize-1-input-missing-residual-
+  output-REJECT` 1,938 → 2,261, `transfer-containment-violation-REJECT`
+  2,970 → 2,737); see `K-MEASUREMENTS.md` Appendix A′ for the re-measurement.
 
 ## `applied/` — fully applied programs (task X1 input)
 
