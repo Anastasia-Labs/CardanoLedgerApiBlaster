@@ -776,32 +776,89 @@ def K_base : Nat := 600
   minting goldens need 1,257 and 1,681 steps and are OUT of this bound; a prep
   at 1,681 is ≥ 45 min and was measured NOT to complete at 1,700.
 
-STATUS DEPENDENCY: `WSC/Prep/Minting.lean` preps at 600 as of commit dd86906. A
-parallel task is raising it; until it does, every `appliedMinting` theorem is
-budget-vacuous and `MintingNonVacuous` below is FALSE. See `WSC/Prep/Minting.lean`
-for the authoritative budget — this constant is the TARGET, not a claim about the
-current build. -/
+PREP THIS CONSTANT IS MATCHED TO (task U2 repair): `WSC/Prep/Minting900.lean`'s
+`appliedMinting900`, which is what `LR_BUDGET_minting` below now names and what
+every P4/P4a theorem is stated against (`WSC/Props/P4_Minting.lean`). The
+budget-600 `appliedMinting` of `WSC/Prep/Minting.lean` is retained only for the
+pipeline/decode gate and for the machine-checked vacuity characterization
+`WSC.minting600_is_vacuous`; NOTHING is bridged through it.
+
+SUPERSEDED STATUS NOTE (kept for the record): an earlier revision of this
+docstring said "`WSC/Prep/Minting.lean` preps at 600 … until a parallel task
+raises it, `MintingNonVacuous` below is FALSE". That parallel task landed
+(`WSC/Prep/Minting900.lean`), but the two budget bridges were never repointed —
+they kept naming the 600 prep. Task U2 repointed them, and
+`MintingNonVacuous` is now a THEOREM (`WSC.Composition.mintingNonVacuous`). -/
 def K_mint : Nat := 900
 
-/-- **K_global = 1600** — the published CEK step bound for the global
-(transfer) validator.
+/-- **K_global = 4400** — the published CEK step bound for the global
+(transfer) validator. **REPUBLISHED FROM 1600 BY TASK U2**; read the CORRECTION
+paragraph below before citing the old value.
 
-* NON-VACUITY WITNESS: golden
-  `programmableLogicGlobal.transfer-nonmember-covering-node` halts (accepting)
-  in **1,554** steps (K-MEASUREMENTS §3) — and that is exactly P5's subject
-  shape (ADDENDUM E3 makes the covering-node witness P5's postcondition).
-* PREP COST MEASURED: **2,143 s = 35.7 min, max RSS 1.55 GB, COMPLETED**
-  (K-MEASUREMENTS §5.1, measured this session at budget 1,600).
-* SHAPE COVERED: the covering-node / NonMember shape only. The
-  containment-carrying member transfers cost 3,262 and 3,726 steps, whose preps
-  extrapolate to ≈ 7 years and ≈ 182 years on global's own steepest measured
-  slope — so **P1 at UPLC over a fully symbolic context is out of reach**, and
-  `K_global` must never be read as covering it.
+CORRECTION (task U2). The constant was published at **1600**, calibrated on the
+single cheapest accepting global golden (`transfer-nonmember-covering-node`,
+K = 1,554 — K-MEASUREMENTS §3), which is P5's subject shape. That value is TOO
+TIGHT for the class the library now proves things about: the P1 (containment)
+theorems of `WSC/Props/Shaped/P1Shaped.lean` are stated at prep budget **4400**,
+and their own concrete accepting witnesses, run through the real CEK, cost
 
-STATUS DEPENDENCY: `WSC/Prep/Global.lean` preps at 600 as of commit dd86906 and
-its own probe CHARACTERIZES 600 as vacuous. A parallel task is raising it; see
-that module for the authoritative budget. -/
-def K_global : Nat := 1600
+| shape | witness | measured K | source |
+|---|---|---|---|
+| T1 (pure transfer, Path A) | `P1ShapedWitness.ctxOk` | **2,603** | `P1ShapedWitness.K_T1_is_2603` |
+| T2 (symbolic mint/burn) | `P1ShapedWitness.ctxBurn` | **3,572** | `P1ShapedWitness.K_T2_is_3572` |
+| T6 (output-side) | `P1ShapedOutWitness` | **3,150** | `P1Shaped.lean` §5 |
+| T7 (output-side burn) | `P1ShapedOutWitness` | **3,572** | `P1Shaped.lean` §5 |
+
+and the two containment-carrying off-chain goldens cost **3,262** and **3,726**
+(K-MEASUREMENTS §3). At `K_global = 1600` the `WithinBudget` global clause of
+`WSC/Composition.lean` EXCLUDED every transaction those theorems are about, so a
+leaf instantiated from them could never have been consumed. 4400 is the budget
+the shaped preps actually bake
+(`WSC/Shaped/GlobalShapedP1Prep.lean`, `…P1MintPrep.lean`, `…P1OutPrep.lean`),
+and it is ≥ every measured accepting K for this validator.
+
+* NON-VACUITY WITNESS AT 4400, on the UNSHAPED bytecode:
+  `WSC.P1ShapedWitness.exec_accepts_unshaped` — `cekExecuteProgram
+  programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 4400` HALTS
+  (`native_decide`, no SMT), where `ctxOk` additionally satisfies CLAB's
+  `validRewardingContext` (`P1ShapedWitness.ctxOk_valid`). Lower bracket:
+  `P1ShapedWitness.exec_rejects_at_600` (budget 600 ⟹ `Error`) and
+  `K_T1_is_2603` (`Halt` at 2603, `Error` at 2602). So 4400 is genuinely
+  accept-capable and the bound is doing work.
+* SECOND WITNESS, at the OLD value and on the real off-chain golden:
+  `WSC.Witness1600` — HALT at 1600, budget-ERROR at 1553 on
+  `WSC/goldens/applied/programmableLogicGlobal.transfer-nonmember-covering-node.flat`.
+  That witness is why the 1600 sub-bound below is kept as its own constant.
+* PREP COST. Symbolic (fully unshaped) `#prep_uplc` of this validator was
+  measured at **2,143 s = 35.7 min, 1.55 GB peak RSS at budget 1600**
+  (K-MEASUREMENTS §5.1) and extrapolates to 7-182 YEARS at 3,300+
+  (§5.2) — which is why there is NO unshaped 4400 prep and never will be.
+  SHAPED prep at 4400 is **1.00 s** (`WSC/Props/Shaped/P1Shaped.lean` header,
+  measured; shaped prep is essentially budget-independent — SHAPING-RESULTS
+  §2.5).
+
+CONSEQUENCE FOR THE BRIDGES, stated so it cannot be misread: raising this
+constant does NOT by itself produce a usable global budget bridge. The only
+global prep that exists at 4400 is SHAPED, so `LR_BUDGET_global` below is stated
+in PREP-PARAMETRIC form and a shaped instantiation additionally owes the SHAPE
+BRIDGE (`WSC/Composition.lean` §9.4). What raising it does is stop
+`WithinBudget` from excluding, by construction, every transaction P1 talks
+about. -/
+def K_global : Nat := 4400
+
+/-- **K_global_nonmember = 1600** — the covering-node / NonMember SUB-BOUND of
+the global validator: the budget `WSC/Prep/Global1600.lean` preps at, the budget
+P5 is stated at (`WSC/Props/P5_NonMember.lean`, `WSC/Props/Shaped/P5Shaped.lean`
+SHAPE G1), and the smallest round budget above the cheapest accepting global
+golden's K = 1,554.
+
+Kept as a SEPARATE constant by task U2 rather than folded into `K_global`,
+because a budget bridge is only sound at the budget its prep actually bakes: a
+transaction taking 3,000 CEK steps satisfies `nodeStepsGlobal … ≤ K_global` but
+`appliedGlobal1600.prop` returns `Error` on it, so quoting the 1600 prep at the
+4400 bound would assert `NodeAcceptsGlobal ↔ False`. Witness:
+`WSC.Witness1600` (HALT at 1600, ERROR at 1553). -/
+def K_global_nonmember : Nat := 1600
 
 /-! #### K_seize — DELIBERATELY UNAVAILABLE
 
@@ -833,23 +890,102 @@ def BaseNonVacuous : Prop :=
   ∃ (g s : Credential) (ctx : ScriptContext),
     validSpendingContext ctx = true ∧ isSuccessful (appliedBase.prop g s ctx)
 
-/-- Non-vacuity of the minting prep. FALSE at prep budget 600 (600 < 784 = the
-cheapest measured accepting run); expected to become provable once
-`WSC/Prep/Minting.lean` preps at `K_mint`. -/
+/-- Non-vacuity of the minting prep **at `K_mint = 900`** — some
+ledger-normalized minting context is ACCEPTED by `appliedMinting900.prop`.
+
+**REPOINTED BY TASK U2, and now DISCHARGED.** It used to name
+`appliedMinting.prop` (budget 600), whose negation is MACHINE-CHECKED — see
+`WSC.minting600_is_vacuous` (`WSC/Props/P4_Minting.lean:380-386`, `✅ Valid` for
+"no accepting context exists inside 600 steps"), predicted by the cheapest
+accepting run costing 784 steps (K-MEASUREMENTS §3). So the old statement was
+FALSE and `LR_BUDGET_minting` could not be applied to anything, while every P4
+theorem lives on `appliedMinting900`.
+
+DISCHARGE: `WSC.Composition.mintingNonVacuous` — a THEOREM, from the concrete
+`BurnOnly` witness `WSC.P4Witness.ctx` (`ctx_valid : validMintingContext ctx`,
+`native_decide`) together with `blaster` on the fully concrete accept goal at
+this prep, exactly as `WSC.P3Witness.prop_accepts` does for the base validator.
+Corroborating executable brackets: `P4Witness.exec_rejects_at_600` /
+`exec_accepts_at_800` / `exec_accepts_at_900`, and the REAL off-chain golden
+`programmableTokenMinting.mint-burnonly` (`P4Golden.exec_accepts_at_900`, measured
+K = 784). -/
 def MintingNonVacuous : Prop :=
   ∃ (pcs : CurrencySymbol) (mlh : ScriptHash) (ctx : ScriptContext),
-    validMintingContext ctx = true ∧ isSuccessful (appliedMinting.prop pcs mlh ctx)
+    validMintingContext ctx = true ∧ isSuccessful (appliedMinting900.prop pcs mlh ctx)
 
-/-- Non-vacuity of the global prep. MEASURED FALSE at prep budget 600
-(`WSC/Prep/Global.lean`'s own probe returned `Valid` for the negation); expected
-to become provable once that module preps at `K_global`. -/
-def GlobalNonVacuous : Prop :=
+/-- Non-vacuity of a global prep, **prep-parametric** (task U2): some
+ledger-normalized rewarding context is ACCEPTED by the prepped term
+`globalProp`.
+
+**WHY PARAMETRIC.** The old form named `appliedGlobal.prop` — budget 600, whose
+own committed probe `WSC.global_vacuity_probe_600` CHARACTERIZES the budget as
+vacuous (`WSC/Prep/Global.lean:70-84`) — while every global theorem lives on
+`appliedGlobal1600` (P5, budget 1600) or on a SHAPED prep at 4400 (P1 shapes
+T1/T2/T6/T7) or 3300 (P6, SHAPE G6). Hard-wiring any ONE of those here would
+either keep a known-vacuous statement or pin the axiom to a single budget and
+shape; abstracting the prepped term is what lets a caller name the prep it
+actually proved something against, at the budget that prep bakes. See
+`GlobalPreppedAt` for the side condition that keeps this honest.
+
+NOT DISCHARGED AT ANY GLOBAL PREP, and this is the honest status:
+* at 1600 the SYMBOLIC certificate is OPEN — the vacuity probe over
+  `appliedGlobal1600.prop` returned no verdict in 87 minutes
+  (`WSC/Props/P5_NonMember.lean` "OBLIGATION STATUS", :548);
+* what exists at 1600 is EXECUTABLE evidence about the BYTECODE, not about the
+  optimized `prop` term: `WSC.Witness1600` (HALT at 1600, ERROR at 1553 on the
+  real golden) and `WSC.P5ShapedWitness.exec_accepts…` over
+  `appliedGlobal1600.exec`. `#prep_uplc` emits `prop` (optimized, noncomputable)
+  and `exec` (executable) as two SEPARATE terms
+  (`PlutusCore/UPLC/PreProcess.lean:43-46`) with no proved equality between
+  them, so `exec` acceptance does not discharge this;
+* at 4400 the SHAPED preps DO carry solver-side non-vacuity (`P1_T1/T2/T6/T7`
+  vacuity probes all `Falsified`) plus concrete accepting instances
+  (`P1ShapedWitness`), so a shaped instantiation of this predicate is
+  dischargeable — at the cost of the SHAPE BRIDGE (`WSC/Composition.lean` §9.4). -/
+def GlobalNonVacuous
+    (globalProp : CurrencySymbol → ScriptContext → PlutusCore.UPLC.CekMachine.State) :
+    Prop :=
   ∃ (pcs : CurrencySymbol) (ctx : ScriptContext),
-    validRewardingContext ctx = true ∧ isSuccessful (appliedGlobal.prop pcs ctx)
+    validRewardingContext ctx = true ∧ isSuccessful (globalProp pcs ctx)
+
+/-- **`GlobalPreppedAt globalProp K`** — the meta-level side condition of the
+prep-parametric global bridge: *`globalProp` is the term `#prep_uplc` produces
+from the imported `programmableLogicGlobal` flat with the argument convention
+`globalInputs` and CEK step budget `K`.*
+
+WHY IT IS AN AXIOM AND NOT A DEFINITION: it is a statement ABOUT an elaborator
+(`#prep_uplc` optimizes the applied `cekExecuteProgram` term through
+`Blaster.Optimize`, `PlutusCore/UPLC/PreProcess.lean:36-58`), and the optimized
+`prop` is deliberately not kernel-reducible. Nothing inside Lean can compute it.
+
+HOW A USE SITE DISCHARGES IT: by INSPECTION of the `#prep_uplc` line it names —
+e.g. `WSC/Prep/Global1600.lean:88` for `appliedGlobal1600` at `K = 1600`, or
+`WSC/Shaped/GlobalShapedP1Prep.lean:31` for `appliedGlobalShapedT1` at
+`K = 4400`. It is a NEW abstract declaration introduced by task U2, and it is
+the price of removing the prep/budget mismatch: it makes the coupling that used
+to be silent (`LR_BUDGET_global` said `K_global` while naming a budget-600 term)
+into an explicit obligation at every use site.
+
+SHAPED PREPS: for a shaped prep, `globalProp` is the shaped term PARTIALLY
+APPLIED to a shape's scalars, so an instantiation additionally owes the SHAPE
+BRIDGE of `WSC/Composition.lean` §9.4 — `GlobalPreppedAt` alone does not supply
+it. -/
+axiom GlobalPreppedAt :
+  (CurrencySymbol → ScriptContext → PlutusCore.UPLC.CekMachine.State) → Nat → Prop
 
 /-- Non-vacuity of the seize prep. MEASURED FALSE at 600 and at 1,000 (E2 spike
 vacuity probes returned `Valid` for the negation) and NOT reachable at any
-affordable budget — see "K_seize — DELIBERATELY UNAVAILABLE" above. -/
+affordable budget — see "K_seize — DELIBERATELY UNAVAILABLE" above.
+
+NOTE (task U2, reported not patched): this predicate has the SAME prep-naming
+defect the minting and global ones had — it names the budget-600
+`appliedSeize.prop` while `WSC/Props/Shaped/P2Shaped.lean` proves P2 over SHAPE
+S1 at `appliedSeizeShaped3800` (budget 3800, witnesses K = 3,004 / 3,328). It is
+deliberately left alone: unlike the other two, the seize bridge is UNUSABLE by
+design (there is no `K_seize`), `WSC/Composition.lean` consumes it nowhere, and
+the parametric repair applied to `LR_BUDGET_global` would need a
+`SeizePreppedAt` companion for no present consumer. The repair, if a consumer
+ever appears, is mechanical and identical. -/
 def SeizeNonVacuous : Prop :=
   ∃ (pcs : CurrencySymbol) (ctx : ScriptContext),
     validRewardingContext ctx = true ∧ isSuccessful (appliedSeize.prop pcs ctx)
@@ -875,25 +1011,85 @@ axiom LR_BUDGET_base :
     OnChain ctx → nodeStepsBase g s ctx ≤ K_base →
     (NodeAcceptsBase g s ctx ↔ isSuccessful (appliedBase.prop g s ctx))
 
-/-- **LR_BUDGET_minting**: same statement shape at `K_mint`. The non-vacuity
-hypothesis is currently FALSE (see `MintingNonVacuous`), so this axiom cannot be
-used to draw conclusions about real transactions until `WSC/Prep/Minting.lean`
-preps at `K_mint`. That is deliberate. -/
+/-- **LR_BUDGET_minting**: same statement shape at `K_mint = 900`, over
+`appliedMinting900.prop` — **REPOINTED BY TASK U2** from the budget-600
+`appliedMinting.prop`, whose non-vacuity is machine-checked FALSE
+(`WSC.minting600_is_vacuous`) and on which no theorem lives.
+
+The prep and the constant now agree: `WSC/Prep/Minting900.lean:73` preps at 900
+and `K_mint = 900`. The non-vacuity hypothesis is DISCHARGED, as a theorem, by
+`WSC.Composition.mintingNonVacuous` (see `MintingNonVacuous`), so unlike before
+this bridge is USABLE.
+
+SCOPE, unchanged and still binding: 900 covers burn-only-sized minting
+transactions. The `Local` / `DelegateTransfer` / `DelegateSeize` arms cost
+K = 1,681 / 1,257 / 1,466 (`WSC/Props/Shaped/P4LocalShaped.lean`,
+`P4DelegateShaped.lean`) and are OUTSIDE this bound — the shaped modules prep at
+2500 and therefore need a bridge at 2500, not this one. That gap is recorded in
+`WSC/Composition.lean` §9.5. -/
 axiom LR_BUDGET_minting :
   MintingNonVacuous →
   ∀ (pcs : CurrencySymbol) (mlh : ScriptHash) (ctx : ScriptContext),
     OnChain ctx → nodeStepsMinting pcs mlh ctx ≤ K_mint →
-    (NodeAcceptsMinting pcs mlh ctx ↔ isSuccessful (appliedMinting.prop pcs mlh ctx))
+    (NodeAcceptsMinting pcs mlh ctx ↔ isSuccessful (appliedMinting900.prop pcs mlh ctx))
 
-/-- **LR_BUDGET_global**: same statement shape at `K_global`. Covers the
-covering-node / NonMember shape ONLY (1,554 steps); it does NOT cover the
-containment-carrying member transfers (3,262 / 3,726 steps), which is why P1 is
-not reachable at UPLC. Non-vacuity is currently FALSE at the prep in use. -/
+/-- **LR_BUDGET_global — PREP-PARAMETRIC (task U2).** *For a transaction whose
+real global-validator run halts within `K` CEK steps, where `globalProp` is the
+`#prep_uplc` of that validator at budget `K` and that prep is non-vacuous,
+ledger acceptance is EQUIVALENT to `isSuccessful (globalProp pcs ctx)`.*
+
+**WHAT WAS WRONG AND WHY THE SHAPE CHANGED.** The old axiom read
+`GlobalNonVacuous → ∀ …, nodeStepsGlobal pcs ctx ≤ K_global → (NodeAcceptsGlobal
+… ↔ isSuccessful (appliedGlobal.prop pcs ctx))`: it named the **budget-600**
+prep while quoting `K_global`. Two independent defects:
+
+1. its non-vacuity hypothesis is MEASURED FALSE at 600
+   (`WSC.global_vacuity_probe_600`, `WSC/Prep/Global.lean:70-84`), so it could
+   not be applied to anything; and
+2. the budget in the hypothesis and the budget baked into the named term were
+   different numbers. That is not a harmless mismatch: for `K > 600` the
+   right-hand side is `Error` (budget exhaustion) on every transaction costing
+   more than 600 steps, so the equivalence would assert
+   `NodeAcceptsGlobal … ↔ False`.
+
+Repointing it to ONE concrete prep cannot work either, because the global
+theorems live at three DIFFERENT budgets — `appliedGlobal1600` (P5, 1600),
+`appliedGlobalMemberShaped3300` (P6, SHAPE G6), and the four P1 preps at 4400 —
+and `K_global` is now 4400. Making the prepped term and its budget explicit
+parameters is what removes the mismatch by construction: the caller must exhibit
+`GlobalPreppedAt globalProp K` for the SAME `K` that appears in the step bound.
+
+INSTANTIATIONS AVAILABLE TODAY, and what each still owes:
+* `globalProp := appliedGlobal1600.prop`, `K := K_global_nonmember = 1600`
+  (`GlobalPreppedAt` by inspection of `WSC/Prep/Global1600.lean:88`). Owes
+  `GlobalNonVacuous appliedGlobal1600.prop`, which is OPEN — see that
+  definition's status block.
+* `globalProp := appliedGlobalShapedT1.prop …` partially applied to a SHAPE-T1
+  scalar tuple, `K := K_global = 4400`
+  (`WSC/Shaped/GlobalShapedP1Prep.lean:31`). Non-vacuity is dischargeable there
+  (`P1_T1_vacuity_probe` = `Falsified`, plus `P1ShapedWitness`), but the
+  instantiation additionally owes the **SHAPE BRIDGE** of
+  `WSC/Composition.lean` §9.4 — which is why `WSC/Composition.lean` still puts
+  every leaf trigger at `NodeAccepts*` and does budget plumbing only for the base
+  validator.
+
+**NAMED TODO — `LR_BUDGET_global_shaped`.** The instantiation that would let a
+`LeafSet` field be discharged from `WSC/Props/Shaped/P1Shaped.lean` is exactly
+this axiom at the second bullet, and it is NOT provided here: it requires the
+shape bridge, which is a separate work unit. Nothing in this library may claim a
+usable global budget bridge until that lands.
+
+AUDIT / DISCHARGE of the axiom itself: unchanged from `LR_BUDGET_base` — the
+`runSteps` monotonicity meta-theorem (terminal states are returned as-is; fuel-0
+becomes `Error` only in a non-terminal state, `CekMachine.lean:229-241`). -/
 axiom LR_BUDGET_global :
-  GlobalNonVacuous →
-  ∀ (pcs : CurrencySymbol) (ctx : ScriptContext),
-    OnChain ctx → nodeStepsGlobal pcs ctx ≤ K_global →
-    (NodeAcceptsGlobal pcs ctx ↔ isSuccessful (appliedGlobal.prop pcs ctx))
+  ∀ (globalProp : CurrencySymbol → ScriptContext → PlutusCore.UPLC.CekMachine.State)
+    (K : Nat),
+    GlobalPreppedAt globalProp K →
+    GlobalNonVacuous globalProp →
+    ∀ (pcs : CurrencySymbol) (ctx : ScriptContext),
+      OnChain ctx → nodeStepsGlobal pcs ctx ≤ K →
+      (NodeAcceptsGlobal pcs ctx ↔ isSuccessful (globalProp pcs ctx))
 
 /-- **LR_BUDGET_seize — NO PUBLISHED BOUND.** There is no `K_seize`: the
 statement is quantified over an arbitrary `K` and gated on a non-vacuity

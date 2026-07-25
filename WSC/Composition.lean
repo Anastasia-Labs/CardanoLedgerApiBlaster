@@ -28,8 +28,10 @@ field of `LeafSet` (§6) with the library theorem, in §9.
 
 1. **BOUNDED TRANSACTIONS (ADDENDUM E1).** Every transaction in the class carries
    `WithinBudget` (§5): its validator runs halt within the PUBLISHED per-validator
-   CEK step bounds `K_base = 600`, `K_mint = 900`, `K_global = 1600`
-   (`WSC/Honest.lean`). No result here covers unboundedly large transactions.
+   CEK step bounds `K_base = 600`, `K_mint = 900`, `K_global = 4400`
+   (`WSC/Honest.lean`; `K_global` was republished from 1600 by task U2 — see its
+   docstring for the measurement that forced it). No result here covers
+   unboundedly large transactions.
    There is deliberately **no `K_seize`** (`WSC/Honest.lean` "K_seize —
    DELIBERATELY UNAVAILABLE"), so the seize route is bridged by
    `LR_SEIZE_HALTS` (§4) instead, which is unbounded but weaker.
@@ -74,6 +76,17 @@ it), and no statement here claims unbounded coverage.
 -/
 import WSC.Honest
 import WSC.Props.P3_Base
+-- Task U2: `WSC.P4Witness` (the concrete `BurnOnly` minting context) and
+-- `appliedMinting900`, used to DISCHARGE `WSC.MintingNonVacuous` as a theorem in
+-- §9.5a. This module does NOT import `WSC.Honest`, so there is no cycle, and it
+-- is already elaborated by the time this file is built (no prep cost added).
+import WSC.Props.P4_Minting
+-- Task U2: the SOURCE-MODEL ground-truth vocabulary (`Model.outSum`,
+-- `Model.inSum`, `Model.hasCSH`, `Model.dirNodeFields`), so that §10's
+-- VOCABULARY BRIDGES are real theorems rather than prose. `WSC/Model/Ground.lean`
+-- imports only `CardanoLedgerApi.V3`, `WSC.Redeemer`, `WSC.Spec` and
+-- `PlutusCore.Value.Algebra` — no `#prep_uplc`, no `blaster`, no `WSC.Honest`.
+import WSC.Model.Ground
 
 namespace WSC.Composition
 
@@ -81,7 +94,8 @@ open CardanoLedgerApi.V2 (TxOut)
 open CardanoLedgerApi.V3 (Credential CurrencySymbol TokenName Value MintValue
                           ScriptContext ScriptInfo ScriptHash TxInInfo TxOutRef
                           hasCurrencySymbol valueOf credentialInWithdrawals
-                          validSpendingContext validScriptContext)
+                          validSpendingContext validScriptContext
+                          merge withoutLovelace valueSpent valueProduced isBalanced)
 open CardanoLedgerApi.V1.Value (adaSymbol)
 open PlutusCore.Data (Data)
 open PlutusCore.ByteString (ByteString)
@@ -436,6 +450,204 @@ theorem nonEscape_of_noEscape (base : Credential) (cs : CurrencySymbol) (tn : To
           · rw [if_neg (by simpa using hp)]
       exact int_add_zero' hhd (ih h2)
 
+/-! ### §3.5 `LR_BALANCE_SLOT` — the `Value`-algebra residue, isolated (task U2)
+
+§9.5 recorded `LR_BALANCE_SLOT` as an axiom that "should be a theorem": the
+per-slot projection of `WSC.LR7` (`isBalanced`,
+`CardanoLedgerApi/V3/Contexts.lean:1185-1189`). This section does as much of that
+derivation as CLAB supports, and isolates the rest into THREE named `Value`-level
+facts (`ValueAlgebra`) that mention no ledger notion at all.
+
+WHAT `isBalanced` GIVES (`:1188-1189`), for `sv = valueSpent ctx`,
+`pv = valueProduced ctx`:
+
+    lovelaceOf sv = lovelaceOf pv + txInfoFee   ∧
+    merge (withoutLovelace sv) txInfoMint == withoutLovelace pv
+
+The `cs ≠ adaSymbol` side condition of `LR_BALANCE_SLOT` is what lets the first
+conjunct (and hence the fee) be dropped entirely; §3.5's job is to turn the second
+into the per-slot equation.
+
+WHY THIS IS NOT MECHANICAL, and the FINDING that makes the canonicity hypothesis
+mandatory: **`valueOf` is NOT additive over `merge` in general.** `merge`'s
+`cs_visit` (`CardanoLedgerApi/V1/Value.lean:151-164`) is a SORTED merge — it
+compares heads with `cs < cs'` and its own comment says "assume `Value` is
+well-formed". On unsorted input it duplicates keys and `valueOf`, which returns at
+the FIRST matching key (`:95-103`), then loses the later copy.
+`merge_not_additive_without_canonicity` below is that counterexample,
+machine-checked. So any derivation must carry a canonicity predicate, and the
+predicate must be preserved by `merge` (because `valueSpent` folds `merge` over
+every input). `CanonV` is that predicate.
+
+WHAT CLAB SUPPLIES TOWARDS THIS: **nothing.** There is no lemma anywhere in
+`CardanoLedgerApi/` relating `valueOf` to `merge`, `withoutLovelace`,
+`valueSpent` or `valueProduced` (grep for `valueOf.*merge`: the only hit is
+§9.5's own note). The analogous development DOES exist one layer down, for
+PlutusCoreBlaster's CIP-153 `ValueRep`: `PlutusCore/Value/Algebra.lean`'s
+`unionInner_lookup` (:561-660), `unionOuter_lookup` (:809-910),
+`unionInner_sortedFrom` (:493-561), `unionOuter_sortedFrom` (:746-809) — ~330
+lines, and they are the template for the CLAB versions. They are NOT reusable
+directly: `merge`/`valueOf` on `List (Data × Data)` and `unionOuter`/`lookupCoin`
+on `ValueRep` are different functions, and bridging them is a proof of the same
+size.
+
+STATUS, stated exactly: `LR_BALANCE_SLOT` remains an axiom, but it is NO LONGER
+OPAQUE — `LR_BALANCE_SLOT_of_valueAlgebra` (§4) proves it from `ValueAlgebra` plus
+`WSC.LR7`, with NO new ledger assumption and no appeal to anything outside
+`CardanoLedgerApi`. Instantiating `ValueAlgebra` deletes the axiom; the work is
+the ~330-line CLAB `Value`-algebra port described above. -/
+
+/-- The `Data`-level key of an assoc-list entry, when the key is a `Data.B`. -/
+def bKeyOf : Data × Data → Option ByteString
+  | (Data.B b, _) => some b
+  | _ => none
+
+/-- **Canonical token map**: every entry is `(Data.B tn, Data.I n)` and the token
+names strictly ascend. This is the shape `merge.tn_visit` and
+`valueOf.find_token` both assume. Implied by `validTxOutValue`'s `validTokens`
+(`CardanoLedgerApi/V1/Contexts.lean:788-792`) and by `validMintValue`'s
+`validMintTokens` (`:824-828`); NOTE that neither the positivity of
+`validTxOutValue` nor the non-zeroness of `validMintValue` is needed for
+additivity, which is why this predicate says nothing about quantities. -/
+def CanonToks : List (Data × Data) → Prop
+  | [] => True
+  | (Data.B tn, Data.I _) :: rest =>
+      (∀ q ∈ rest, ∀ tn', bKeyOf q = some tn' → tn < tn') ∧ CanonToks rest
+  | _ => False
+
+/-- **Canonical `Value`**: every entry is `(Data.B cs, Data.Map toks)` with `toks`
+canonical, and the policy ids strictly ascend. Implied by `validTxOutValue` and by
+`validMintValue`, and — crucially — expected to be PRESERVED by `merge`, which is
+what makes the `valueSpent` fold well-behaved. -/
+def CanonV : Value → Prop
+  | [] => True
+  | (Data.B cs, Data.Map toks) :: rest =>
+      CanonToks toks ∧ (∀ q ∈ rest, ∀ cs', bKeyOf q = some cs' → cs < cs') ∧ CanonV rest
+  | _ => False
+
+/-- **FINDING (machine-checked): `valueOf` is NOT additive over `merge` without
+canonicity.** Take `a = [(B "b", …1), (B "a", …1)]` — the SAME entries a canonical
+value would have, in the wrong order — and `b = [(B "a", …1)]`. `merge a b`
+emits `b`'s `"a"` entry first (because `"b" < "a"` is false and `"b" == "a"` is
+false, so `cs_visit` takes the right head, `:161`) and then, with the right list
+exhausted, appends `a` unchanged (`:153`). The result carries `"a"` TWICE and
+`valueOf "a"` stops at the first copy, reporting 1 instead of 2.
+
+So the `CanonV` hypotheses in `ValueAlgebra` are load-bearing, not defensive. -/
+theorem merge_not_additive_without_canonicity :
+    let a : Value := [ (Data.B (ByteString.mk "b"), Data.Map [(Data.B (ByteString.mk "t"), Data.I 1)])
+                     , (Data.B (ByteString.mk "a"), Data.Map [(Data.B (ByteString.mk "t"), Data.I 1)]) ]
+    let b : Value := [ (Data.B (ByteString.mk "a"), Data.Map [(Data.B (ByteString.mk "t"), Data.I 1)]) ]
+    valueOf (ByteString.mk "a") (ByteString.mk "t") (merge a b)
+      ≠ valueOf (ByteString.mk "a") (ByteString.mk "t") a
+        + valueOf (ByteString.mk "a") (ByteString.mk "t") b := by
+  native_decide
+
+/-- **THE RESIDUE.** Three facts about CLAB's `Value` operations, each an instance
+of "`valueOf` distributes over `merge` on `CanonV` values, and `merge` preserves
+`CanonV`", specialized to the two folds `isBalanced` actually uses.
+
+None of the three mentions a ledger rule, a validator, or `OnChain`: they are pure
+statements about `CardanoLedgerApi/V1/Value.lean` and
+`CardanoLedgerApi/V3/Contexts.lean:683-697`. Each carries the canonicity of the
+per-`TxOut` values as an explicit hypothesis, which is exactly what `WSC.LR1`
+(`validInputs`) and `WSC.LR2` (`validOutputs`) supply for a real transaction, and
+`WSC.LR3` (`validMintValue`) supplies for the mint field.
+
+UNPROVED. See §3.5's header for what the proof costs and why CLAB has none of it.
+-/
+structure ValueAlgebra : Prop where
+  /-- `valueOf` of the merge-fold over inputs is the plain per-input sum. -/
+  ofValueSpent : ∀ (ctx : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+    (∀ t ∈ ctx.scriptContextTxInfo.txInfoInputs,
+      CanonV t.txInInfoResolved.txOutValue) →
+      valueOf cs tn (valueSpent ctx)
+        = sumInsIf (fun _ => true) cs tn ctx.scriptContextTxInfo.txInfoInputs
+  /-- `valueOf` of the merge-fold over outputs is the plain per-output sum. -/
+  ofValueProduced : ∀ (ctx : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+    (∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs, CanonV o.txOutValue) →
+      valueOf cs tn (valueProduced ctx)
+        = sumOutsIf (fun _ => true) cs tn ctx.scriptContextTxInfo.txInfoOutputs
+  /-- `valueOf` distributes over the ONE `merge` that appears in `isBalanced`'s
+  non-ada conjunct. The `CanonV` hypotheses are on the two arguments; canonicity of
+  `withoutLovelace (valueSpent ctx)` is itself a consequence of `merge` preserving
+  `CanonV`, which is why this field is stated at the point of use rather than as a
+  general distributivity law. -/
+  ofMergeMint : ∀ (ctx : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+    (∀ t ∈ ctx.scriptContextTxInfo.txInfoInputs,
+      CanonV t.txInInfoResolved.txOutValue) →
+    CanonV ctx.scriptContextTxInfo.txInfoMint →
+      valueOf cs tn (merge (withoutLovelace (valueSpent ctx))
+          ctx.scriptContextTxInfo.txInfoMint)
+        = valueOf cs tn (withoutLovelace (valueSpent ctx))
+          + valueOf cs tn ctx.scriptContextTxInfo.txInfoMint
+
+/-! ### §3.5b The parts of the derivation that ARE proved here -/
+
+/-- **`withoutLovelace` is invisible to a non-ada slot** — PROVED, and
+UNCONDITIONALLY (no canonicity needed). `withoutLovelace`
+(`CardanoLedgerApi/V1/Value.lean:77-80`) either drops a leading ada entry, which
+`valueOf cs` skips anyway for `cs ≠ ""`, or is the identity. -/
+theorem valueOf_withoutLovelace (cs : CurrencySymbol) (tn : TokenName) (v : Value)
+    (hcs : cs ≠ adaSymbol) :
+    valueOf cs tn (withoutLovelace v) = valueOf cs tn v := by
+  unfold CardanoLedgerApi.V1.Value.withoutLovelace
+  split
+  · next n rest =>
+      show valueOf cs tn rest = valueOf.visit cs tn (_ :: rest)
+      simp only [valueOf.visit]
+      split
+      · next hb => exact absurd (by simpa [adaSymbol] using hb) hcs
+      · rfl
+  · rfl
+
+/-- The two per-slot input sums partition the inputs: base + off-base = total. -/
+theorem sumInsIf_split (base : Credential) (cs : CurrencySymbol) (tn : TokenName) :
+    ∀ (ts : List TxInInfo),
+      sumInsIf (atBaseB base) cs tn ts + sumInsIf (offBaseB base) cs tn ts
+        = sumInsIf (fun _ => true) cs tn ts := by
+  intro ts
+  induction ts with
+  | nil => rfl
+  | cons t rest ih =>
+      simp only [sumInsIf]
+      by_cases hb : atBaseB base t.txInInfoResolved = true
+      · rw [if_pos hb, if_neg (by simp [offBaseB, atBaseB] at hb ⊢; simpa using hb),
+          if_pos (by simp)]
+        omega
+      · rw [if_neg (by simpa using hb), if_pos (by
+            simp only [offBaseB, atBaseB] at hb ⊢; simpa using hb), if_pos (by simp)]
+        omega
+
+/-- The two per-slot output sums partition the outputs: base + off-base = total. -/
+theorem sumOutsIf_split (base : Credential) (cs : CurrencySymbol) (tn : TokenName) :
+    ∀ (os : List TxOut),
+      sumOutsIf (atBaseB base) cs tn os + sumOutsIf (offBaseB base) cs tn os
+        = sumOutsIf (fun _ => true) cs tn os := by
+  intro os
+  induction os with
+  | nil => rfl
+  | cons o rest ih =>
+      simp only [sumOutsIf]
+      by_cases hb : atBaseB base o = true
+      · rw [if_pos hb, if_neg (by simp [offBaseB, atBaseB] at hb ⊢; simpa using hb),
+          if_pos (by simp)]
+        omega
+      · rw [if_neg (by simpa using hb), if_pos (by
+            simp only [offBaseB, atBaseB] at hb ⊢; simpa using hb), if_pos (by simp)]
+        omega
+
+/-- **The `Value` EQUALITY inside `isBalanced`**, extracted from its `==`.
+`Value = List (Data × Data)` has a `LawfulBEq` instance
+(`CardanoLedgerApi/V1/Value.lean:26-32`), so the `BEq` in `isBalanced`'s second
+conjunct is genuine equality — this is the step that lets `valueOf` be applied to
+both sides. -/
+theorem isBalanced_nonAda_eq (ctx : ScriptContext) (h : isBalanced ctx = true) :
+    merge (withoutLovelace (valueSpent ctx)) ctx.scriptContextTxInfo.txInfoMint
+      = withoutLovelace (valueProduced ctx) := by
+  simp only [CardanoLedgerApi.V3.Contexts.isBalanced, Bool.and_eq_true, beq_iff_eq] at h
+  exact h.2
+
 /-! # §4 The ledger-level axioms
 
 `WSC/Honest.lean` deliberately does NOT state these: they need a `Ledger` type,
@@ -503,20 +715,94 @@ For a non-ada asset slot, value in = value out: base inputs + off-base inputs +
 mint = base outputs + off-base outputs. The fee term is absent precisely because
 `cs ≠ adaSymbol`.
 
-STATUS, honestly: this is the per-slot PROJECTION of `WSC/Honest.lean`'s `LR7`
-(`isBalanced ctx`, `CardanoLedgerApi/V3/Contexts.lean:1185-1189`, whose non-ada
-conjunct is `merge (withoutLovelace (valueSpent ctx)) txInfoMint ==
-withoutLovelace (valueProduced ctx)`). Deriving it from `LR7` is a mechanical but
-UNWRITTEN CLAB lemma (`valueOf` distributes over `merge`, `valueSpent`/
-`valueProduced` split along the payment-credential filter). It is therefore
-stated here as an axiom and listed in §9 as `CLAB-LEMMA-PENDING`, not claimed as
-proved. -/
+STATUS, honestly (REVISED BY TASK U2): this is the per-slot PROJECTION of
+`WSC/Honest.lean`'s `LR7` (`isBalanced ctx`,
+`CardanoLedgerApi/V3/Contexts.lean:1185-1189`, whose non-ada conjunct is
+`merge (withoutLovelace (valueSpent ctx)) txInfoMint == withoutLovelace
+(valueProduced ctx)`). It is STILL an axiom, but it is no longer opaque:
+`LR_BALANCE_SLOT_of_valueAlgebra` below PROVES this exact statement from `LR7`
+plus two named, purely-`CardanoLedgerApi` residues — `ValueAlgebra` (three
+`valueOf`/`merge` facts) and `LedgerCanon` (canonicity of the values a real
+transaction shows) — with NO new ledger assumption. Read §3.5's header for why the
+`Value` algebra is not one-line mechanical (`valueOf` is NOT additive over `merge`
+without sortedness — `merge_not_additive_without_canonicity` is the
+machine-checked counterexample) and for the measured size of the port.
+
+DELETE THIS AXIOM when `ValueAlgebra` and `LedgerCanon` are instantiated: the
+replacement is `LR_BALANCE_SLOT_of_valueAlgebra va lc`. -/
 axiom LR_BALANCE_SLOT :
   ∀ (ctx : ScriptContext) (base : Credential) (cs : CurrencySymbol) (tn : TokenName),
     WSC.OnChain ctx → cs ≠ adaSymbol →
       inAtB base cs tn ctx + inOff base cs tn ctx
         + WSC.mintOf cs tn ctx.scriptContextTxInfo.txInfoMint
       = outAtB base cs tn ctx + outOff base cs tn ctx
+
+/-- **The LEDGER-side residue of `LR_BALANCE_SLOT`**: every `Value` a real
+transaction shows is `CanonV`.
+
+This is NOT a new ledger assumption — it is the projection of `WSC.LR1`
+(`validInputs`, hence `validTxOutValue` on every resolved input), `WSC.LR2`
+(`validOutputs`) and `WSC.LR3` (`validMintValue`) through the two CLAB validity
+predicates, whose sortedness clauses are literally `prev_cs < cs` /
+`prev_tn < tn` (`CardanoLedgerApi/V1/Contexts.lean:787-802, 823-838`). Reading
+`CanonV` off them is mechanical unfolding of two nested `let rec`s with an
+accumulator — no algebra — and it is UNWRITTEN. It is kept separate from
+`ValueAlgebra` precisely so the two kinds of missing work are not conflated. -/
+def LedgerCanon : Prop :=
+  ∀ (ctx : ScriptContext), WSC.OnChain ctx →
+    (∀ t ∈ ctx.scriptContextTxInfo.txInfoInputs,
+      CanonV t.txInInfoResolved.txOutValue) ∧
+    (∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs, CanonV o.txOutValue) ∧
+    CanonV ctx.scriptContextTxInfo.txInfoMint
+
+/-- **`LR_BALANCE_SLOT`, PROVED from `WSC.LR7` + `ValueAlgebra` + `LedgerCanon`
+(task U2).** This is the derivation §9.5 asked for, complete except for the two
+residues, which are stated in §3.5/above and contain no ledger content.
+
+THE DERIVATION, in full:
+1. `sumInsIf_split` / `sumOutsIf_split` (§3.5b, PROVED): the base and off-base
+   per-slot sums partition the inputs and the outputs, so the goal reduces to
+   `totalIn + mint = totalOut`;
+2. `WSC.LR7` + `isBalanced_nonAda_eq` (§3.5b, PROVED, via `LawfulBEq Value`):
+   `merge (withoutLovelace (valueSpent ctx)) txInfoMint = withoutLovelace
+   (valueProduced ctx)` — a genuine `Value` equality, so `valueOf cs tn` can be
+   applied to both sides;
+3. `ValueAlgebra.ofMergeMint` on the left, then `valueOf_withoutLovelace`
+   (§3.5b, PROVED, unconditional for `cs ≠ adaSymbol`) on both sides — this is
+   where the FEE disappears, because the fee lives only in `isBalanced`'s ada
+   conjunct;
+4. `ValueAlgebra.ofValueSpent` / `ofValueProduced` turn the two folds into the
+   per-input and per-output sums;
+5. `WSC.mintOf` is `valueOf` (`WSC/Spec.lean:45-46`), so step 3's mint term is
+   already the goal's. -/
+theorem LR_BALANCE_SLOT_of_valueAlgebra (va : ValueAlgebra) (lc : LedgerCanon) :
+    ∀ (ctx : ScriptContext) (base : Credential) (cs : CurrencySymbol) (tn : TokenName),
+      WSC.OnChain ctx → cs ≠ adaSymbol →
+        inAtB base cs tn ctx + inOff base cs tn ctx
+          + WSC.mintOf cs tn ctx.scriptContextTxInfo.txInfoMint
+        = outAtB base cs tn ctx + outOff base cs tn ctx := by
+  intro ctx base cs tn hoc hcs
+  obtain ⟨hcIn, hcOut, hcMint⟩ := lc ctx hoc
+  -- step 2
+  have hbal := isBalanced_nonAda_eq ctx (WSC.LR7 ctx hoc)
+  have hv : valueOf cs tn (merge (withoutLovelace (valueSpent ctx))
+      ctx.scriptContextTxInfo.txInfoMint)
+      = valueOf cs tn (withoutLovelace (valueProduced ctx)) := by rw [hbal]
+  -- step 3
+  rw [va.ofMergeMint ctx cs tn hcIn hcMint, valueOf_withoutLovelace cs tn _ hcs,
+    valueOf_withoutLovelace cs tn _ hcs] at hv
+  -- step 4
+  rw [va.ofValueSpent ctx cs tn hcIn, va.ofValueProduced ctx cs tn hcOut] at hv
+  -- steps 1 + 5
+  have hin := sumInsIf_split base cs tn ctx.scriptContextTxInfo.txInfoInputs
+  have hout := sumOutsIf_split base cs tn ctx.scriptContextTxInfo.txInfoOutputs
+  have hgoal : sumInsIf (atBaseB base) cs tn ctx.scriptContextTxInfo.txInfoInputs
+        + sumInsIf (offBaseB base) cs tn ctx.scriptContextTxInfo.txInfoInputs
+        + valueOf cs tn ctx.scriptContextTxInfo.txInfoMint
+      = sumOutsIf (atBaseB base) cs tn ctx.scriptContextTxInfo.txInfoOutputs
+        + sumOutsIf (offBaseB base) cs tn ctx.scriptContextTxInfo.txInfoOutputs := by
+    rw [hin, hout]; exact hv
+  simpa only [inAtB, inOff, outAtB, outOff, WSC.mintOf] using hgoal
 
 /-- **§5.3 `ts_genesis`.** The deployment's initial ledger state satisfies the
 invariant: the directory holds only sentinels, no live-`cs` node exists, and
@@ -575,8 +861,18 @@ theorem sameTx_withPurpose (ctx : ScriptContext) (r : Data) (si : ScriptInfo) :
 
 /-- **`WithinBudget` (ADDENDUM E1).** Every validator run this transaction can
 trigger halts within the PUBLISHED per-validator CEK step bound of
-`WSC/Honest.lean` (`K_base = 600`, `K_mint = 900`, `K_global = 1600`), whichever
+`WSC/Honest.lean` (`K_base = 600`, `K_mint = 900`, `K_global = 4400`), whichever
 purpose it is invoked under.
+
+TASK U2 NOTE — the global clause was WIDENED. It used to read
+`nodeStepsGlobal … ≤ 1600`, which EXCLUDED every transaction the P1 containment
+theorems talk about (their witnesses cost 2,603 / 3,150 / 3,572 CEK steps, and the
+containment-carrying off-chain goldens 3,262 / 3,726). Widening it weakens a
+HYPOTHESIS, so `preservation` and `top_claim` got strictly stronger; nothing in
+§7 consumes the global clause (only the base clause, in `p3_lifted`).
+The minting clause is still `K_mint = 900` and is still TOO TIGHT for P4's
+`Local`/`DelegateTransfer`/`DelegateSeize` arms (K = 1,681 / 1,257 / 1,466) —
+§10.5.
 
 THERE IS NO SEIZE CLAUSE, deliberately: no `K_seize` exists (see
 `LR_SEIZE_HALTS`). -/
@@ -610,13 +906,17 @@ library's budget bridges stop being usable:
 
 * for the BASE validator the bridge works today, so §7 does that plumbing itself
   (`p3_lifted`) and P3 is NOT a `LeafSet` field;
-* for MINTING, `WSC.LR_BUDGET_minting` names `appliedMinting.prop` — the budget-600
-  prep whose non-vacuity is MACHINE-CHECKED FALSE (`WSC/Props/P4_Minting.lean`
-  `minting600_is_vacuous`), while the theorems live on `appliedMinting900`. So the
-  bridge cannot be applied at all until that axiom is repointed (§9.5, a one-line
-  repair in `WSC/Honest.lean`);
-* for GLOBAL, `WSC.LR_BUDGET_global` names `appliedGlobal.prop` (budget 600,
-  probe-Valid vacuous) while P5 lives on `appliedGlobalShaped1600`;
+* for MINTING the bridge NOW EXISTS at `K_mint = 900`: task U2 repointed
+  `WSC.LR_BUDGET_minting` from the budget-600 `appliedMinting.prop` (machine-checked
+  vacuous, `WSC.minting600_is_vacuous`) to `appliedMinting900.prop`, and DISCHARGED
+  its non-vacuity hypothesis (`mintingNonVacuous`, §7). It still does not reach
+  P4's three non-burn arms, which need a bridge at the 2500 prep (§10.5);
+* for GLOBAL, task U2 made `WSC.LR_BUDGET_global` PREP-PARAMETRIC (it now carries
+  the prepped term and its budget as arguments plus a `GlobalPreppedAt` side
+  condition), which removes the old defect — it used to name the budget-600
+  `appliedGlobal.prop` while quoting `K_global`. It is still not INSTANTIABLE at
+  the shaped preps without the SHAPE BRIDGE (§9.4), so §7 still does no global
+  budget plumbing;
 * for SEIZE there is no bridge at all, only `LR_SEIZE_HALTS`.
 
 Putting the trigger at `NodeAccepts*` therefore keeps §7's proof honest: it
@@ -726,12 +1026,39 @@ The branch analysis of ARCHITECTURE.md §5.2, proved from `LeafSet` and the
 axioms. Nothing in this section is `blaster`-closed or `native_decide`d. -/
 
 /-- Non-vacuity of the base prep — DISCHARGED, as a theorem, from the in-library
-concrete witness (`WSC/Props/P3_Base.lean`). This is the only one of the four
-`*NonVacuous` obligations of `WSC/Honest.lean` that is dischargeable today, and it
-is what makes `WSC.LR_BUDGET_base` usable below. -/
+concrete witness (`WSC/Props/P3_Base.lean`). This is what makes
+`WSC.LR_BUDGET_base` usable below. -/
 theorem baseNonVacuous : WSC.BaseNonVacuous :=
   ⟨WSC.P3Witness.globalCred, WSC.P3Witness.seizeCred, WSC.P3Witness.ctx,
    WSC.P3Witness.ctx_valid, WSC.P3Witness.prop_accepts⟩
+
+/-- **Non-vacuity of the minting prep at `K_mint = 900` — DISCHARGED, as a
+theorem (task U2).**
+
+`WSC.MintingNonVacuous` used to name the budget-600 `appliedMinting.prop`, whose
+negation is machine-checked (`WSC.minting600_is_vacuous`); task U2 repointed it at
+`appliedMinting900.prop`, the prep every P4/P4a theorem lives on, and this is the
+witness that discharges it:
+
+* the context is `WSC.P4Witness.ctx` — a hand-built, fully concrete `BurnOnly`
+  minting transaction (`WSC/Props/P4_Minting.lean:457-476`);
+* `WSC.P4Witness.ctx_valid : validMintingContext ctx = true`, by `native_decide`;
+* acceptance is on the OPTIMIZED `prop` term the theorems quantify over, closed by
+  `blaster` on the fully concrete goal — exactly the route
+  `WSC.P3Witness.prop_accepts` takes for the base validator, and NOT the weaker
+  `exec` route (`#prep_uplc` emits `prop` and `exec` as two separate terms with no
+  proved equality, `PlutusCore/UPLC/PreProcess.lean:43-46`).
+
+Corroboration, all already in the library: the real bytecode REJECTS this context
+at 600 and ACCEPTS it at 800 and 900 (`P4Witness.exec_rejects_at_600`,
+`exec_accepts_at_800`, `exec_accepts_at_900`), and the REAL off-chain golden
+`programmableTokenMinting.mint-burnonly` does the same with measured K = 784
+(`WSC.P4Golden`).
+
+MEASURED COST of the `blaster` call: 0.6 s (task U2). -/
+theorem mintingNonVacuous : WSC.MintingNonVacuous :=
+  ⟨WSC.P4Witness.protocolParamsCS, WSC.P4Witness.mintingLogicHash, WSC.P4Witness.ctx,
+   WSC.P4Witness.ctx_valid, by blaster⟩
 
 /-- A `withPurpose`-built spending context of an on-chain transaction satisfies
 CLAB's `validSpendingContext`: the purpose matches by construction and
@@ -790,6 +1117,201 @@ theorem covering_excludes_ledger_registration
   rcases ho with ⟨t, ht, hEq⟩ | ⟨t, ht, hEq⟩
   · exact hEq ▸ List.mem_map_of_mem (f := UTxO.utxoOut) (hrefs t ht)
   · exact hEq ▸ List.mem_map_of_mem (f := UTxO.utxoOut) (hins t ht)
+
+/-! ### §7.1 The RAW ↔ GROUND-TRUTH reconciliation of the exemption predicate
+(task U2)
+
+`LeafSet.p1` states the non-exemption premise in this file's GROUND-TRUTH
+vocabulary — `¬ WSC.coveringIn` (`authenticDirNode` = `hasCurrencySymbol`, plus
+the full 5-field `DirectorySetNode` decode). Every leaf that could discharge it
+states it RAW, as `coveringNodeExists dirCS cs referenceInputs = false`
+(`WSC/Props/P1_Transfer.lean:211-223`, and the four shaped P1 theorems of
+`WSC/Props/Shaped/P1Shaped.lean` carry exactly that hypothesis): PCB's cheap
+`hasCSH` shape check plus the 3-field prefix decode `dirNodeFields`.
+
+§9.2 recorded closing that gap as an unwritten obligation "costing `WSC.TS3` +
+`WSC.TS5`". This section CLOSES it, and it costs `WSC.TS3` ONLY — the `hasCSH` →
+`authenticDirNode` half turns out to be an ordinary lemma (`hasCSH` returning
+`some true` exhibits the policy as the value's second entry, which is enough for
+`hasCurrencySymbol`), so `TS5` is not needed for this direction.
+
+IMPORT-CYCLE NOTE, stated rather than hidden: `coveringNodeExists` is defined in
+`WSC/Props/P1_Transfer.lean`, which imports `WSC.Honest`, so this file cannot
+name it. `coveringRaw` below is that definition RE-STATED verbatim over the same
+two `WSC.Model` primitives this file does import. The `rfl`-style bridge
+`coveringRaw ≡ Model.coveringNodeExists` therefore belongs in a module downstream
+of both; that is exactly the pattern `WSC/Props/Shaped/P6Bridge.lean` already
+uses for the two independently-defined copies of `outSum`/`inSum`, and it adds no
+trust. -/
+
+/-- **The RAW exemption predicate**, verbatim re-statement of
+`WSC.Model.coveringNodeExists` (`WSC/Props/P1_Transfer.lean:211-223`): some
+reference input is `hasCSH`-authenticated for `dirCS` and its datum's 3-field
+prefix decodes to an interval that STRICTLY covers `cs`.
+
+Both walks of the transfer validator exempt a policy in exactly this one way
+(transfer walk ProgrammableLogicBase.hs:891-908, mint walk :996-1016). -/
+def coveringRaw (dirCS cs : CurrencySymbol) : List TxInInfo → Bool
+  | [] => false
+  | i :: rest =>
+      (match i.txInInfoResolved.txOutDatum with
+       | .OutputDatum d =>
+           (match WSC.Model.dirNodeFields d with
+            | some (k, n, _) =>
+                decide (k < cs) && decide (cs < n) &&
+                  (WSC.Model.hasCSH dirCS i.txInInfoResolved.txOutValue == some true)
+            | none => false)
+       | _ => false)
+      || coveringRaw dirCS cs rest
+
+/-- **Half 1 of the reconciliation: the cheap authentication implies the
+ground-truth one.** `WSC.Model.hasCSH` (the mirror of `phasCSH`,
+ProgrammableLogicBase.hs:754-757) only looks at the value's SECOND entry; when it
+answers `some true` that entry's key IS `dirCS`, and membership is all
+`WSC.authenticDirNode` (= `hasCurrencySymbol`) asks for.
+
+This is why `WSC.TS5` is NOT needed here: TS5 is the converse direction
+(ground-truth membership ⟹ the policy is the FIRST non-ada entry), which is what
+a proof would need to run `hasCSH` forwards. -/
+theorem authenticDirNode_of_hasCSH (dirCS : CurrencySymbol) (o : TxOut)
+    (h : WSC.Model.hasCSH dirCS o.txOutValue = some true) :
+    WSC.authenticDirNode dirCS o = true := by
+  unfold WSC.Model.hasCSH at h
+  match hv : o.txOutValue with
+  | [] => rw [hv] at h; simp at h
+  | x :: [] => rw [hv] at h; simp at h
+  | x :: (Data.B cs', dv) :: rest =>
+      rw [hv] at h
+      simp only [Option.some.injEq, beq_iff_eq] at h
+      subst h
+      simp only [WSC.authenticDirNode, hv, hasCurrencySymbol, Bool.or_eq_true]
+      exact Or.inr (Or.inl (by simp))
+  | x :: (Data.Constr _ _, _) :: rest => rw [hv] at h; simp at h
+  | x :: (Data.Map _, _) :: rest => rw [hv] at h; simp at h
+  | x :: (Data.List _, _) :: rest => rw [hv] at h; simp at h
+  | x :: (Data.I _, _) :: rest => rw [hv] at h; simp at h
+
+/-- **Half 2 of the reconciliation: the full 5-field decode refines the 3-field
+prefix decode.** If an output's inline datum decodes as a `DirectorySetNode` then
+`WSC.Model.dirNodeFields` reads the SAME `key` and `next` off it.
+
+Encoding fact this rests on (`WSC/Redeemer.lean:250-273`): the datum is a
+`Data.List` of FIVE elements whose first two are `Data.B key`, `Data.B next`, and
+`dirNodeFields` matches the `Data.List (B k :: B n :: tls :: _)` prefix. -/
+theorem dirNodeFields_of_fromData (d : Data) (nd : WSC.DirectorySetNode)
+    (h : (CardanoLedgerApi.IsData.Class.IsData.fromData d :
+      Option WSC.DirectorySetNode) = some nd) :
+    ∃ tls : Data, WSC.Model.dirNodeFields d = some (nd.key, nd.next, tls) := by
+  simp only [CardanoLedgerApi.IsData.Class.IsData.fromData] at h
+  split at h
+  · split at h
+    · simp only [Option.some.injEq] at h
+      subst h
+      exact ⟨_, rfl⟩
+    · simp at h
+  · simp at h
+
+/-- Half 2, packaged for the use site: the same fact about an OUTPUT whose inline
+datum is `d`. -/
+theorem dirNodeFields_of_dirNodeDatum (o : TxOut) (nd : WSC.DirectorySetNode)
+    (h : WSC.dirNodeDatum o = some nd) (d : Data)
+    (hd : o.txOutDatum = .OutputDatum d) :
+    ∃ tls : Data, WSC.Model.dirNodeFields d = some (nd.key, nd.next, tls) := by
+  refine dirNodeFields_of_fromData d nd ?_
+  simpa [WSC.dirNodeDatum, hd] using h
+
+/-- **The reconciliation, list form.** Over a reference-input list whose
+authentic directory nodes are known to carry decodable datums (that is `WSC.TS3`),
+the RAW covering-node scan is SOUND for the ground-truth `coveringIn`. -/
+theorem coveringIn_of_coveringRaw_aux (dirCS cs : CurrencySymbol) :
+    ∀ (refs : List TxInInfo),
+      (∀ t ∈ refs, WSC.authenticDirNode dirCS t.txInInfoResolved →
+        (WSC.dirNodeDatum t.txInInfoResolved).isSome) →
+      coveringRaw dirCS cs refs = true →
+      WSC.coveringIn dirCS cs (refs.map (·.txInInfoResolved)) := by
+  intro refs
+  induction refs with
+  | nil => intro _ h; simp [coveringRaw] at h
+  | cons i rest ih =>
+      intro hts h
+      simp only [coveringRaw, Bool.or_eq_true] at h
+      rcases h with hhd | hrest
+      · -- the covering node is THIS reference input
+        match hdat : i.txInInfoResolved.txOutDatum with
+        | .OutputDatum d =>
+            simp only [hdat] at hhd
+            match hf : WSC.Model.dirNodeFields d with
+            | some (k, n, tls) =>
+                simp only [hf] at hhd
+                simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hhd
+                obtain ⟨⟨hk, hn⟩, hcsh⟩ := hhd
+                have hauth := authenticDirNode_of_hasCSH dirCS _ hcsh
+                obtain ⟨nd, hnd⟩ :=
+                  Option.isSome_iff_exists.mp (hts i (List.mem_cons_self ..) hauth)
+                obtain ⟨tls', hf'⟩ := dirNodeFields_of_dirNodeDatum _ nd hnd d hdat
+                rw [hf] at hf'
+                simp only [Option.some.injEq, Prod.mk.injEq] at hf'
+                obtain ⟨hkey, hnext, -⟩ := hf'
+                refine ⟨i.txInInfoResolved, by simp, hauth, k, n, ?_, ?_, hk, hn⟩
+                · rw [WSC.dirNodeKey, hnd]; simp [hkey]
+                · rw [WSC.dirNodeNext, hnd]; simp [hnext]
+            | none => simp only [hf] at hhd; simp at hhd
+        | .OutputDatumHash _ => simp only [hdat] at hhd; simp at hhd
+        | .NoOutputDatum => simp only [hdat] at hhd; simp at hhd
+      · -- …or in the tail
+        have := ih (fun t ht => hts t (List.mem_cons_of_mem _ ht)) hrest
+        exact WSC.coveringIn_mono
+          (fun o ho => by
+            simp only [List.map_cons, List.mem_cons]; exact Or.inr ho) this
+
+/-- **THE RECONCILIATION (task U2).** For an on-chain transaction of the audited
+deployment, the RAW covering-node scan the leaves carry implies the GROUND-TRUTH
+`coveringIn` over the pre-state snapshot.
+
+TRUST COST: `WSC.TS3` (authentic directory nodes among the reference inputs carry
+a decodable inline datum) — a consequence of `WSC.DIRWF` conjunct (iii), same
+discharge (U10). Nothing else. -/
+theorem coveringIn_of_coveringRaw (hp : WSC.HonestParams) (ctx : ScriptContext)
+    (cs : CurrencySymbol) (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx)
+    (h : coveringRaw hp.directoryNodeCS cs
+      ctx.scriptContextTxInfo.txInfoReferenceInputs = true) :
+    WSC.coveringIn hp.directoryNodeCS cs (WSC.dirPreState ctx) := by
+  refine WSC.coveringIn_mono (os := ctx.scriptContextTxInfo.txInfoReferenceInputs.map
+    (·.txInInfoResolved)) (fun o ho => ?_) ?_
+  · simp only [WSC.dirPreState, List.mem_append]; exact Or.inl ho
+  · exact coveringIn_of_coveringRaw_aux _ _ _
+      (fun t ht hauth => Option.isSome_iff_exists.mpr
+        (by
+          have := WSC.TS3 hp ctx hdep hoc t ht hauth
+          exact Option.isSome_iff_exists.mp this))
+      h
+
+/-- **WHAT §7 AND ITEM 3 OF TASK U2 ASK FOR: the leaves' raw premise, supplied by
+the PROVED bridge.** A policy registered in the pre-state ledger cannot be
+exempted, and the exemption is unavailable in the RAW form the leaves state it —
+no explicit `coveringNodeExists … = false` hypothesis is needed anywhere.
+
+CHAIN: `DIRWF_L` (ledger-level interval non-overlap) →
+`covering_excludes_ledger_registration` (proved above, via
+`WSC.covering_excludes_registeredIn`) → this contraposition of
+`coveringIn_of_coveringRaw` (via `WSC.TS3`).
+
+So the ONLY directory assumptions behind the leaves' exemption hypothesis are
+`DIRWF_L` conjunct-(iv)-analogue and `WSC.TS3`, both discharged by U10. -/
+theorem coveringRaw_false_of_registered
+    (hp : WSC.HonestParams) (L : Ledger) (ctx : ScriptContext) (L' : Ledger)
+    (cs : CurrencySymbol)
+    (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx)
+    (hno : WSC.dirNoOverlap hp.directoryNodeCS (ledgerOuts L))
+    (hstep : LedgerStep L ctx L')
+    (hreg : RegisteredIn hp L cs) :
+    coveringRaw hp.directoryNodeCS cs
+      ctx.scriptContextTxInfo.txInfoReferenceInputs = false := by
+  have hnocov := covering_excludes_ledger_registration hp L ctx L' cs hno hstep hreg
+  by_cases hb : coveringRaw hp.directoryNodeCS cs
+      ctx.scriptContextTxInfo.txInfoReferenceInputs = true
+  · exact absurd (coveringIn_of_coveringRaw hp ctx cs hdep hoc hb) hnocov
+  · simpa using hb
 
 /-- `NE` follows from `CONTAIN` once the out-of-base inputs are known to hold
 nothing: conservation (`LR_BALANCE_SLOT`) turns the containment inequality into
@@ -1017,8 +1539,10 @@ slot at every UTxO whose payment credential is not `hp.progLogicCred`.
    claim is proved" — only as "the claim follows from exactly these four
    obligations, and here is where each one stands".
 2. **BOUNDED TRANSACTIONS (ADDENDUM E1).** Every step carries `WithinBudget`: the
-   published CEK step bounds `K_base = 600`, `K_mint = 900`, `K_global = 1600`.
-   Nothing here covers unboundedly large transactions. There is no `K_seize`.
+   published CEK step bounds `K_base = 600`, `K_mint = 900`, `K_global = 4400`
+   (task U2 republished `K_global` from 1600; the minting clause is still 900 and
+   is still too tight for P4's three non-burn arms — §10.5). Nothing here covers
+   unboundedly large transactions. There is no `K_seize`.
 3. **SHAPE RESTRICTIONS (task Z2).** Every step carries `Shape`. Instantiating a
    leaf with a shaped `by blaster` theorem forces `Shape` to be that shape's
    membership predicate — a severe restriction on list lengths, constructor tags
@@ -1036,9 +1560,11 @@ slot at every UTxO whose payment credential is not `hp.progLogicCred`.
 6. **LEDGER AXIOMS.** §4 (`lr_utxo_semantics`, `lr_inputs_in_ledger`,
    `lr_registration_source`, `LR_BALANCE_SLOT`, `ts_minting_identity_L`),
    `ts_genesis`, `NONNEG_L`, `DIRWF_L`, and the `WSC/Honest.lean` set. Of these
-   `LR_BALANCE_SLOT` is the only one that is a MECHANICAL CONSEQUENCE of an
-   existing axiom (`WSC.LR7` / `isBalanced`) rather than a primitive ledger fact:
-   the derivation is unwritten (§9.5).
+   `LR_BALANCE_SLOT` is the only one that is a CONSEQUENCE of an existing axiom
+   (`WSC.LR7` / `isBalanced`) rather than a primitive ledger fact, and task U2 wrote
+   that derivation: `LR_BALANCE_SLOT_of_valueAlgebra` proves it from `WSC.LR7` plus
+   two `CardanoLedgerApi`-only residues (`ValueAlgebra`, `LedgerCanon`). The axiom
+   is retained only until those are instantiated — §9.5c.
 7. **`cs ≠ adaSymbol`** is built into `I`; see `I`'s FINDING for why omitting it
    makes the invariant false.
 8. **NOT COVERED AT ALL:** collateral inputs (PlutusV3 `TxInfo` has no collateral
@@ -1074,6 +1600,282 @@ theorem no_programmable_tokens_outside_mini_ledger
   exact sumHoldU_elim cs tn _
     (fun v hv => NONNEG_L hp Shape L hR v (List.mem_filter.mp hv).1 cs tn) hI u hmem
 
+/-! # §10 VOCABULARY BRIDGES AND THE LEAF INSTANTIATION (task U2)
+
+§9.2 lists, for `LeafSet.p1`, four gaps between what
+`WSC/Props/Shaped/P1Shaped.lean` proves and what this file's field asks for. Two
+of them are VOCABULARY, and this section closes both, as theorems:
+
+1. the sums: the shaped theorems conclude in `WSC.Model.outSum` / `WSC.Model.inSum`
+   (`WSC/Model/Ground.lean:43-56`), this file's `Contain` is stated with
+   `outAtB` / `inAtB` — §10.1;
+2. the exemption predicate: the shaped theorems hypothesise
+   `coveringNodeExists … = false` (raw), this file's field hypothesises
+   `¬ WSC.coveringIn` (ground truth) — §7.1 above, applied in §10.2.
+
+The mint term needs no bridge at all: `WSC.Model.mintSigned cs tn mint` is
+*definitionally* `valueOf cs tn mint` (`WSC/Props/P1_Transfer.lean:192-193`, whose
+own docstring says "Same as `WSC.mintOf`"), and `WSC.mintOf cs tn mint` is the same
+body (`WSC/Spec.lean:45-46`). So `Contain`'s mint term and the shaped
+conclusion's mint term are the same term.
+
+The two gaps §10 does NOT close, and cannot from inside this file, are the ones
+that are not about vocabulary: the SHAPE BRIDGE (§9.4) and a global budget bridge
+at the shaped budget (`WSC.LR_BUDGET_global`'s named TODO). They are carried as
+ONE explicit field in §10.2's structure so that a reader can see exactly what an
+instantiation still owes. -/
+
+/-! ## §10.1 The sum bridges — PROVED, ordinary list inductions
+
+`WSC.Model.outSum base` and `sumOutsIf (atBaseB base)` are the same fold: the
+model's guard is `WSC.payCred o == base`, and `atBaseB base o` unfolds to exactly
+that (`atBaseB`, §2). The inductions below are therefore trivial, and that is the
+point — the two task-independent transcriptions of ARCHITECTURE.md §3's
+`outAtBase`/`inAtBase` agree on the nose, with no side condition. -/
+
+theorem outSum_eq_sumOutsIf (base : Credential) (cs : CurrencySymbol) (tn : TokenName) :
+    ∀ (os : List TxOut),
+      WSC.Model.outSum base cs tn os = sumOutsIf (atBaseB base) cs tn os := by
+  intro os
+  induction os with
+  | nil => rfl
+  | cons o rest ih => simp only [WSC.Model.outSum, sumOutsIf, atBaseB, ih]
+
+theorem inSum_eq_sumInsIf (base : Credential) (cs : CurrencySymbol) (tn : TokenName) :
+    ∀ (ts : List TxInInfo),
+      WSC.Model.inSum base cs tn ts = sumInsIf (atBaseB base) cs tn ts := by
+  intro ts
+  induction ts with
+  | nil => rfl
+  | cons t rest ih => simp only [WSC.Model.inSum, sumInsIf, atBaseB, ih]
+
+/-- `outAtB` (this file) = `Model.outSum` (the shaped leaves) at a transaction's
+outputs. -/
+theorem outAtB_eq_outSum (base : Credential) (cs : CurrencySymbol) (tn : TokenName)
+    (ctx : ScriptContext) :
+    outAtB base cs tn ctx =
+      WSC.Model.outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs :=
+  (outSum_eq_sumOutsIf base cs tn _).symm
+
+/-- `inAtB` (this file) = `Model.inSum` (the shaped leaves) at a transaction's
+inputs. -/
+theorem inAtB_eq_inSum (base : Credential) (cs : CurrencySymbol) (tn : TokenName)
+    (ctx : ScriptContext) :
+    inAtB base cs tn ctx =
+      WSC.Model.inSum base cs tn ctx.scriptContextTxInfo.txInfoInputs :=
+  (inSum_eq_sumInsIf base cs tn _).symm
+
+/-- **`Contain`, in the shaped leaves' vocabulary.** The two statements are the
+same proposition; this is the rewriting that lets a shaped theorem be quoted at a
+`LeafSet` field without restating it. -/
+theorem contain_iff_modelSums (base : Credential) (cs : CurrencySymbol) (tn : TokenName)
+    (ctx : ScriptContext) :
+    Contain base cs tn ctx ↔
+      WSC.Model.outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs
+        ≥ WSC.Model.inSum base cs tn ctx.scriptContextTxInfo.txInfoInputs
+          + WSC.mintOf cs tn ctx.scriptContextTxInfo.txInfoMint := by
+  rw [Contain, outAtB_eq_outSum, inAtB_eq_inSum]
+
+/-! ## §10.2 `LeafSet.p1`, instantiated from a shaped global containment theorem
+
+The `Shape` restriction is carried IN THE TYPE (the `Shape` parameter of
+`ShapedGlobalContainment` is the same `Shape` the `LeafSet` and `HonestTx` carry),
+so a reader cannot quote the conclusion without carrying the shape.
+
+WHAT THE ONE FIELD PACKAGES, and why it is one field rather than several: the
+shaped theorems' subject is `isSuccessful (appliedGlobalShapedT1.prop <scalars>)`,
+while a leaf's trigger is `WSC.NodeAcceptsGlobal`. Getting from the former to the
+latter needs BOTH (i) the SHAPE BRIDGE of §9.4 and (ii) `WSC.LR_BUDGET_global` at
+the shaped prep's budget (4400 = `WSC.K_global`, whose non-vacuity IS
+dischargeable at the shaped preps — `P1_T*_vacuity_probe` = `Falsified` plus the
+concrete `P1ShapedWitness`). Neither exists yet, and neither is a vocabulary
+question, so they are deliberately NOT hidden inside a definition here: they are
+the reason this field is a hypothesis and not a theorem. -/
+
+/-- **What a SHAPED global containment theorem supplies, transcribed into this
+file's ledger vocabulary.** One field, deliberately: it is `P1Shaped`'s conclusion
+with the prep/`NodeAccepts` boundary already crossed.
+
+DISCHARGED BY, once §9.4's shape bridge and the 4400 budget bridge exist:
+`WSC.P1_T1` / `WSC.P1_T2` / `WSC.P1_T6` / `WSC.P1_T7`
+(`WSC/Props/Shaped/P1Shaped.lean`, `✅ Valid` at budget 4400 over SHAPES
+T1/T2/T6/T7, `#print axioms` free of any `*_faithful` axiom), with
+`Shape := fun ctx => ∃ scalars, ctx = p1ShapedCtx scalars ∨ ctx = p1ShapedMintCtx
+scalars ∨ …`.
+
+NOTE the hypothesis vocabulary: `coveringRaw` (§7.1), i.e. exactly what those
+theorems carry, NOT the ground-truth `¬ WSC.coveringIn`. §7.1 is what closes the
+difference, and it is applied in `leafP1_of_shapedGlobalContainment` below. -/
+structure ShapedGlobalContainment (hp : WSC.HonestParams)
+    (Shape : ScriptContext → Prop) : Prop where
+  contain : ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+    WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+    ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
+    WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
+    cs ≠ adaSymbol →
+    coveringRaw hp.directoryNodeCS cs
+      ctx.scriptContextTxInfo.txInfoReferenceInputs = false →
+      WSC.Model.outSum hp.progLogicCred cs tn ctx.scriptContextTxInfo.txInfoOutputs
+        ≥ WSC.Model.inSum hp.progLogicCred cs tn ctx.scriptContextTxInfo.txInfoInputs
+          + WSC.mintOf cs tn ctx.scriptContextTxInfo.txInfoMint
+
+/-- **`LeafSet.p1`, PROVED from a shaped global containment theorem** — the
+instantiation §9.2 asked for, minus the two non-vocabulary obligations that are
+now named as `ShapedGlobalContainment.contain`'s reason for existing.
+
+Note what this theorem does with the exemption premise, which is item 3 of task
+U2: the field's `¬ WSC.coveringIn` premise is converted into the leaves' raw
+`coveringRaw … = false` by §7.1's `coveringIn_of_coveringRaw`, i.e. through
+`WSC.TS3` — so no leaf has to carry a raw covering hypothesis into the
+composition, and no new directory assumption enters. -/
+theorem leafP1_of_shapedGlobalContainment (hp : WSC.HonestParams)
+    (Shape : ScriptContext → Prop) (hgc : ShapedGlobalContainment hp Shape) :
+    ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
+      WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
+      ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
+      WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
+      cs ≠ adaSymbol →
+      ¬ WSC.coveringIn hp.directoryNodeCS cs (WSC.dirPreState ctx) →
+        Contain hp.progLogicCred cs tn ctx := by
+  intro ctx ctx' cs tn hdep hoc hsh hsame hsi hacc hcs hnocov
+  have hraw : coveringRaw hp.directoryNodeCS cs
+      ctx.scriptContextTxInfo.txInfoReferenceInputs = false := by
+    by_cases hb : coveringRaw hp.directoryNodeCS cs
+        ctx.scriptContextTxInfo.txInfoReferenceInputs = true
+    · exact absurd (coveringIn_of_coveringRaw hp ctx cs hdep hoc hb) hnocov
+    · simpa using hb
+  exact (contain_iff_modelSums _ _ _ _).mpr
+    (hgc.contain ctx ctx' cs tn hoc hsh hsame hsi hacc hcs hraw)
+
+/-! ## §10.3 `LeafSet.p4` — the CUSTODY-ARM vocabulary bridge, PROVED
+
+The shaped P4 theorems (`WSC.P4_disjunction_at_L1`,
+`WSC.P4_disjunction_at_DT1`, `WSC.P4_disjunction_at_DS1`,
+`WSC.P4_burnonly_arm_shaped` / `WSC.P4_burn_only_shapedIdx`) conclude
+`WSC/Spec.lean`'s FULL four-way disjunction
+`LocalCustodyOk || DelegateTransferOk || DelegateSeizeOk || BurnOnlyOk`, one shape
+at a time. `LeafSet.p4` asks for the WEAKER per-arm consequence the branch
+analysis actually consumes. §10.3 proves that weakening — so `p4`'s vocabulary
+gap is closed here, and what remains for `p4` is only shape coverage and budgets
+(§10.5).
+
+TWO honest side conditions, both explicit below rather than assumed:
+* the shaped theorems quantify over a params datum `p : WSC.GlobalParams` read out
+  of a reference input, so a leaf needs `p` to BE the deployment's parameters —
+  the `hpar` hypothesis. Under honest deployment this is `WSC.TS1`/`WSC.TS2`
+  (the params NFT is unique and its datum is the deployment's); it is passed in
+  rather than assumed silently;
+* arm 3 concludes `WSC.seizeScopedToNodeOf` — a `Rewarding seizeCred` entry in the
+  REDEEMER MAP scoped to `cs`'s node — whereas `LeafSet.p4`'s third disjunct is
+  `seizeCred ∈ txInfoWdrl`. That upgrade is `SeizeWdrlOfScoped`, isolated as its
+  own named obligation because it is NOT a rewriting: it is a ledger fact
+  (a redeemer-map entry for a rewarding purpose exists only if that reward account
+  is withdrawn from). See its docstring for the audit note that the `LeafSet.p4`
+  docstring's one-line claim ("`WSC.LR5`'s rewarding clause") is too quick. -/
+
+/-- **The residual obligation of P4's `DelegateSeize` arm**: a `Rewarding
+seizeCred` entry in the transaction's REDEEMER MAP, scoped to `cs`'s directory
+node, implies `seizeCred` is in the WITHDRAWAL map.
+
+WHY IT IS ISOLATED HERE (finding, task U2). `LeafSet.p4`'s docstring folds this
+into the leaf with the remark "upgrading that to `seizeCred ∈ txInfoWdrl` is
+`WSC.LR5`'s rewarding clause (`validScriptInfo`)". That is too quick:
+`validScriptInfo` (`CardanoLedgerApi/V3/Contexts.lean:979-1002`) constrains the
+purpose of the script *currently running*, and here the `Rewarding seizeCred`
+entry belongs to a DIFFERENT script than the issuance policy that is running. The
+fact is still a genuine ledger rule — the Conway UTXOW `scriptsNeeded` set is
+built FROM the withdrawal map, so a redeemer entry for a rewarding purpose cannot
+exist unless that reward account is withdrawn from — but it is a rule about the
+redeemer map as a whole, not a consequence of `LR5` as stated.
+
+DISCHARGE: strengthen `WSC.LR5` (or add an `LR_REDEEMER_PURPOSES_REAL` axiom) with
+the "every redeemer-map purpose is a real purpose of this transaction" clause,
+citing `Conway/TxInfo.hs` `transTxRedeemers` + the UTXOW `scriptsNeeded` rule. Not
+done here: it is an axiom-base change in `WSC/Honest.lean` whose audit row does
+not exist yet. -/
+def SeizeWdrlOfScoped (hp : WSC.HonestParams) : Prop :=
+  ∀ (ctx : ScriptContext) (cs : CurrencySymbol),
+    WSC.OnChain ctx →
+    WSC.seizeScopedToNodeOf hp.seizeLogicCred hp.directoryNodeCS cs
+      ctx.scriptContextTxInfo.txInfoReferenceInputs
+      ctx.scriptContextTxInfo.txInfoRedeemers = true →
+      credentialInWithdrawals hp.seizeLogicCred
+        ctx.scriptContextTxInfo.txInfoWdrl = true
+
+/-- The deployment's parameters, as the `GlobalParams` datum the validators read.
+-/
+def paramsOf (hp : WSC.HonestParams) : WSC.GlobalParams :=
+  { directoryNodeCS := hp.directoryNodeCS
+  , progLogicCred := hp.progLogicCred
+  , globalLogicCred := hp.globalLogicCred
+  , seizeLogicCred := hp.seizeLogicCred }
+
+/-- **`LeafSet.p4`'s disjunction, PROVED from `WSC/Spec.lean`'s four-way custody
+disjunction** — the vocabulary bridge for the entrance leaf.
+
+Arm by arm: `Local` ⟹ its third conjunct is the ground-truth no-escape scan;
+`DelegateTransfer` ⟹ its third conjunct is `globalLogicCred ∈ wdrl`;
+`DelegateSeize` ⟹ its third conjunct plus `SeizeWdrlOfScoped`;
+`BurnOnly` ⟹ its second conjunct is `!mintPos cs`. Nothing else in the four
+predicates is used, which is exactly why `LeafSet.p4` is stated in the weak
+form. -/
+theorem p4_disjuncts_of_custody (hp : WSC.HonestParams) (mlh : ScriptHash)
+    (cs : CurrencySymbol) (ctx : ScriptContext)
+    (hsw : SeizeWdrlOfScoped hp) (hoc : WSC.OnChain ctx)
+    (h : (WSC.LocalCustodyOk mlh (paramsOf hp) cs ctx ||
+          WSC.DelegateTransferOk mlh (paramsOf hp) cs ctx ||
+          WSC.DelegateSeizeOk mlh (paramsOf hp) cs ctx ||
+          WSC.BurnOnlyOk mlh cs ctx) = true) :
+    WSC.noEscape hp.progLogicCred cs ctx.scriptContextTxInfo.txInfoOutputs = true
+    ∨ credentialInWithdrawals hp.globalLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true
+    ∨ credentialInWithdrawals hp.seizeLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true
+    ∨ WSC.mintPos cs ctx.scriptContextTxInfo.txInfoMint = false := by
+  simp only [Bool.or_eq_true] at h
+  rcases h with ((hL | hDT) | hDS) | hB
+  · simp only [WSC.LocalCustodyOk, Bool.and_eq_true] at hL
+    exact Or.inl hL.2
+  · simp only [WSC.DelegateTransferOk, Bool.and_eq_true] at hDT
+    exact Or.inr (Or.inl hDT.2)
+  · simp only [WSC.DelegateSeizeOk, Bool.and_eq_true] at hDS
+    exact Or.inr (Or.inr (Or.inl (hsw ctx cs hoc hDS.2)))
+  · simp only [WSC.BurnOnlyOk, Bool.and_eq_true, Bool.not_eq_true'] at hB
+    exact Or.inr (Or.inr (Or.inr hB.2))
+
+/-! ## §10.5 What each field still owes AFTER §10.1-§10.4
+
+**`LeafSet.p1`** — owes exactly two things, both named in `ShapedGlobalContainment`:
+the SHAPE BRIDGE (§9.4) and `WSC.LR_BUDGET_global` instantiated at
+`K_global = 4400` over a shaped prep (its named TODO in `WSC/Honest.lean`).
+Vocabulary: CLOSED (§10.1, §7.1). `Shape` must be
+"`ctx` is an instance of T1, T2, T6 or T7", and — new since task U2 —
+`WithinBudget`'s global clause no longer excludes those transactions, because
+`WSC.K_global` was republished at 4400.
+
+**`LeafSet.p4`** — vocabulary CLOSED (§10.3), and one ledger obligation isolated
+(`SeizeWdrlOfScoped`). Still owes: (a) SHAPE COVERAGE — the four arms are proved
+at four PAIRWISE DISJOINT shapes (L1 @2500 K=1681, DT1 @2500 K=1257, DS1 @2500
+K=1466, M1/M2 @900 K=784), so the field's `Shape` must be their disjunction and
+there is no single theorem over a symbolic redeemer tag
+(`WSC/SHAPING-RESULTS.md` §7); (b) a MINTING BUDGET BRIDGE AT 2500 — task U2
+repointed `WSC.LR_BUDGET_minting` from the vacuous 600 prep to `appliedMinting900`
+and DISCHARGED its non-vacuity, but 900 does not cover K = 1,257/1,466/1,681, so
+the three non-burn arms need a bridge at the 2500 prep and `WithinBudget`'s
+`K_mint` clause raised to match; (c) the SHAPE BRIDGE.
+
+**`LeafSet.p2`.** `WSC/Props/Shaped/P2Shaped.lean` proves BOTH conjuncts over
+SHAPE S1 at budget 3800 (witnesses K = 3004 / 3328). Missing: (a) the seize budget
+bridge does not exist at all (`WSC.LR_BUDGET_seize` names the budget-600 prep and
+there is deliberately no `K_seize`), so `WithinBudget` has no seize clause and the
+route through §4's note (`LR_SEIZE_HALTS`) is the only one; (b) the shape bridge;
+(c) a vocabulary reconciliation this task did not write, because P2Shaped's
+conclusion is stated over SHAPE S1's scalars rather than over a `ScriptContext`'s
+`txInfoOutputs`/`txInfoInputs`.
+
+**`LeafSet.nopre`.** UNCHANGED — STILL-OPEN, and it is not a vocabulary problem.
+It needs the FULL `LeafSet.p4` disjunction over a symbolic redeemer plus trace
+induction (ARCHITECTURE.md §5.1 `L-mint-needs-reg`); no shaped theorem addresses
+it. Nothing in this task moves it. -/
+
 /-! # §9 DISCHARGE STATUS — what the library actually supplies, per hypothesis
 
 Vocabulary (as `WSC/STATUS.md` §1): `PROVED-UNSHAPED` = a `by blaster` theorem over
@@ -1090,7 +1892,17 @@ proved anywhere.
 | `covering_excludes_registeredIn` + `covering_node_excludes_registration` (`WSC/Honest.lean`) | **PROVED** — ADDENDUM E3's bridge, now a theorem; conjunct (iv) added to `DirWF` |
 | `covering_excludes_ledger_registration` (this file) | **PROVED** from `DIRWF_L` |
 | `mintOf_nonpos_of_not_mintPos`, `nonEscape_of_noEscape`, `valueOf_zero_of_not_hasCS`, the sum lemmas | **PROVED**, ordinary Lean |
-| `baseNonVacuous` (`WSC.BaseNonVacuous`) | **PROVED** from `WSC.P3Witness` — the only one of the four `*NonVacuous` obligations dischargeable today |
+| `baseNonVacuous` (`WSC.BaseNonVacuous`) | **PROVED** from `WSC.P3Witness` |
+| `mintingNonVacuous` (`WSC.MintingNonVacuous`) | **PROVED** (task U2) from `WSC.P4Witness` + `blaster` on the concrete accept goal at `appliedMinting900.prop` |
+| `WSC.GlobalNonVacuous` / `WSC.SeizeNonVacuous` | **STILL-OPEN** — see `WSC/Honest.lean`; global is dischargeable only at a SHAPED prep, seize at no affordable budget |
+| `authenticDirNode_of_hasCSH`, `dirNodeFields_of_fromData`, `coveringIn_of_coveringRaw` (§7.1) | **PROVED** (task U2) — the raw↔ground-truth reconciliation of the exemption predicate, at a cost of `WSC.TS3` only |
+| `coveringRaw_false_of_registered` (§7.1) | **PROVED** — registered ⟹ the leaves' RAW exemption is unavailable |
+| `outSum_eq_sumOutsIf`, `inSum_eq_sumInsIf`, `contain_iff_modelSums` (§10.1) | **PROVED** — the sum vocabulary bridges |
+| `leafP1_of_shapedGlobalContainment` (§10.2) | **PROVED** from `ShapedGlobalContainment` (which packages the shape bridge + the 4400 budget bridge) |
+| `p4_disjuncts_of_custody` (§10.3) | **PROVED** from `WSC/Spec.lean`'s four-way disjunction + `SeizeWdrlOfScoped` |
+| `merge_not_additive_without_canonicity` (§3.5) | **PROVED** (`native_decide`) — the counterexample that makes `CanonV` mandatory |
+| `valueOf_withoutLovelace`, `sumInsIf_split`, `sumOutsIf_split`, `isBalanced_nonAda_eq` (§3.5b) | **PROVED**, ordinary Lean |
+| `LR_BALANCE_SLOT_of_valueAlgebra` (§4) | **PROVED** from `WSC.LR7` + `ValueAlgebra` + `LedgerCanon` — the axiom's derivation, modulo two named `CardanoLedgerApi`-only residues |
 | `p3_lifted` (P3 → "global or seize ran") | **PROVED** from `WSC.P3_base_requires_global_or_seize` (**PROVED-UNSHAPED**, K=600) + `LR_SPEND_RUNS_VALIDATOR` + `LR_BUDGET_base` + `LR_CTX` |
 | `nonEscape_of_registered`, `preservation`, `top_claim` | **PROVED** from `LeafSet` + the axioms |
 
@@ -1135,22 +1947,30 @@ glossed:
    for some scalars" (T1/T2/T6/T7). Only 1 of the 3 containment dispatch paths
    (Path A) and no input-side aggregation are covered — Blaster defect D6 blocks
    T3/T4/T5.
-2. **The budget bound is 4400, not `WSC.K_global = 1600`.** `WithinBudget`'s global
-   clause as written is TOO TIGHT to admit the transactions P1_T1/T2/T6/T7 talk
-   about (their witnesses cost 2,603 / 3,572 / 3,150 / 3,572 CEK steps). `K_global`
-   must be republished at ≥ 4400 with its own non-vacuity witness before the
-   composition can consume them.
+2. **The budget bound is 4400, not 1600 — FIXED BY TASK U2.** `WithinBudget`'s
+   global clause used to be TOO TIGHT to admit the transactions P1_T1/T2/T6/T7 talk
+   about (their witnesses cost 2,603 / 3,572 / 3,150 / 3,572 CEK steps).
+   `WSC.K_global` is now **4400**, with its non-vacuity witness named in its
+   docstring (`WSC.P1ShapedWitness.exec_accepts_unshaped` at 4400 on the UNSHAPED
+   bytecode, plus the bracketing `K_T1_is_2603`), and `WSC.K_global_nonmember = 1600`
+   is retained as the separate P5/covering-node sub-bound. So this gap is CLOSED.
 3. **SHAPE BRIDGE** (§9.4): their conclusion is about
    `appliedGlobalShapedT2.prop <scalars>`; this field's trigger is
    `NodeAcceptsGlobal`, so both the shape bridge and a repointed
    `WSC.LR_BUDGET_global` (§9.5) are needed.
-4. **Vocabulary**: they conclude in `WSC.Model.outSum`/`inSum`/`mintSigned` with the
-   exemption stated as `Model.coveringNodeExists … = false` (raw `hasCSH` +
-   2-field `dirNodeFields`); this field speaks `outAtB`/`inAtB`/`WSC.mintOf` with
-   `¬ WSC.coveringIn` (ground-truth `authenticDirNode` + full 5-field decode). Two
-   small bridges: `outSum ≡ sumOutsIf (atBaseB …)` (a list induction) and the
-   raw↔ground-truth node reconciliation (`WSC.TS3` + `WSC.TS5`, as
-   `WSC.P5_groundtruth_of_indexed` does it for P5).
+4. **Vocabulary — CLOSED BY TASK U2 (§10.1, §7.1).** They conclude in
+   `WSC.Model.outSum`/`inSum`/`mintSigned` with the exemption stated as
+   `Model.coveringNodeExists … = false` (raw `hasCSH` + 3-field `dirNodeFields`);
+   this field speaks `outAtB`/`inAtB`/`WSC.mintOf` with `¬ WSC.coveringIn`
+   (ground-truth `authenticDirNode` + full 5-field decode). Both bridges are now
+   theorems: `outSum_eq_sumOutsIf` / `inSum_eq_sumInsIf` / `contain_iff_modelSums`
+   (§10.1, trivial list inductions — the two transcriptions agree on the nose), and
+   `coveringIn_of_coveringRaw` (§7.1). The reconciliation costs `WSC.TS3` ONLY, not
+   `TS3 + TS5` as this list previously estimated: the `hasCSH ⟹ authenticDirNode`
+   half is an ordinary lemma (`authenticDirNode_of_hasCSH`).
+   `WSC.Model.mintSigned` needs NO bridge — it is definitionally `WSC.mintOf`.
+   What remains for `p1` is items 1 and 3 only, packaged as the single field of
+   `ShapedGlobalContainment` (§10.2).
 
 **`LeafSet.p2` — STILL-OPEN in half, MODEL+AXIOM in the other.**
 Seized policy: `WSC.P2.P2b_bytecode` is a `Prop` — STILL-OPEN (blocked on the two
@@ -1185,8 +2005,8 @@ inventing them. Discharges: `ts_genesis` and `Genesis` — deployment audit;
 
 A shaped theorem such as `WSC.P5_shaped_indexed` quantifies over the scalar leaves
 of `globalShapedCtx …` and speaks about `appliedGlobalShaped1600.prop <those
-leaves>`. A `LeafSet` field speaks about a `ScriptContext` and (after §9.5) about
-`appliedGlobal1600.prop pcs ctx`. Bridging the two needs
+leaves>`. A `LeafSet` field speaks about a `ScriptContext` and (after §9.5b, at the
+prep it names) about `globalProp pcs ctx`. Bridging the two needs
 
     isSuccessful (appliedXShaped.prop args) ↔ isSuccessful (appliedX.prop (shapedCtx args))
 
@@ -1197,26 +2017,53 @@ the form "the composition is discharged by the shaped leaves" must carry it.
 (`WSC.P5ShapedWitness.exec_accepts_at_1600_unshaped` is empirical evidence for one
 concrete instance, not the general statement.)
 
-## §9.5 TWO REPAIRS THIS FILE DOES NOT MAKE (reported, not patched)
+## §9.5 THE THREE HYGIENE REPAIRS — STATUS AFTER TASK U2
 
-1. **`WSC.LR_BUDGET_minting` / `WSC.MintingNonVacuous` name the wrong prep.** Both
-   are stated over `appliedMinting.prop` — the budget-600 prep, whose non-vacuity
-   is MACHINE-CHECKED FALSE (`WSC/Props/P4_Minting.lean` `minting600_is_vacuous`;
-   the cheapest accepting run costs 784 steps) — while `K_mint = 900` and every P4
-   theorem lives on `appliedMinting900` / `appliedMintShaped900`. As written the
-   axiom cannot be applied to anything, so the minting budget bridge does not
-   exist yet. Repair: repoint both to `appliedMinting900` (one line each). The same
-   mismatch holds for `WSC.LR_BUDGET_global` / `WSC.GlobalNonVacuous`
-   (`appliedGlobal.prop`, budget 600, probe-Valid vacuous) versus
-   `appliedGlobal1600` / `appliedGlobalShaped1600`. This is why §6 puts every leaf
-   trigger at `NodeAccepts*` and does the budget plumbing ONLY for the base
-   validator, where the bridge genuinely closes.
-2. **`LR_BALANCE_SLOT` should be a theorem, not an axiom.** It is the per-slot
-   projection of `WSC.LR7` (`isBalanced`,
-   `CardanoLedgerApi/V3/Contexts.lean:1185-1189`). Deriving it needs `valueOf`
-   distributing over `V2.merge` and `valueSpent`/`valueProduced` splitting along
-   the payment-credential filter — mechanical CLAB work, unwritten. Listed as
-   CLAB-LEMMA-PENDING.
+**§9.5a MINTING BRIDGE — REPAIRED.** `WSC.LR_BUDGET_minting` and
+`WSC.MintingNonVacuous` used to be stated over `appliedMinting.prop` — the
+budget-600 prep, whose non-vacuity is MACHINE-CHECKED FALSE
+(`WSC/Props/P4_Minting.lean` `minting600_is_vacuous`; the cheapest accepting run
+costs 784 steps) — while `K_mint = 900` and every P4 theorem lives on
+`appliedMinting900`. Both are now pointed at `appliedMinting900.prop`, and the
+non-vacuity hypothesis is DISCHARGED as the theorem `mintingNonVacuous` (§7). The
+bridge is therefore USABLE for the first time. It still does not cover P4's three
+non-burn arms (K = 1,257 / 1,466 / 1,681 > 900) — §10.5.
+
+**§9.5b GLOBAL BRIDGE — REPAIRED IN SHAPE, STILL NOT INSTANTIABLE.**
+`WSC.LR_BUDGET_global` used to name `appliedGlobal.prop` (budget 600, its own
+probe `Valid` for "vacuous") while quoting `K_global`. Repointing it at ONE prep
+cannot work, because the global theorems live at THREE budgets (1600 for P5, 3300
+for P6/SHAPE G6, 4400 for P1's four shapes) and `K_global` is now 4400. It is
+therefore **PREP-PARAMETRIC**: it takes the prepped term and its budget as
+arguments, with a `WSC.GlobalPreppedAt globalProp K` side condition discharged by
+inspection of the `#prep_uplc` line at each use site. That removes the mismatch by
+construction. What it does NOT do is make the bridge instantiable at the shaped
+preps: that needs the SHAPE BRIDGE (§9.4), and the named TODO is recorded in
+`WSC.LR_BUDGET_global`'s docstring. `WSC.GlobalNonVacuous` is likewise parametric
+and remains UNDISCHARGED at every unshaped prep — at 1600 the symbolic certificate
+did not return in 87 minutes, and `exec` acceptance does not transfer to `prop`
+(two separate terms, `PlutusCore/UPLC/PreProcess.lean:43-46`).
+COST OF THE REPAIR, stated: ONE new abstract declaration, `WSC.GlobalPreppedAt`.
+
+**§9.5c `LR_BALANCE_SLOT` — DERIVED, axiom retained pending two residues.**
+`LR_BALANCE_SLOT_of_valueAlgebra` (§4) proves the axiom's exact statement from
+`WSC.LR7` plus `ValueAlgebra` (§3.5, three `valueOf`/`merge` facts) and
+`LedgerCanon` (§4, canonicity of a real transaction's values). Neither residue
+mentions a validator, a budget or `OnChain`-beyond-LR1/LR2/LR3; both are
+`CardanoLedgerApi`-only. The axiom is retained ONLY because the residues are
+uninstantiated, and its docstring says how to delete it.
+WHY THE RESIDUE IS NOT A ONE-LINER, and this is the finding: `valueOf` is **NOT**
+additive over `merge` — `merge_not_additive_without_canonicity` (§3.5) is a
+`native_decide` counterexample on two 1-entry/2-entry values — so the derivation
+must carry the `CanonV` sortedness predicate and `merge` must be shown to preserve
+it (because `valueSpent` folds `merge` over every input). CLAB supplies NO lemma
+relating `valueOf` to `merge`/`withoutLovelace`/`valueSpent`/`valueProduced`; the
+analogous development exists one layer down for PCB's CIP-153 `ValueRep`
+(`PlutusCore/Value/Algebra.lean` `unionInner_lookup` :561-660,
+`unionOuter_lookup` :809-910, `unionInner_sortedFrom` :493-561,
+`unionOuter_sortedFrom` :746-809 — ~330 lines) and is the template, but is not
+reusable directly because `merge`/`valueOf` on `List (Data × Data)` and
+`unionOuter`/`lookupCoin` on `ValueRep` are different functions.
 
 ## §9.6 Two findings this file records in code
 
@@ -1250,6 +2097,26 @@ Read the build log. Expected:
   `<model>_faithful` axiom appears — the source-model route enters only when a
   `LeafSet` field is instantiated.
 
+TASK U2 CHANGES TO THE CENSUS, before/after:
+
+* **NO axiom was added to `top_claim`'s list and none was removed.** The
+  hygiene repairs are all inside axioms `top_claim` does not reach
+  (`LR_BUDGET_minting`, `LR_BUDGET_global`, the `*NonVacuous` predicates), or are
+  new theorems.
+* `WSC.GlobalPreppedAt` is a NEW abstract declaration in `WSC/Honest.lean`
+  (§9.5b). It does NOT appear in `top_claim`'s list, because nothing in §7 uses the
+  global budget bridge.
+* `mintingNonVacuous` (§7) adds `Lean.ofReduceBool` / `Lean.trustCompiler`
+  (`native_decide` on `P4Witness.ctx_valid`) and `sorryAx` (`blaster`'s `admit`) —
+  the same three `baseNonVacuous` already contributes, so `top_claim`'s list is
+  unchanged. `mintingNonVacuous` is not reached by `top_claim` at all.
+* the §7.1 reconciliation theorems add `WSC.TS3` (plus `WSC.Deployed`/`WSC.OnChain`)
+  — visible in `coveringIn_of_coveringRaw`'s own census below, and NOT in
+  `top_claim`'s, because §7 discharges the exemption premise through
+  `covering_excludes_ledger_registration` / `DIRWF_L` instead.
+* `LR_BALANCE_SLOT_of_valueAlgebra` depends on `WSC.LR7` (and `WSC.OnChain`) and
+  NOT on `LR_BALANCE_SLOT` — that is the point of it.
+
 MEASURED at this revision, `top_claim` depends on exactly:
 
     propext, sorryAx, Classical.choice, Lean.ofReduceBool, Lean.trustCompiler,
@@ -1281,6 +2148,19 @@ Three observations that belong in any published summary:
 #print axioms WSC.covering_node_excludes_registration
 #print axioms WSC.Composition.covering_excludes_ledger_registration
 #print axioms WSC.Composition.baseNonVacuous
+#print axioms WSC.Composition.mintingNonVacuous
+#print axioms WSC.Composition.authenticDirNode_of_hasCSH
+#print axioms WSC.Composition.dirNodeFields_of_fromData
+#print axioms WSC.Composition.coveringIn_of_coveringRaw
+#print axioms WSC.Composition.coveringRaw_false_of_registered
+#print axioms WSC.Composition.merge_not_additive_without_canonicity
+#print axioms WSC.Composition.valueOf_withoutLovelace
+#print axioms WSC.Composition.isBalanced_nonAda_eq
+#print axioms WSC.Composition.LR_BALANCE_SLOT_of_valueAlgebra
+#print axioms WSC.Composition.outSum_eq_sumOutsIf
+#print axioms WSC.Composition.contain_iff_modelSums
+#print axioms WSC.Composition.leafP1_of_shapedGlobalContainment
+#print axioms WSC.Composition.p4_disjuncts_of_custody
 #print axioms WSC.Composition.p3_lifted
 #print axioms WSC.Composition.nonEscape_of_registered
 #print axioms WSC.Composition.preservation
