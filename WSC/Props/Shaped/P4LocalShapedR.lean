@@ -38,10 +38,11 @@ two, output 1 (ada-only) discharges through the value branch and output 0 throug
 the credential branch. A statement for all output counts needs an induction the
 shaped layer cannot express (`WSC/SHAPING-RESULTS.md` §7) and is NOT closed here.
 
-**Bound 2c — the index fields stay concrete.** `mrMintingLogicWdrlIdx = 0`,
-`mrParamsRefIdx = 0`, registration index `= 1`. The SHAPE L2 loosening rung
-(registration index symbolic) is stated over SHAPE L1, not re-cut here — see
-"WHAT THIS MODULE DOES NOT RE-CUT" below.
+**Bound 2c — the index fields stay concrete AT SHAPE L1R.**
+`mrMintingLogicWdrlIdx = 0`, `mrParamsRefIdx = 0`, registration index `= 1`. The
+registration index is LOOSENED in the SHAPE L2R rung at the foot of this module,
+which supersedes the SHAPE L1R no-escape theorem in strength; the other two index
+fields stay concrete everywhere here.
 
 **Bound 3 — realizability is CLAB-level, not node-level.** See
 `WSC/Realizability.lean`'s `Realizable` docstring for the list of what CLAB still
@@ -49,14 +50,28 @@ does not model. The claim is narrow and exact: the ONE defect audit F2 named is
 gone.
 
 ════════════════════════════════════════════════════════════════════════════
-WHAT THIS MODULE DOES *NOT* RE-CUT
+THE SHAPE L2 RUNG IS NOW RE-CUT TOO (audit finding **F19**)
 ════════════════════════════════════════════════════════════════════════════
 SHAPE L2 (`WSC/Shaped/MintingLocalShapedIdx.lean`, the free-registration-index
-rung) is NOT re-cut. `P4_local_noEscape_shapedIdx` therefore still holds only over
-the PROVED-UNREALIZABLE SHAPE L2 class. That is recorded as an open item rather
-than papered over: the L2 rung's value was the measurement that no-escape is
-index-independent while registration is not, and that measurement is unaffected by
-the withdrawal map.
+rung) carries `P4_local_noEscape_shapedIdx` over a class
+`ShapeRealizability.l1_class_is_empty_under_coverage` proves EMPTY, which is why
+`WSC/README.md` and `WSC/STATUS.md` say it must not be quoted. **SHAPE L2R**
+(`WSC/Shaped/MintingLocalShapedRIdx.lean`) is that rung over the realizable cut,
+and the stanzas at the foot of this module give it the full four-item bar:
+`P4_local_noEscape_RIdx` (the theorem), `P4_local_RIdx_vacuity_probe` (its own
+probe at its own prep term and shape), `L2RWitness.exec_accepts_at_2500` +
+`L2RWitness.K_is_1681` (a concrete accepting CEK run, `K` pinned two-sided), and
+`L2RWitness.ctx_realizable` on top of the class-level
+`localRIdx_{wdrl,spend,mint}_covered`.
+
+`P4_local_noEscape_shapedIdx` is superseded and should be cited only as the
+historical measurement. **Quote `P4_local_noEscape_RIdx` instead.**
+
+What remains NOT re-cut is the L2 REGISTRATION conjunct, which was
+`⚠️ Undetermined` at SHAPE L2 after a 300 s Z3 cap (`WSC/Shaped/Probe/L2Reg.lean`)
+and is not attempted at SHAPE L2R either — the split measurement (`noEscape`
+index-independent, registration index-DEPENDENT) is the rung's whole content and
+it is preserved.
 
 ════════════════════════════════════════════════════════════════════════════
 SOURCE FIDELITY
@@ -67,6 +82,7 @@ mirrors, same three conjuncts at Issuance.hs:194-198, :150-151/:136, :172-173,
 withdrawal map C1 indexes, which is still a free script credential.
 -/
 import WSC.Shaped.MintingLocalShapedR
+import WSC.Shaped.MintingLocalShapedRIdx
 import WSC.Spec
 import Blaster
 
@@ -477,5 +493,367 @@ theorem exec_rejects_escaping_output :
         50) = false := by native_decide
 
 end L1RWitness
+
+/-! ════════════════════════════════════════════════════════════════════════
+## SHAPE L2R — the LOOSENING RUNG, re-cut over the realizable class (**F19**)
+════════════════════════════════════════════════════════════════════════════
+
+SHAPE L2R (`WSC/Shaped/MintingLocalShapedRIdx.lean`) is SHAPE L1R with the `Local`
+arm's REGISTRATION reference-input index a free `Integer` leaf instead of the
+constant 1, so the theorem below SUPERSEDES `P4_local_noEscape_R` in strength — the
+shape class is strictly larger, and `localRCtxIdx_at_one` proves the containment
+DEFINITIONALLY (`regIdx = 1` gives back `localRCtx` as the same term).
+
+Everything else is byte-for-byte SHAPE L1R: the same single script withdrawal (the
+C1 floor, Issuance.hs:150-151), the same two-entry redeemer map covering every
+script witness, the same TWO reference inputs, the same TWO outputs, all values
+symbolic. The coverage facts are unchanged and re-proved at every leaf assignment
+(`localRIdx_{wdrl,spend,mint}_covered`), because the loosened index lives in the
+redeemer PAYLOAD and not in the map's KEYS.
+
+Same flat, same imported program object, same budget 2500, same ground-truth
+postcondition (`WSC/Spec.lean`'s `noEscape`), same non-degeneracy: two outputs,
+both disjuncts of the per-output condition (Issuance.hs:189-192) live.
+
+════════════════════════════════════════════════════════════════════════════
+HOW THE HEADLINE IS DISCHARGED HERE — and the measurement that forced it
+════════════════════════════════════════════════════════════════════════════
+The obvious route, `noEscape` as a direct `blaster` goal, is **`⚠️ Undetermined`
+at SHAPE L2R**: measured in `WSC/Shaped/Probe/L2RProbe.lean` at a **300 s Z3 cap**,
+module wall **303 s**. That is a SOLVER LIMIT and not an empty class, and the probe
+says so on its own evidence: `L2R_vacuity` at the same term and shape is
+**`✅ Falsified`**, i.e. accepting shape-L2R contexts exist within 2500 CEK steps.
+
+Compare SHAPE L2, where the same goal closes in 2.2 s. The blow-up is the
+COMPOUNDING of the two loosenings — SHAPE L2 has a ONE-entry redeemer map with a
+symbolic index; SHAPE L1R has a TWO-entry redeemer map with a concrete index;
+SHAPE L2R has both, and the extra `Rewarding` entry (symbolic `w0`, `mlRed`) sits
+inside the same `Data` blob the symbolic `pcheckedDrop` must be reasoned about
+against.
+
+**The route that does close is the NEGATIVE CONTROL, which is `✅ Valid`** at the
+same 300 s cap (`L2RProbe.L2R_negative_control`). That is not a weaker statement:
+`isUnsuccessful = isErrorState` and `isSuccessful = isHaltState` are predicates on
+DISJOINT constructors of `PlutusCore.UPLC.CekMachine.State`
+(`PlutusCore/UPLC/Utils.lean:24-36`), so
+
+    (¬post → run ERRORS)   ⟹   (run HALTS → post)
+
+and the converse fails — a budget-exhausted run is neither. The negative control is
+therefore STRICTLY STRONGER than the headline, and `P4_local_noEscape_RIdx` below is
+derived from it by `halt_not_error` with **no further solver call**. The headline
+statement, its class, its budget and its ground-truth vocabulary are all exactly what
+a direct proof would have given.
+
+WHAT IS *NOT* CLOSED AT SHAPE L2R: the **C1** conjunct (`credentialInWithdrawals`),
+`⚠️ Undetermined` at the 300 s cap (`L2RProbe.L2R_C1`). It is NOT stated as a theorem
+here. C1 at the concrete-index shape L1R is `P4a_local_R` above, which is unaffected. -/
+
+/-- A `Halt` state is not an `Error` state — `isHaltState` and `isErrorState` are
+`True` on disjoint constructors (`PlutusCore/UPLC/Utils.lean:24-36`). This is the
+only bridge the derivation below needs, and it is pure Lean: no solver, no axiom. -/
+theorem halt_not_error (s : PlutusCore.UPLC.CekMachine.State) :
+    isSuccessful s → isUnsuccessful s → False := by
+  cases s <;> simp [isSuccessful, isUnsuccessful,
+    PlutusCore.UPLC.Utils.isHaltState, PlutusCore.UPLC.Utils.isErrorState]
+
+/-- **Negative control at SHAPE L2R — PROVED AT UPLC, `✅ Valid` at a 300 s Z3 cap.**
+A shape-L2R context in which some output outside the mini-ledger base credential
+holds the minted policy is REJECTED — the run ERRORS — whatever reference-input
+index the registration witness names.
+
+This is the LOAD-BEARING result of the rung: `P4_local_noEscape_RIdx` is derived
+from it. The index ranges over `1` (the directory node, the accepting value), `0`
+(the params reference input, which carries no `DIRCS.OWNCS` NFT), every
+out-of-range value (`phead` on the emptied list errors) and every NEGATIVE value,
+which `pcheckedDrop` REJECTS EXPLICITLY rather than clamping (Issuance.hs:126-130 —
+the comment at `:128-129` records that `pdropList` would otherwise treat a negative
+count as zero).
+
+Ground truth: `WSC/Spec.lean`'s `noEscape`. Validator source: Issuance.hs:183-193
++ `:197`. -/
+theorem P4_local_RIdx_negative_control :
+  ∀ (ppCS : CurrencySymbol) (mlh : ScriptHash)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (o0h : ByteString) (outAda0 : Integer) (c0 tn0 : ByteString) (qq0 : Integer)
+    (o1h : ByteString) (outAda1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 : ByteString) (a0 : Integer) (mlRed : ByteString)
+    (regIdx : Integer) (fee : Integer),
+    validMintingContext
+      (localRCtxIdx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) →
+    ¬ (noEscape (Credential.ScriptCredential plc) ownCS
+        (localShapedOutputs o0h outAda0 c0 tn0 qq0 o1h outAda1) = true) →
+    isUnsuccessful
+      (appliedMintLocalRShapedIdx2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0
+        c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) := by
+  blaster (timeout: 300)
+
+/-- **P4-Local's no-escape scan over SHAPE L2R — REGISTRATION INDEX SYMBOLIC, over a
+REALIZABLE class. THE F19 HEADLINE.**
+
+*If the real compiled issuance policy accepts a `Local`-arm transaction of shape
+L2R, then every output whose payment credential is not the mini-ledger base
+credential holds ZERO of the minted policy* — whatever reference-input index the
+registration witness names.
+
+This SUPERSEDES `P4_local_noEscape_R` in strength (SHAPE L2R strictly contains
+SHAPE L1R — `localRCtxIdx_at_one`) and it is the replacement for
+`P4_local_noEscape_shapedIdx`, whose SHAPE L2 class is PROVED EMPTY
+(`ShapeRealizability.l1_class_is_empty_under_coverage`). **Cite this one.**
+
+Discharged from `P4_local_RIdx_negative_control` — which the solver proved `Valid`
+against the real bytecode — by `halt_not_error` alone. No solver call of its own;
+see the module header for why the direct route is `⚠️ Undetermined` and why this
+one loses nothing. -/
+theorem P4_local_noEscape_RIdx :
+  ∀ (ppCS : CurrencySymbol) (mlh : ScriptHash)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (o0h : ByteString) (outAda0 : Integer) (c0 tn0 : ByteString) (qq0 : Integer)
+    (o1h : ByteString) (outAda1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 : ByteString) (a0 : Integer) (mlRed : ByteString)
+    (regIdx : Integer) (fee : Integer),
+    validMintingContext
+      (localRCtxIdx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) →
+    isSuccessful
+      (appliedMintLocalRShapedIdx2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0
+        c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) →
+      noEscape (Credential.ScriptCredential plc) ownCS
+        (localShapedOutputs o0h outAda0 c0 tn0 qq0 o1h outAda1) = true := by
+  intro ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+    pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty
+    key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee hvalid hsucc
+  cases hb : noEscape (Credential.ScriptCredential plc) ownCS
+      (localShapedOutputs o0h outAda0 c0 tn0 qq0 o1h outAda1) with
+  | false =>
+      exact absurd
+        (P4_local_RIdx_negative_control ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0
+          o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc
+          nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee hvalid
+          (fun h => Bool.noConfusion (hb.symm.trans h)))
+        (fun he => halt_not_error _ hsucc he)
+  | true => rfl
+
+/-- Tightness stanza at SHAPE L2R: the NEGATION of the no-escape postcondition
+under an accepting run must be FALSIFIABLE. Expected: `Falsified`. -/
+def P4_local_RIdx_tightness : Prop :=
+  ∀ (ppCS : CurrencySymbol) (mlh : ScriptHash)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (o0h : ByteString) (outAda0 : Integer) (c0 tn0 : ByteString) (qq0 : Integer)
+    (o1h : ByteString) (outAda1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 : ByteString) (a0 : Integer) (mlRed : ByteString)
+    (regIdx : Integer) (fee : Integer),
+    validMintingContext
+      (localRCtxIdx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) →
+    isSuccessful
+      (appliedMintLocalRShapedIdx2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0
+        c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) →
+    ¬ (noEscape (Credential.ScriptCredential plc) ownCS
+        (localShapedOutputs o0h outAda0 c0 tn0 qq0 o1h outAda1) = true)
+
+#blaster (timeout: 300) (gen-cex: 0) (solve-result: 1) [P4_local_RIdx_tightness]
+
+/-- **MANDATORY VACUITY PROBE AT SHAPE L2R'S OWN PREP TERM AND SHAPE.** This is the
+one stanza the re-cut cannot inherit from anywhere: neither SHAPE L1R's probe (a
+different prep term, a different class) nor SHAPE L2's (a different, proved-EMPTY
+withdrawal/redeemer shape) covers it. Freeing the registration index while ALSO
+shrinking the withdrawal map is exactly the combination that could have produced an
+accept-UNSAT class, and SHAPE G6 at budget 2500 is the campaign's proof that this
+happens silently and that only the probe catches it. "No accepting shape-L2R
+context exists within 2500 CEK steps" must be FALSIFIED. -/
+def P4_local_RIdx_vacuity_probe : Prop :=
+  ∀ (ppCS : CurrencySymbol) (mlh : ScriptHash)
+    (ownCS tn : ByteString) (q : Integer)
+    (owner : ByteString) (inAda qIn : Integer)
+    (o0h : ByteString) (outAda0 : Integer) (c0 tn0 : ByteString) (qq0 : Integer)
+    (o1h : ByteString) (outAda1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 : ByteString) (a0 : Integer) (mlRed : ByteString)
+    (regIdx : Integer) (fee : Integer),
+    validMintingContext
+      (localRCtxIdx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
+        pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee) →
+    ¬ isSuccessful
+      (appliedMintLocalRShapedIdx2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0
+        c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed regIdx fee)
+
+#blaster (timeout: 300) (gen-cex: 0) (solve-result: 1) [P4_local_RIdx_vacuity_probe]
+
+/-! ## CONCRETE accepting witness OF EXACTLY SHAPE L2R, and its REALIZABILITY
+
+SHAPE L1R's witness leaves verbatim, with the registration index passed as the
+ORDINARY ARGUMENT `regIdx = 1` — so the context is `L1RWitness.ctx` on the nose
+(`localRCtxIdx_at_one`) while the applied term is SHAPE L2R's, in which the index
+was never reduced at prep time. -/
+
+namespace L2RWitness
+
+set_option maxRecDepth 1000000
+
+def ppCS  : CurrencySymbol := ByteString.mk "PARAMS"
+def mlh   : ScriptHash     := ByteString.mk "MINTLOGIC"
+def ownCS : CurrencySymbol := ByteString.mk "OWNCS"
+
+/-- The witness context: SHAPE L2R at `regIdx = 1` and SHAPE L1R's leaves. -/
+def ctx : ScriptContext :=
+  localRCtxIdx (ByteString.mk "OWNCS") (ByteString.mk "TOK") 3
+    (ByteString.mk "OWNER") 200 2
+    (ByteString.mk "PROGLOGIC") 100 (ByteString.mk "OWNCS") (ByteString.mk "TOK") 5
+    (ByteString.mk "OTHER") 50
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+    (ByteString.mk "SEIZE")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "OWNCS") 100 1
+    (ByteString.mk "AAA") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+    (ByteString.mk "GS")
+    (ByteString.mk "MINTLOGIC") 0 (ByteString.mk "MLRED")
+    1
+    50
+
+/-- AUDIT: it is `L1RWitness.ctx`, definitionally. -/
+theorem ctx_eq_L1R : ctx = L1RWitness.ctx := rfl
+
+def isHaltB : PlutusCore.UPLC.CekMachine.State → Bool
+  | .Halt _ => true
+  | _ => false
+
+theorem isHaltB_sound (s : PlutusCore.UPLC.CekMachine.State) :
+    isHaltB s = true → isSuccessful s := by
+  intro h; cases s <;> simp [isHaltB] at h <;> trivial
+
+/-- The witness satisfies the theorems' ledger-normalization hypothesis IN FULL. -/
+theorem ctx_valid : validMintingContext ctx = true := by native_decide
+
+/-- **AND the `MissingRedeemers` row CLAB is missing** — the conjunct no SHAPE L2
+context can satisfy, because SHAPE L2's class is proved empty on exactly this row. -/
+theorem ctx_covered : Realizability.redeemerCovered ctx = true := by native_decide
+
+/-- **REALIZABILITY OF SHAPE L2R — the acceptance criterion.** A concrete member of
+the class satisfying CLAB's strongest ledger predicate AND redeemer coverage, with
+the three ∀-form coverage facts supplied by the SHAPE-LEVEL theorems, so they hold
+at every other member and every other index too, not only here. -/
+theorem ctx_realizable : Realizability.Realizable ctx := by
+  refine ⟨by native_decide, ctx_covered, ?_, ?_, ?_⟩
+  · apply localRIdx_wdrl_covered
+  · apply localRIdx_spend_covered
+  · apply localRIdx_mint_covered
+
+/-- The witness genuinely mints a STRICTLY POSITIVE quantity of its own policy —
+token CREATION, which is what the no-escape scan is about. -/
+theorem ctx_mints_positive : mintPos ownCS ctx.scriptContextTxInfo.txInfoMint = true := by
+  native_decide
+
+/-- **NON-VACUITY, EXECUTABLE.** The real compiled bytecode ACCEPTS this shape-L2R
+context at budget 2500, through the SHAPED applied term the theorems above quantify
+over — the one in which `regIdx` is an argument, not a prep-time constant. -/
+theorem exec_accepts_at_2500 :
+    isSuccessful
+      (appliedMintLocalRShapedIdx2500.exec ppCS mlh (ByteString.mk "OWNCS") (ByteString.mk "TOK") 3
+        (ByteString.mk "OWNER") 200 2
+        (ByteString.mk "PROGLOGIC") 100 (ByteString.mk "OWNCS") (ByteString.mk "TOK") 5
+        (ByteString.mk "OTHER") 50
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+        (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "OWNCS") 100 1
+        (ByteString.mk "AAA") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "MINTLOGIC") 0 (ByteString.mk "MLRED")
+        1
+        50) :=
+  isHaltB_sound _ (by native_decide)
+
+/-- **EXACT STEP COUNT — `K = 1681`, PINNED TWO-SIDED** (halts at 1681,
+budget-errors at 1680). Identical to `L1RWitness.K_is_1681`, to SHAPE L1's witness
+and to the `mint-local-registered-by-ref` golden's measured K: the loosening costs
+ZERO CEK steps at its own witness, because the context reaches the machine as ONE
+constant term (`CardanoLedgerApi/V3/Contexts.lean:717-720`) and at `regIdx = 1`
+`pcheckedDrop` takes the branch it takes for the literal 1. -/
+theorem K_is_1681 :
+    isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableTokenMinting900.script
+              (mintingPolicyInputs900 ppCS mlh ctx) 1681) = true
+    ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableTokenMinting900.script
+              (mintingPolicyInputs900 ppCS mlh ctx) 1680) = false := by native_decide
+
+/-! ### THE LOOSENED INDEX IS GENUINELY LIVE — the `regIdx = 0` excluded case
+
+Without this stanza "the index is symbolic" would be a claim about the prep term
+only. The sole change from `ctx` is `regIdx = 1 → 0`, which points the registration
+witness at the PARAMS reference input instead of the directory node. That reference
+input carries `PARAMS.PTOK`, not the `DIRCS.OWNCS` directory NFT, so `hasNodeNFT`
+(Issuance.hs:156-157) is false there and `registrationOk` (`:196`) fails. -/
+
+def ctxIdx0 : ScriptContext :=
+  localRCtxIdx (ByteString.mk "OWNCS") (ByteString.mk "TOK") 3
+    (ByteString.mk "OWNER") 200 2
+    (ByteString.mk "PROGLOGIC") 100 (ByteString.mk "OWNCS") (ByteString.mk "TOK") 5
+    (ByteString.mk "OTHER") 50
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+    (ByteString.mk "SEIZE")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "OWNCS") 100 1
+    (ByteString.mk "AAA") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+    (ByteString.mk "GS")
+    (ByteString.mk "MINTLOGIC") 0 (ByteString.mk "MLRED")
+    0
+    50
+
+/-- The `regIdx = 0` member is a FULLY LEDGER-LEGAL, REDEEMER-COVERED shape-L2R
+transaction — it differs from the accepted witness in the redeemer payload alone —
+and it still SATISFIES the no-escape postcondition. So the theorem's class contains
+members the bytecode rejects for a reason unrelated to its conclusion, which is
+what "the index is genuinely quantified over" means. -/
+theorem ctxIdx0_valid_and_covered :
+    validMintingContext ctxIdx0 = true ∧
+    Realizability.redeemerCovered ctxIdx0 = true ∧
+    noEscape (Credential.ScriptCredential (ByteString.mk "PROGLOGIC")) ownCS
+      ctxIdx0.scriptContextTxInfo.txInfoOutputs = true := by native_decide
+
+/-- …and the REAL compiled bytecode REJECTS it at budget 2500. -/
+theorem exec_rejects_regIdx0 :
+    isHaltB
+      (appliedMintLocalRShapedIdx2500.exec ppCS mlh (ByteString.mk "OWNCS") (ByteString.mk "TOK") 3
+        (ByteString.mk "OWNER") 200 2
+        (ByteString.mk "PROGLOGIC") 100 (ByteString.mk "OWNCS") (ByteString.mk "TOK") 5
+        (ByteString.mk "OTHER") 50
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+        (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "OWNCS") 100 1
+        (ByteString.mk "AAA") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "MINTLOGIC") 0 (ByteString.mk "MLRED")
+        0
+        50) = false := by native_decide
+
+end L2RWitness
 
 end WSC

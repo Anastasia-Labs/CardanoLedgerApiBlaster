@@ -226,10 +226,17 @@ import WSC.Props.Shaped.ShapeRealizability
 -- table, the per-shape realizability theorems that are C2's acceptance criterion,
 -- the machine-checked `redeemerCovered = false → true` flip for every pre-C2
 -- witness, the axiom census, and the one shape NOT re-cut (L2).
+--
+-- STAGE 11 / TASK G1 UPDATE: L2 **is** now re-cut. `WSC.Shaped.MintingLocalShapedRIdx`
+-- (SHAPE L2R) closes audit finding F19, and its four-item bar lives at the foot of
+-- `WSC/Props/Shaped/P4LocalShapedR.lean`. `RealizableShapes.lean`'s "one shape NOT
+-- re-cut" row is therefore stale — read `P4LocalShapedR.lean`'s header for the
+-- current disposition.
 import WSC.Realizability
 import WSC.Shaped.MintingShapedR
 import WSC.Shaped.MintingShapedRIdx
 import WSC.Shaped.MintingLocalShapedR
+import WSC.Shaped.MintingLocalShapedRIdx
 import WSC.Shaped.MintingDelegateShapedR
 import WSC.Shaped.SeizeShapedR
 import WSC.Props.Shaped.P4ShapedR

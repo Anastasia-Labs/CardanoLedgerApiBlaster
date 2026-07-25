@@ -128,6 +128,10 @@ namespace M2RWitness
 
 set_option maxRecDepth 100000
 
+/-- The script's two applied parameters, as at SHAPE M1R. -/
+def ppCS : CurrencySymbol := ByteString.mk "PARAMS"
+def mlh  : ScriptHash     := ByteString.mk "MINTLOGIC"
+
 /-- SHAPE M2R at `wIdx = 0` and M1R's witness leaves. -/
 def ctx : ScriptContext :=
   mintRCtxIdx (ByteString.mk "OWNCS") (ByteString.mk "TOK") (-3)
@@ -142,6 +146,52 @@ theorem ctx_realizable : Realizability.Realizable ctx := by
   · apply mintRIdx_wdrl_covered
   · apply mintRIdx_spend_covered
   · apply mintRIdx_mint_covered
+
+/-! ### CONCRETE ACCEPTING CEK WITNESS AT SHAPE M2R (audit finding **F17**)
+
+Until this stanza landed, SHAPE M2R was the ONE realizable family in the library
+meeting only 3 of the 4 bars: it had the theorem, the vacuity probe and the
+realizability result, but **no concrete run of the real bytecode**. The sealing
+audit measured the answer (AUDIT §7.5) and left the paste to this file's owner;
+this is that paste, with `K` pinned TWO-SIDED as every other witness pins it. -/
+
+/-- House `Halt` recogniser (M1R's, restated locally so this namespace stays
+self-contained — `WSC/Props/Shaped/P4ShapedR.lean` is deliberately not imported). -/
+def isHaltB : PlutusCore.UPLC.CekMachine.State → Bool
+  | .Halt _ => true
+  | _ => false
+
+theorem isHaltB_sound (s : PlutusCore.UPLC.CekMachine.State) :
+    isHaltB s = true → isSuccessful s := by
+  intro h; cases s <;> simp [isHaltB] at h <;> trivial
+
+/-- **NON-VACUITY, EXECUTABLE — the F17 witness.** The real compiled
+`programmableTokenMinting` bytecode ACCEPTS this shape-M2R context at budget 900,
+through the SHAPED applied term the three theorems above quantify over (the same
+`appliedMintRShapedIdx900`, with the withdrawal index carried as an ordinary
+argument). This is what the SMT verdicts cannot supply: the `Valid` markers say
+"every accepting run has the property", not "an accepting run exists". -/
+theorem exec_accepts_at_900 :
+    isSuccessful
+      (appliedMintRShapedIdx900.exec ppCS mlh
+        (ByteString.mk "OWNCS") (ByteString.mk "TOK") (-3)
+        (ByteString.mk "OWNER") 100 5 (ByteString.mk "DEST") 60 2
+        (ByteString.mk "MINTLOGIC") 0 (ByteString.mk "MLRED") 40
+        (ByteString.mk "") 0 0 1 (ByteString.mk "") 0) :=
+  isHaltB_sound _ (by native_decide)
+
+/-- **EXACT WITNESS K = 784, PINNED TWO-SIDED** — halts at 784, budget-errors at
+783. **Byte-identical to `M1RWitness.K_is_784`** and to the `mint-burnonly`
+golden's measured `K = 784`, which is the predicted result: freeing
+`pboMintingLogicWdrlIdx` moves nothing in the CEK trace because the index lives in
+the redeemer PAYLOAD, and at `wIdx = 0` `pcheckedDrop` takes the same branch it
+takes when the index is the literal 0. So the M2 loosening rung costs ZERO CEK
+steps at its own witness. -/
+theorem K_is_784 :
+    isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableTokenMinting900.script
+              (mintingPolicyInputs900 ppCS mlh ctx) 784) = true
+    ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableTokenMinting900.script
+              (mintingPolicyInputs900 ppCS mlh ctx) 783) = false := by native_decide
 
 end M2RWitness
 
