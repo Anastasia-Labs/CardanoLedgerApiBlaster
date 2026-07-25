@@ -91,7 +91,9 @@ parameter" is not an available repair:
 
 All twelve shapes carry ≤1 signatory, ≤2 reference inputs and a FINITE CLOSED
 validity interval (`ShapeInvariants`, §3, proved shape by shape). None of the
-three is exotic; the third is the most common transaction shape on mainnet.
+three is exotic. ("What every wallet emits" is a statement about the world, not
+a measurement in this repository; what is machine-checked is that an unbounded
+validity interval is `validRewardingContext` and outside all twelve shapes.)
 
 PROVENANCE / SCOPE. The twelve range predicates in §2 are transcribed
 mechanically from the `def` signatures of the twelve shape builders at this

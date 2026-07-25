@@ -23,8 +23,10 @@ compiled `programmableLogicGlobal` bytecode**, and (iii) halting in **exactly
 2,603 CEK steps — byte-identical to the shape's own certified inhabitant**. They
 are: a transfer with two required signers, a transfer reading three reference
 inputs, and a transfer with an unbounded validity interval (the default every
-wallet emits). None is exotic; the third is the commonest transaction shape on
-Cardano. The arithmetic explains why no repair by enumeration is available: at
+wallet emits). None is exotic. (That last characterisation — "what every wallet
+emits" — is a statement about the world, not a measurement in this repository;
+what IS machine-checked is that an unbounded validity interval is
+`validRewardingContext` and outside all twelve shapes.) The arithmetic explains why no repair by enumeration is available: at
 that bound there are at least **3.05 × 10¹⁴** distinct `Data` skeletons against a
 family of **12**, and even the smallest bound that admits a single real transfer
 has **9.27 × 10⁹** — ≈ 971 single-core CPU-years at the campaign's own measured
