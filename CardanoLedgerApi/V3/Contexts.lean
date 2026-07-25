@@ -1037,6 +1037,353 @@ def validScriptInfo (ctx : ScriptContext) : Bool :=
   validPurpose
 
 
+/-! ## The `MissingRedeemers` / `ExtraRedeemers` rule (Conway UTXOW)
+
+`validScriptInfo` above checks the redeemer map for the **currently running**
+script only (its first conjunct).  Nothing in `validScriptContext` requires that
+*every* script the transaction needs has a redeemer entry.  That omission is the
+Conway UTXOW rule transcribed in this section, and it is a real fidelity gap: a
+`ScriptContext` carrying two script-credential withdrawals and a one-entry
+redeemer map satisfies `validRewardingContext` while being unbuildable by a node.
+
+### THE LEDGER RULE, verbatim
+
+`hasExactSetOfRedeemers`
+(`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:239-262`), whose own
+specification comment (`:237-238`) reads
+
+    dom (txrdmrs tx) = { rdptr txb sp | (sp, h) ∈ scriptsNeeded utxo tx,
+                                        h ↦ s ∈ txscripts txw, s ∈ Scriptph2 }
+
+It is reached in Conway via
+`ConwayUTXOW.transitionRules = [Babbage.babbageUtxowTransition]`
+(`eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs:195`) →
+`runTest $ Alonzo.hasExactSetOfRedeemers tx scriptsProvided scriptsNeeded`
+(`eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxow.hs:351`).
+
+Three properties of the rule matter here and each is enforced in the source:
+
+1. **It is EXACT SET EQUALITY, not coverage.**  `extSymmetricDifference`
+   (`Utxow.hs:378-383`) computes both differences and the rule fails on either:
+   `failureOnNonEmpty extraRdmrs ExtraRedeemers` and
+   `failureOnNonEmpty (map snd missingRdmrs) MissingRedeemers` (`:259-262`).
+   So a redeemer entry for a script the transaction does NOT need is *also* a
+   rejection.
+2. **It quantifies over SIX sources.**  `scriptsNeeded = getConwayScriptsNeeded`
+   (`eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs:63-74`) is
+   `getSpendingScriptsNeeded <> getRewardingScriptsNeeded <>
+    certifyingScriptsNeeded <> getMintingScriptsNeeded <> votingScriptsNeeded <>
+    proposingScriptsNeeded`:
+     * **spending** — every input that resolves in the UTxO to a
+       script-payment-credential address (`Alonzo/UTxO.hs:360-373`);
+     * **rewarding** — every withdrawal whose account-address credential is a
+       script credential (`Alonzo/UTxO.hs:375-384`);
+     * **minting** — **every** policy id in the mint field, unconditionally
+       (`Alonzo/UTxO.hs:386-394`);
+     * **certifying** — every certificate for which
+       `getScriptWitnessTxCert` returns a hash
+       (`Conway/TxCert.hs:736-758`; note `ConwayRegCert _ SNothing → Nothing`,
+       i.e. a deposit-less staking registration needs NO witness), keyed by the
+       certificate's index in the FULL certificate list;
+     * **voting** — every `CommitteeVoter`/`DRepVoter` whose credential is a
+       script credential (`StakePoolVoter` never is);
+     * **proposing** — every proposal carrying a guardrails script hash
+       (`ParameterChange`/`TreasuryWithdrawals` with `SJust`).
+3. **It is filtered to PHASE-2 scripts.**  `redeemersNeeded` keeps only needed
+   hashes that resolve in `scriptsProvided` AND satisfy
+   `not (isNativeScript script)` (`Utxow.hs:247-251`).  A needed script that is
+   NATIVE (a timelock) requires **no** redeemer entry — and by (1) must not have
+   one.  Every needed hash must nevertheless be *provided*, by the companion rule
+   `babbageMissingScripts` (`Babbage/Rules/Utxow.hs:345`), so for PHASE-2 scripts
+   the two rules together do give exactly "one redeemer entry per Plutus script
+   witness".
+
+### WHY THIS IS A NAMED PREDICATE AND *NOT* A NEW CONJUNCT OF `validTxInfo`
+
+Property (3) is not expressible in `TxInfo`.  Plutus' `TxInfo` records *that* an
+input sits at a script address / that a withdrawal is at a script credential, but
+never *which language* that script is written in.  So a conjunct asserting
+"every script-credential withdrawal has a `Rewarding` entry" would be
+**over-strong**: it would reject genuine node-built transactions whose script
+witness is a native timelock, for which the ledger requires no entry and — by the
+`ExtraRedeemers` half — forbids one.  Symmetrically `noExtraRedeemers` below is
+sound only under the same all-Plutus reading.  The honest transcription is
+therefore parameterised: `coveredBy` takes the purpose list, and the
+`isNativeScript` filter lives in the caller's choice of that list.
+`redeemerCoverage` is the ALL-PLUTUS specialisation, exact whenever the
+transaction has no native script witnesses — which is the case for every
+transaction in the WSC deployment.
+
+Consumers that want the rule as a precondition should assume it (see
+`WSC/Honest.lean` row S / `LR_REDEEMER_COVERAGE`) rather than have
+`validScriptContext` assert it. -/
+
+/-- The script hash a credential refers to, if it is a script credential.
+Mirrors the ledger's `credScriptHash`
+(`libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs`). -/
+def credScriptHash : V2.Credential → Option V2.ScriptHash
+  | .ScriptCredential h => some h
+  | .PubKeyCredential _ => none
+
+/-- [LEDGER-RULE] `getScriptWitnessConwayTxCert`
+(`eras/conway/impl/src/Cardano/Ledger/Conway/TxCert.hs:736-758`): the script hash
+a certificate needs a witness for, if any.  Note the two `none` cases that are
+easy to get wrong: a staking registration WITHOUT a deposit needs no witness at
+all (transitional Conway behaviour, `:742`), and pool ids can never be scripts
+(`:748`). -/
+def txCertScriptWitness : TxCert → Option V2.ScriptHash
+  | .TxCertRegStaking _ none => none
+  | .TxCertRegStaking cred (some _) => credScriptHash cred
+  | .TxCertUnRegStaking cred _ => credScriptHash cred
+  | .TxCertDelegStaking cred _ => credScriptHash cred
+  | .TxCertRegDeleg cred _ _ => credScriptHash cred
+  | .TxCertRegDRep cred _ => credScriptHash cred
+  | .TxCertUpdateDRep cred => credScriptHash cred
+  | .TxCertUnRegDRep cred _ => credScriptHash cred
+  | .TxCertPoolRegister _ _ => none
+  | .TxCertPoolRetire _ _ => none
+  | .TxCertAuthHotCommittee cold _ => credScriptHash cold
+  | .TxCertResignColdCommittee cold => credScriptHash cold
+
+/-- [LEDGER-RULE] `getVoterScriptHash`
+(`eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs:88-91`). -/
+def voterScriptWitness : Voter → Option V2.ScriptHash
+  | .CommitteeVoter cred => credScriptHash cred
+  | .DRepVoter cred => credScriptHash cred
+  | .StakePoolVoter _ => none
+
+/-- [LEDGER-RULE] `getProposalScriptHash`
+(`eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs:100-106`): only the
+guardrails script of a `ParameterChange` / `TreasuryWithdrawals` action. -/
+def proposalScriptWitness (p : ProposalProcedure) : Option V2.ScriptHash :=
+  match (IsData.fromData p.ppGovernanceAction : Option (GovernanceAction)) with
+  | some (.ParameterChange _ _ (some sh)) => some sh
+  | some (.TreasuryWithdrawals _ (some sh)) => some sh
+  | _ => none
+
+/-- The `Spending` purposes this `TxInfo` shows to be script-witnessed: one per
+input whose RESOLVED payment credential is a script hash.  Note that `TxInfo`
+inputs are already resolved, so this needs no UTxO argument — CLAB has strictly
+more information here than the raw `TxBody` the ledger rule reads. -/
+def spendingPurposesWitnessed : List TxInInfo → List ScriptPurpose
+  | [] => []
+  | i :: is =>
+      match i.txInInfoResolved.txOutAddress.addressCredential with
+      | .ScriptCredential _ => .Spending i.txInInfoOutRef :: spendingPurposesWitnessed is
+      | .PubKeyCredential _ => spendingPurposesWitnessed is
+
+/-- The `Rewarding` purposes this `TxInfo` shows to be script-witnessed: one per
+withdrawal at a script credential. -/
+def rewardingPurposesWitnessed : Withdrawals → List ScriptPurpose
+  | [] => []
+  | (.ScriptCredential h, _) :: ws =>
+      .Rewarding (.ScriptCredential h) :: rewardingPurposesWitnessed ws
+  | (.PubKeyCredential _, _) :: ws => rewardingPurposesWitnessed ws
+
+/-- The `Minting` purposes: one per policy id in the mint field,
+UNCONDITIONALLY — a minting policy is always a script. -/
+def mintingPurposesWitnessed : MintValue → List ScriptPurpose
+  | [] => []
+  | (Data.B cs, _) :: xs => .Minting cs :: mintingPurposesWitnessed xs
+  | _ :: xs => mintingPurposesWitnessed xs
+
+/-- The `Certifying` purposes, indexed by position in the FULL certificate list
+(the ledger's `zipAsIxItem` counts every certificate, script-witnessed or not). -/
+def certifyingPurposesWitnessedFrom : Integer → List TxCert → List ScriptPurpose
+  | _, [] => []
+  | i, c :: cs =>
+      match txCertScriptWitness c with
+      | some _ => .Certifying i c :: certifyingPurposesWitnessedFrom (i + 1) cs
+      | none => certifyingPurposesWitnessedFrom (i + 1) cs
+
+@[inline] def certifyingPurposesWitnessed (certs : List TxCert) : List ScriptPurpose :=
+  certifyingPurposesWitnessedFrom 0 certs
+
+/-- The `Voting` purposes: one per script-credential voter. -/
+def votingPurposesWitnessed : VoterMap → List ScriptPurpose
+  | [] => []
+  | (v, _) :: vs =>
+      match voterScriptWitness v with
+      | some _ => .Voting v :: votingPurposesWitnessed vs
+      | none => votingPurposesWitnessed vs
+
+/-- The `Proposing` purposes, indexed by position in the FULL proposal list. -/
+def proposingPurposesWitnessedFrom : Integer → List ProposalProcedure → List ScriptPurpose
+  | _, [] => []
+  | i, p :: ps =>
+      match proposalScriptWitness p with
+      | some _ => .Proposing i p :: proposingPurposesWitnessedFrom (i + 1) ps
+      | none => proposingPurposesWitnessedFrom (i + 1) ps
+
+@[inline] def proposingPurposesWitnessed (props : List ProposalProcedure) : List ScriptPurpose :=
+  proposingPurposesWitnessedFrom 0 props
+
+/-- **CLAB's transcription of the ledger's `scriptsNeeded`**, in `TxInfo`
+vocabulary: every script purpose this transaction shows to require SOME script
+witness, from all six sources, in the ledger's concatenation order
+(`getConwayScriptsNeeded`, `Conway/UTxO.hs:68-74`).
+
+FIDELITY: this is `scriptsNeeded` BEFORE the phase-2 filter of
+`hasExactSetOfRedeemers` — `TxInfo` cannot express `isNativeScript` (see the
+section header).  It is therefore an OVER-approximation of the purposes that
+need a redeemer entry, exact exactly when no needed script is native. -/
+def scriptPurposesWitnessed (info : TxInfo) : List ScriptPurpose :=
+  spendingPurposesWitnessed info.txInfoInputs ++
+  rewardingPurposesWitnessed info.txInfoWdrl ++
+  certifyingPurposesWitnessed info.txInfoTxCerts ++
+  mintingPurposesWitnessed info.txInfoMint ++
+  votingPurposesWitnessed info.txInfoVotes ++
+  proposingPurposesWitnessed info.txInfoProposalProcedures
+
+/-- Every purpose in `purposes` has an entry in `redeemers`.  This is the
+`MissingRedeemers` direction of `hasExactSetOfRedeemers`, parameterised by the
+purpose list so the caller supplies the phase-2 subset. -/
+def coveredBy (redeemers : RedeemerMap) : List ScriptPurpose → Bool
+  | [] => true
+  | p :: ps => (findRedeemer p redeemers).isSome && coveredBy redeemers ps
+
+/-- **[LEDGER-RULE] `MissingRedeemers` (Conway UTXOW), all-Plutus reading.**
+Every script purpose this transaction's own `TxInfo` shows to need a script
+witness has a redeemer-map entry.
+
+Exact when no needed script is native; otherwise strictly stronger than the
+ledger rule (section header, property 3).  Use `coveredBy` directly with the
+phase-2 sublist when native scripts are in play. -/
+def redeemerCoverage (info : TxInfo) : Bool :=
+  coveredBy info.txInfoRedeemers (scriptPurposesWitnessed info)
+
+/-- **[LEDGER-RULE] `ExtraRedeemers` (Conway UTXOW), all-Plutus reading.** No
+redeemer entry names a purpose the transaction does not need.  Same fidelity
+caveat, in the opposite direction: with a native script witness present the
+ledger has FEWER needed purposes, so this is weaker than the rule, not
+stronger. -/
+def noExtraRedeemers (info : TxInfo) : Bool :=
+  Recursor.all e in info.txInfoRedeemers =>
+    Recursor.any p in scriptPurposesWitnessed info => p == e.1
+
+/-- Both halves of `hasExactSetOfRedeemers`, i.e. the full exact-set rule under
+the all-Plutus reading. -/
+def redeemersExact (info : TxInfo) : Bool :=
+  redeemerCoverage info && noExtraRedeemers info
+
+/-- `redeemerCoverage` at a `ScriptContext`.  Note it depends on
+`scriptContextTxInfo` ONLY, hence is invariant under changing the running
+purpose — which is exactly why a shaped context cannot escape it by being viewed
+at a different purpose. -/
+@[inline] def redeemerCoverageOf (ctx : ScriptContext) : Bool :=
+  redeemerCoverage ctx.scriptContextTxInfo
+
+/-! ### Consequences a caller can use without unfolding anything -/
+
+/-- Coverage of a list transfers to each of its members. -/
+theorem isSome_findRedeemer_of_mem_coveredBy
+    {r : RedeemerMap} {ps : List ScriptPurpose} {p : ScriptPurpose}
+    (hmem : p ∈ ps) (hcov : coveredBy r ps = true) :
+    (findRedeemer p r).isSome = true := by
+  induction ps with
+  | nil => exact absurd hmem (List.not_mem_nil)
+  | cons q qs ih =>
+      rw [coveredBy, Bool.and_eq_true] at hcov
+      rcases List.mem_cons.mp hmem with h | h
+      · exact h ▸ hcov.1
+      · exact ih h hcov.2
+
+/-- Coverage, with `redeemerCoverage` already unfolded for the caller. -/
+theorem isSome_findRedeemer_of_witnessed {info : TxInfo} {p : ScriptPurpose}
+    (hcov : redeemerCoverage info = true)
+    (hmem : p ∈ scriptPurposesWitnessed info) :
+    (findRedeemer p info.txInfoRedeemers).isSome = true :=
+  isSome_findRedeemer_of_mem_coveredBy hmem hcov
+
+/-- Injection of the spending arm into the six-way concatenation. -/
+theorem mem_scriptPurposesWitnessed_of_spending {info : TxInfo} {p : ScriptPurpose}
+    (h : p ∈ spendingPurposesWitnessed info.txInfoInputs) :
+    p ∈ scriptPurposesWitnessed info :=
+  List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _
+    (List.mem_append_left _ (List.mem_append_left _ h))))
+
+/-- Injection of the rewarding arm into the six-way concatenation. -/
+theorem mem_scriptPurposesWitnessed_of_rewarding {info : TxInfo} {p : ScriptPurpose}
+    (h : p ∈ rewardingPurposesWitnessed info.txInfoWdrl) :
+    p ∈ scriptPurposesWitnessed info :=
+  List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _
+    (List.mem_append_left _ (List.mem_append_right _ h))))
+
+/-- A script-credential withdrawal contributes its `Rewarding` purpose. -/
+theorem mem_rewardingPurposesWitnessed_of_mem_wdrl
+    {ws : Withdrawals} {h : V2.ScriptHash} {n : Integer}
+    (hmem : ((.ScriptCredential h : V2.Credential), n) ∈ ws) :
+    ScriptPurpose.Rewarding (.ScriptCredential h) ∈ rewardingPurposesWitnessed ws := by
+  induction ws with
+  | nil => exact absurd hmem (List.not_mem_nil)
+  | cons w ws ih =>
+      rcases List.mem_cons.mp hmem with hw | hw
+      · subst hw; exact List.mem_cons_self ..
+      · obtain ⟨c, m⟩ := w
+        cases c with
+        | PubKeyCredential _ => exact ih hw
+        | ScriptCredential _ => exact List.mem_cons_of_mem _ (ih hw)
+
+/-- **The consequence the WSC realizability proofs need.** Under
+`redeemerCoverage`, a script-credential withdrawal forces a `Rewarding`
+redeemer-map entry for that credential. -/
+theorem findRedeemer_rewarding_isSome_of_coverage
+    {info : TxInfo} {h : V2.ScriptHash} {n : Integer}
+    (hcov : redeemerCoverage info = true)
+    (hw : ((.ScriptCredential h : V2.Credential), n) ∈ info.txInfoWdrl) :
+    (findRedeemer (.Rewarding (.ScriptCredential h)) info.txInfoRedeemers).isSome = true :=
+  isSome_findRedeemer_of_witnessed hcov
+    (mem_scriptPurposesWitnessed_of_rewarding
+      (mem_rewardingPurposesWitnessed_of_mem_wdrl hw))
+
+/-- Same fact in the `≠ none` form — this is literally the statement
+`WSC/Props/Shaped/ShapeRealizability.lean`'s `RedeemerCoverage` assumes. -/
+theorem findRedeemer_rewarding_ne_none_of_coverage
+    {info : TxInfo} {h : V2.ScriptHash} {n : Integer}
+    (hcov : redeemerCoverage info = true)
+    (hw : ((.ScriptCredential h : V2.Credential), n) ∈ info.txInfoWdrl) :
+    findRedeemer (.Rewarding (.ScriptCredential h)) info.txInfoRedeemers ≠ none := by
+  intro hn
+  have hs := findRedeemer_rewarding_isSome_of_coverage hcov hw
+  rw [hn] at hs
+  exact Bool.noConfusion hs
+
+/-- A script-addressed input contributes its `Spending` purpose. -/
+theorem mem_spendingPurposesWitnessed_of_mem_inputs
+    {is : List TxInInfo} {t : TxInInfo} {sh : V2.ScriptHash} (hmem : t ∈ is)
+    (hsc : t.txInInfoResolved.txOutAddress.addressCredential = .ScriptCredential sh) :
+    ScriptPurpose.Spending t.txInInfoOutRef ∈ spendingPurposesWitnessed is := by
+  induction is with
+  | nil => exact absurd hmem (List.not_mem_nil)
+  | cons u us ih =>
+      rcases List.mem_cons.mp hmem with hu | hu
+      · subst hu
+        simp only [spendingPurposesWitnessed, hsc]
+        exact List.mem_cons_self ..
+      · cases hcu : u.txInInfoResolved.txOutAddress.addressCredential with
+        | PubKeyCredential _ =>
+            simp only [spendingPurposesWitnessed, hcu]; exact ih hu
+        | ScriptCredential _ =>
+            simp only [spendingPurposesWitnessed, hcu]
+            exact List.mem_cons_of_mem _ (ih hu)
+
+/-- **The second consequence the WSC realizability proofs need.** Under
+`redeemerCoverage`, spending a script-addressed input forces a `Spending`
+redeemer-map entry for that input's `TxOutRef`. -/
+theorem findRedeemer_spending_ne_none_of_coverage
+    {info : TxInfo} {t : TxInInfo} {sh : V2.ScriptHash}
+    (hcov : redeemerCoverage info = true)
+    (ht : t ∈ info.txInfoInputs)
+    (hsc : t.txInInfoResolved.txOutAddress.addressCredential = .ScriptCredential sh) :
+    findRedeemer (.Spending t.txInInfoOutRef) info.txInfoRedeemers ≠ none := by
+  intro hn
+  have hs := isSome_findRedeemer_of_witnessed hcov
+    (mem_scriptPurposesWitnessed_of_spending
+      (mem_spendingPurposesWitnessed_of_mem_inputs ht hsc))
+  rw [hn] at hs
+  exact Bool.noConfusion hs
+
+
 /-- [LEDGER-RULE]: Ledger rules for transaction's inputs (V3):
       Let ctx.scriptContextTxInfo.txInfoInputs = [in₁, in₂ ..., inₘ],
       the transaction's inputs are valid if and only if the following conditions are satisfied:
