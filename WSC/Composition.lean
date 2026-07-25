@@ -931,9 +931,24 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   `BurnOnly` ⟹ nothing positive is minted under `cs`.
 
   DISCHARGED BY: `WSC.P4_mint_routes_or_burns` (`Prop`, STILL-OPEN over a fully
-  symbolic context: `Undetermined` after 3,208 s) — arm 4 only is PROVED-SHAPED
-  (`WSC.P4_burnonly_arm_shaped`, `WSC.P4_burn_only_shapedIdx`) — plus the minting
-  budget bridge. Arms 1-3 need K ≥ 1,257/1,681 and no shape has been written.
+  symbolic context: `Undetermined` after 3,208 s) — plus the minting budget
+  bridge.
+
+  **CORRECTED (task U3 audit, 2026-07-25).** The sentence that used to stand here
+  — "arm 4 only is PROVED-SHAPED … Arms 1-3 need K ≥ 1,257/1,681 and no shape has
+  been written" — was already stale when it was written: task V3 landed all three
+  remaining arms shape by shape, and §10.3's `p4_disjuncts_of_custody` (below) is
+  what turns them into this field. Current state, ALL verified by the U3
+  clean-room rebuild: arm 4 at SHAPES M1/M2 @900 (`WSC.P4_burnonly_arm_shaped`,
+  `WSC.P4_burn_only_shapedIdx`), arm 1 at SHAPES L1/L2 @2500
+  (`WSC.P4_disjunction_at_L1`, `WSC.P4_local_noEscape_shapedIdx`), arm 2 at SHAPE
+  DT1 @2500 (`WSC.P4_disjunction_at_DT1`), arm 3 at SHAPE DS1 @2500
+  (`WSC.P4_disjunction_at_DS1`). What is STILL missing is therefore NOT the arms:
+  it is (i) a shape-COVERAGE argument, (ii) the shape bridge instantiated at these
+  preps (`WSC/ShapeBridge.lean` proves it for all 16 shaped preps, but no
+  `LeafSet` is built from them), and (iii) a minting budget bridge at 2500 —
+  `WSC.LR_BUDGET_minting` is published at 900 only, below the 1,257/1,466/1,681
+  the three new arms cost.
 
   NOTE on the `DelegateSeize` arm: `WSC/Spec.lean`'s `DelegateSeizeOk` concludes
   `seizeScopedToNodeOf`, which exhibits a `Rewarding seizeCred` entry in the
@@ -958,14 +973,31 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   on the requirement side (that IS Member self-penalization), and for burns the
   signed form is the one that is true (`WSC/Props/P1_Transfer.lean`, FINDING).
 
-  DISCHARGED BY: `WSC.Model.P1_bytecode` — MODEL+AXIOM
-  (`WSC.Model.globalModel_faithful`) and STILL-OPEN even there, since
-  `WSC.Model.P1_model` is a `Prop` whose links L1.1a/b, L1.2-L1.6 are unproved.
-  Vocabulary gap to close when it lands: `P1_model` states the exemption as
-  `coveringNodeExists … = false` (raw `hasCSH` + 2-field `dirNodeFields`), this
-  field states it as `¬ coveringIn` (ground-truth `authenticDirNode` + full
-  5-field decode) — the same reconciliation `WSC.P5_groundtruth_of_indexed`
-  performs for P5, which costs `WSC.TS3` + `WSC.TS5`. -/
+  **CORRECTED (task U3 audit, 2026-07-25).** Two claims that used to stand here
+  are withdrawn.
+
+  1. It said "DISCHARGED BY: `WSC.Model.P1_bytecode` — MODEL+AXIOM
+     (`WSC.Model.globalModel_faithful`)". That is now only the WEAKER of two
+     routes. P1 is proved AT UPLC against the compiled bytecode, with NO
+     faithfulness axiom, over four shapes at budget 4400 —
+     `WSC.P1_T1`/`P1_T2`/`P1_T6`/`P1_T7`, `#print axioms` = `[propext, sorryAx,
+     Classical.choice, Quot.sound]` (`sorryAx` = blaster's `admit`). §10.2's
+     `leafP1_of_shapedGlobalContainment` is what turns that into this field, and
+     its residue `ShapedGlobalContainment` is exactly (shape bridge + the global
+     budget bridge at 4400). The model route remains the only statement that
+     quantifies over ALL `ScriptContext`s, and it remains STILL-OPEN there
+     (`WSC.Model.P1_model`'s links L1.1a/b, L1.2-L1.6 are `Prop`s).
+  2. It said the raw↔ground-truth reconciliation "costs `WSC.TS3` + `WSC.TS5`".
+     Measured cost is **`WSC.TS3` only** — see §7.1's
+     `authenticDirNode_of_hasCSH` (TS5 is the converse direction and is not
+     used); `#print axioms WSC.Composition.coveringIn_of_coveringRaw` gives
+     `[propext, Classical.choice, Quot.sound, WSC.Deployed, WSC.OnChain,
+     WSC.TS3]`.
+
+  The vocabulary gap itself is real and unchanged in KIND: the shaped P1 theorems
+  state the exemption as `Model.coveringNodeExists … = false` (raw `hasCSH` +
+  3-field `dirNodeFields`), this field states it as `¬ coveringIn` (ground-truth
+  `authenticDirNode` + full 5-field decode); §7.1 bridges it. -/
   p1 : ∀ (ctx ctx' : ScriptContext) (cs : CurrencySymbol) (tn : TokenName),
     WSC.Deployed hp → WSC.OnChain ctx → Shape ctx → SameTx ctx ctx' →
     ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →

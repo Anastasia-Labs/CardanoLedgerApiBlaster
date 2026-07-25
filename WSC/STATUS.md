@@ -1,292 +1,250 @@
 # WSC containment campaign — AUTHORITATIVE STATUS
 
-**Read this first.** Everything below is either machine-checked in this
-repository or measured in this repository, with the file/line or measurement
-cited. Where a result is not there yet, this table says so in those words.
+**Read this first, then `WSC/AUDIT.md`.** Everything below is machine-checked or
+measured *in this repository*, with the file/line or the measurement cited. Where a
+result is not there yet, this table says so in those words.
 
-* Top claim being pursued (plain English): *in an honest deployment,
-  programmable tokens cannot exist outside the mini-ledger (the
-  `programmableLogicBase` payment credential).*
+**This revision (2026-07-25, task U3) was reconciled against an independent
+clean-room rebuild, not against the task fragments that claimed the results.** All
+six `WSC/status-fragments/*.md` are merged here and superseded; they remain as the
+per-task record. Any disagreement between a fragment and this file is resolved in
+favour of this file, and the disagreements are itemised in `WSC/AUDIT.md` §7.
+
+* Top claim being pursued (plain English): *in an honest deployment, programmable
+  tokens cannot exist outside the mini-ledger (the `programmableLogicBase` payment
+  credential).*
+* Status of that claim in one sentence: **NOT PROVED — machine-checked REDUCTION
+  to four named leaf obligations plus 26 project axioms** (`WSC/Composition.lean`
+  `top_claim`; axiom list in `WSC/AUDIT.md` §3.1). The `LeafSet` bundle it consumes
+  is **never constructed** anywhere in the library.
 * Method: leaf properties proved `by blaster` against the **actual compiled
-  production UPLC bytecode**, under a per-validator **CEK step budget**; a
-  hand-written composition theorem (not yet written) lifts the leaves; a closed,
-  audit-mapped axiom set (`WSC/Honest.lean`) carries the "honest deployment" +
-  "trust the Cardano ledger" core.
-* Task Z2 additionally built a **SHAPED-CONTEXT layer** — `WSC/SHAPING-RESULTS.md`,
-  read it alongside this file. Three rows changed state because of it (P4a, P4
-  arm 4, P5): shaping the `ScriptContext` breaks the Z3 wall, so those obligations
-  are now `Valid` theorems against the real bytecode at their original budgets and
-  with no new axiom. A shaped result carries TWO bounds, its CEK budget K *and*
-  its shape — never quote one without the other.
-* Last updated: 2026-07-25 (tasks Z1–Z4). Baseline
-  commit `dd86906`; global-model work on top of `fc44f3d`.
+  production UPLC bytecode**, under a per-validator **CEK step budget** and — in
+  the shaped layer — over a fixed `Data` **shape**; a composition theorem lifts the
+  leaves; a closed, audit-mapped axiom set (`WSC/Honest.lean`,
+  `WSC/Composition.lean`) carries "honest deployment" + "trust the Cardano ledger".
+* Verified state of the build at this revision: **401 jobs, 93.7 s wall, 98 solver
+  verdicts (64 `✅ Valid` + 34 `✅ Expected Falsified`), 0 `⚠️`, 0 `❌`, 0 errors,
+  21 expected `sorry` warnings** (`WSC/AUDIT.md` §1-§2).
+* Companion documents: `WSC/AUDIT.md` (the five censuses and what not to believe),
+  `WSC/ARCHITECTURE.md` (binding; ADDENDUM v3 overrides the base text),
+  `WSC/SHAPING-RESULTS.md`, `WSC/SHAPE-BRIDGE.md`, `WSC/SPIKE-FINDINGS.md`,
+  `WSC/LR-CTX-AUDIT.md`, `WSC/goldens/K-MEASUREMENTS.md` (**read §0.5 below before
+  believing its §5.1 prep numbers**).
+* HEAD when this file was written: `a8d95a7` on `wsc-containment-proofs`.
 
-## 0. The three sentences that must never be dropped
+## 0. The five sentences that must never be dropped
 
-1. **Everything is BOUNDED.** `#prep_uplc … n` bakes a finite CEK step budget
-   into the term the theorems quantify over; exceeding it evaluates to `Error`,
-   which makes `isSuccessful` false and any `accept → POST` theorem vacuous past
-   the bound. Every result below is bounded-transaction model checking of the
-   real bytecode (ADDENDUM E1). **No result here covers unboundedly large
+1. **Everything is BOUNDED BY A CEK BUDGET.** `#prep_uplc … n` bakes a finite step
+   budget into the term the theorems quantify over; exceeding it evaluates to
+   `Error`, which makes `isSuccessful` false and any `accept → POST` theorem vacuous
+   past the bound. Every UPLC result below is bounded-transaction model checking of
+   the real bytecode (ADDENDUM E1). **No result here covers unboundedly large
    transactions.**
-2. **The blocker was the SMT search over a symbolic `Data` context, and shaping
-   removes it.** (This item has been superseded twice. It originally read "the
-   prep-cost wall is the blocker"; task Y2 showed that wall was a `lake env lean`
-   measurement artifact and that the real wall is the Z3 search; task Z2 then broke
-   the Z3 wall by SHAPING the context.) Current numbers: over a fully symbolic
-   context P4a gives no verdict in 3,208 s and P5 none in 5,241 s; over a shaped
-   context both are `Valid` in 1–2 s, and shaped `#prep_uplc` is essentially
-   budget-INDEPENDENT (1.2–1.3 s at budgets from 900 to 4,000, where the symbolic
-   prep never completed above ~1,700). Measured: `WSC/SHAPING-RESULTS.md` §2.
-   `WSC/goldens/K-MEASUREMENTS.md` §5.1's prep table is 15–53x pessimistic —
-   read it for shape only, never for numbers.
-3. **`DirWF` is the single escape-critical assumption.** P5 is exactly as strong
-   as `DirWF` (`WSC/Honest.lean` §Dir). U10 (`mkDirectoryNodeMP` at UPLC) is what
-   would turn it from ASSUMED into PROVEN.
+2. **The shaped results are ALSO bounded by their SHAPE, and there is no coverage
+   argument.** A shaped theorem quantifies over the scalar leaves (every
+   `ByteString`, every `Integer`) of a *fixed* `Data` skeleton — list lengths,
+   constructor tags and `Option`s all pinned. `WSC/SHAPE-BRIDGE.md` §10 enumerates
+   three routes to a coverage theorem and offers none; `ShapeBridge.M1Covers` is
+   recorded **false as stated**. And the shape bound is not incidental: P2b is
+   provable at SHAPE S1 precisely because S1's one-policy/one-token-name values
+   evade the two counterexamples that defeat the general statement
+   (`WSC/AUDIT.md` §5.2). **Honest framing of the whole shaped layer: bounded model
+   checking beneath the axiomatic layer.** Never quote a budget without its shape.
+3. **`DirWF` / `DIRWF_L` is the single escape-critical assumption.** P5 is exactly
+   as strong as it. U10 (`mkDirectoryNodeMP` at UPLC) is what would turn it from
+   ASSUMED into PROVEN. Task V4 added its missing fourth (interval) conjunct and
+   made the two bridges that consume it PROVED THEOREMS
+   (`WSC.covering_node_excludes_registration`,
+   `WSC.Composition.covering_excludes_ledger_registration`, both
+   `[propext, Classical.choice, Quot.sound]` only), so the surface is the same size
+   but discharging it is now an implication rather than a gap.
+4. **"`sorry`-free" is FALSE for this library, including for the top theorem.** 62
+   theorem-position results are closed by `blaster`'s `admit`; what certifies them
+   is the `✅ Valid` verdict in the build log, not the Lean kernel.
+   `WSC.Composition.top_claim` inherits `sorryAx` through P3 (`WSC/AUDIT.md` §3.1,
+   correcting `status-fragments/V4.md`).
+5. **`WSC/goldens/K-MEASUREMENTS.md` §5.1's prep-cost table must not be used for
+   numbers.** Re-measured in the U3 clean-room rebuild: the module that table
+   prices at **2,143 s (35.7 min)** elaborated in **44 s** — 48.7x out. It is a
+   `lake env lean` artifact plus substrate drift, and it has already cost the
+   campaign work (task U2 declined to build half the library on the strength of it).
+   Time with `lake build`, and re-measure before concluding anything is
+   unaffordable.
 
 ## 1. Property status table
 
-State vocabulary (only these five are used):
+State vocabulary (only these are used; "PROVEN-BY-DESIGN" and any unbounded claim
+are banned):
 
-* `PROVEN-AT-UPLC-WITHIN-BUDGET-K` — a `by blaster` theorem over the real
-  bytecode exists in this repo, at a named budget, with a non-vacuity witness.
-* `IN PROGRESS` — being attempted by a task in flight; **no claim is made**.
-* `NOT-REACHABLE-AT-UPLC-see-source-model-route` — measured out of reach at UPLC
-  over a fully symbolic context; needs shaped contexts or the source-model (B3)
-  route.
-* `BLOCKED-ON-BUDGET` — the property is expected to be provable, but the prep
-  budget in the repo today is below the measured non-vacuity floor, so any
-  theorem stated now would be vacuous.
-* `DEFERRED` — not started; depends on work that is not scheduled yet.
-* `PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE` (task Z2) — a `by blaster` theorem
-  over the real bytecode exists at a named budget, but it quantifies over the
-  scalar leaves of a named SHAPE (a `ScriptContext` whose whole `Data` skeleton —
-  list lengths, constructor tags, `Option`s — is fixed, with every `ByteString`
-  and `Integer` free) rather than over `ScriptContext`. BOTH bounds are binding.
-  Adds no faithfulness axiom (unlike the source-model route) and is strictly
-  stronger than `IN PROGRESS`, strictly weaker than
-  `PROVEN-AT-UPLC-WITHIN-BUDGET-K`. Each shape's fixed dimensions are published in
-  its prep module's header; its accept class is certified non-empty by a vacuity
-  probe AT THE SHAPE plus a concrete accepting instance run through the real CEK;
-  and `WSC/SHAPING-RESULTS.md` §3 audits it for not making the postcondition true
-  by construction.
-* `PROVEN-ON-SOURCE-MODEL-modulo-faithfulness-axiom` — a `sorry`-free Lean
-  theorem exists about a **source model** of the validator (a clause-by-clause
-  hand transcription, `WSC/Model/*.lean`), and ONE explicit axiom
-  `<model>_faithful` bridges the model to the compiled bytecode. That axiom is
-  deliberately NOT in `WSC/Honest.lean` (it is a different KIND of assumption)
-  and is backed by source-line citations plus a golden differential test against
-  the real bytecode. Weaker than `PROVEN-AT-UPLC-WITHIN-BUDGET-K`; strictly
-  stronger than `IN PROGRESS`.
+* `PROVEN-AT-UPLC-WITHIN-BUDGET-K` — a `by blaster` theorem over the real bytecode
+  at a named budget, with a non-vacuity witness, quantified over **all**
+  `ScriptContext`s.
+* `PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE` — the same, but quantified over the
+  scalar leaves of a named SHAPE. **BOTH bounds binding.** Adds no faithfulness
+  axiom. Strictly weaker than the row above; versus a source-model result it is
+  stronger on the axiom count and weaker on the quantifier — neither dominates.
+* `PROVEN-ON-SOURCE-MODEL-modulo-faithfulness-axiom` — a `sorry`-free Lean theorem
+  about a clause-by-clause hand transcription (`WSC/Model/*.lean`), with ONE
+  explicit `<model>_faithful` axiom bridging to the bytecode, backed by source-line
+  citations and a golden differential test.
+* `STATED-NOT-PROVED` — a `Prop` definition exists with its status recorded; no
+  proof.
+* `DEFERRED` — not started.
 
-| Prop | Plain English | State | Budget K / non-vacuity witness | Honest caveat |
+| Prop | Plain English | State (verified in the U3 rebuild) | Budget K + SHAPE / non-vacuity evidence | Honest caveat |
 |---|---|---|---|---|
-| **P3** | *You cannot spend a mini-ledger UTxO unless the global (transfer) or seize validator runs in the same transaction.* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K** — `WSC/Props/P3_Base.lean:67` (`P3_base_requires_global_or_seize`), plus negative control `:83`, tightness stanza `:100` (Falsified), vacuity probe `:112` (Falsified), concrete accepting witness `:190`/`:197`. | **K = 600** (`WSC/Prep/Base.lean:39`). Witnesses: golden `programmableLogicBase.base-spend-transfer-tx` halts accepting in **208** CEK steps (K-MEASUREMENTS §3); in-library concrete ctx `WSC.P3Witness.ctx` accepted by the real CEK at 600. Prep cost ~11 s. | Covers base-spend runs halting within 600 steps only. Its conclusion is "the credential is in `txInfoWdrl`"; upgrading that to "the validator actually ran" is the ledger axiom `LR_WDRL_RUNS_VALIDATOR`, not part of the proof. |
-| **P4** | *Every accepted mint routes tokens into the mini-ledger or is a pure burn (Local / DelegateTransfer / DelegateSeize / BurnOnly).* | **arm 4 (`BurnOnlyOk`): PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** (Z2) — `WSC/Props/Shaped/P4Shaped.lean:165` (`P4_burnonly_arm_shaped`) and its sharp form `:147` (`P4_burn_only_shaped`: an accepted `BurnOnly` mint really is a pure burn), both `Valid` at K=900 over SHAPE M1; superseded in strength by `WSC/Props/Shaped/P4ShapedIdx.lean` (SHAPE M2, symbolic redeemer index). **Arms 1–3 still unexercised**: they need K ≥ 1,257 / 1,681 and no shape has been written for them — now unwritten work, not a wall, since shaped prep at 1,700 costs 1.2 s. The four-way disjunction over a FULLY SYMBOLIC context stays `Undetermined`. | **K = 900** (`WSC/Shaped/MintingShaped.lean`). Non-vacuity: a concrete SHAPE M1 instance with **exact K = 784** — the same step count as the `mint-burnonly` golden — accepted by the real CEK at 900 and rejected at 600; PLUS an EXCLUDED-CASE witness, a positive-mint shape-M1 context that is fully `validMintingContext`-normalized and that the real CEK REJECTS (`P4ShapedWitness.ctxPos_valid_and_positive`, `exec_rejects_positive_mint`), so the pure-burn conclusion is not hypothesis-implied. Shaped prep: 0.88 s @900, 1.2 s @1700, 1.3 s @2500. | At 900 the scope is "burn-only-sized minting transactions". The other two accepting minting goldens need 1,257 and 1,681 steps; a prep at 1,700 did **not** finish in 48.6 min, so widening is not available. **Additionally: `validMintingContext` WAS UNSATISFIABLE for real issuance transactions** — defect D1, **FIXED by task Z1** (§3), so the hypothesis is now satisfiable on the target class; what remains is the solver wall. |
-| **P4a** | *Every accepted mint invokes the token's own minting-logic script (common corollary of all four arms).* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** (Z2) — `WSC/Props/Shaped/P4Shaped.lean:121` (SHAPE M1) and `WSC/Props/Shaped/P4ShapedIdx.lean:42` (SHAPE M2, symbolic withdrawal index, strictly more general). Full control set at both shapes: negative control `Valid`, tightness `Falsified`, **vacuity probe AT THE SHAPE `Falsified`**. Over a fully symbolic context it remains `Undetermined` after 3,208 s of Z3. | Same as P4. | Same as P4; defect D1 is FIXED (§3), so the remaining blocker is solver search, not vacuity. |
-| **P5** | *A containment exemption can only be claimed for a genuinely unregistered policy: accept + NonMember ⟹ an authentic directory node covers `cs` (`key < cs < next`).* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** (Z2) — `WSC/Props/Shaped/P5Shaped.lean:209` (`P5_shaped_indexed`), `Valid` at K=1600 over SHAPE G1, with negative control `Valid`, tightness `Falsified` and **vacuity probe AT THE SHAPE `Falsified`**. Composed with the reduction ladder already proved in `WSC/Props/P5_NonMember.lean` this yields ADDENDUM E3's **∃-form** (`P5_shaped_exists`) and the ground-truth restatement (`P5_shaped_groundtruth`, +`TS3` only). Over a FULLY SYMBOLIC context the same obligation still returns NO verdict (killed at 5,241 s). | **K = 1600**; shaped prep **1.2 s** (unshaped 51 s). Non-vacuity: a concrete SHAPE G1 instance with **exact K = 1541** (halts at 1541, budget-errors at 1540 — `P5ShapedWitness.K_is_1541`), accepted by both the shaped and the unshaped executable term, and satisfying `validRewardingContext` with **ZERO** failing conjuncts (it was the only such accepting witness for this validator when Z2 ran; task Z5 has since closed D3, so the goldens qualify too — but no golden exercises the mint-side `NonMember` branch). **CORRECTION** to the earlier claim that the golden `transfer-nonmember-covering-node` "is exactly P5's subject shape": its redeemer is `TransferAct [1] [1] [] 0`, i.e. an EMPTY mint-proof list, so its covering-node check is in the INPUT-side transfer walk and the mint walk P5 mirrors is never called (`pif (pnull …)`, ProgrammableLogicBase.hs:1219-1222). That golden witnesses accept-within-1600 and nothing more. | P5's strength = `DirWF`'s strength; the postcondition is the covering-node witness, **not** `¬ IsRegistered` (E3). The bridge from a covering node to "not registered in the ledger" is the composition lemma `covering_node_excludes_registration`, which does not exist yet. Requires the CIP-153 PlutusCoreBlaster branch, which is **unpushed** (ADDENDUM E11). |
-| **P6** | *Claiming Member is self-penalizing: an accepted Member classification adds the positive minted amount to the value that must remain at base outputs.* | **PROVED-ON-SOURCE-MODEL (core), STATED (inequality form)** — the self-penalization CORE is machine-checked on the source model: `WSC/Props/P6_Member.lean:mintWalk_sublist` (the mint walk returns an order-preserving SUBLIST of `txInfoMint`, so every retained entry is byte-identical ledger truth and the walk has no quantity arithmetic at all — nothing can be negated) and `:mintWalk_member_retains` (a `Member` proof retains its entry while touching no directory node). The §3-P6 INEQUALITY `outAtBase ≥ mintPos` is `WSC/Props/P1_Transfer.lean:P6_model` — STATED, not proved (needs L1.1a/b + L1.2 + L1.6). | **No UPLC K.** Not attempted at UPLC: the Member-transfer accepts cost 3,262 / 3,726 CEK steps and no Member-shaped accept below 1,600 has been measured. Model-level non-vacuity witness: the accepting golden `transfer-member-single-policy` (`WSC/Model/GlobalGoldens.lean`). | Model-level, so it rests on `globalModel_faithful` (one axiom, 4/4 golden agreement — see the P1 row). The inequality form additionally needs the un-discharged links listed in the OBLIGATION STATUS block. |
-| **P2** | *An accepted seizure relocates only the seized policy and it stays in the mini-ledger (structure preserved + clawed delta contained).* | **(a) structure preservation: PROVEN-ON-SOURCE-MODEL-modulo-faithfulness-axiom** — `WSC/Props/P2_Seize.lean:P2a_seizeModel_preserves_structure` (about the model; `sorry`-free; `#print axioms` in that file shows `[propext, Classical.choice, Quot.sound]` only) and `:P2a_bytecode` (adds exactly `WSC.SeizeModel.seizeModel_faithful`, nothing else). **(b) containment of the seized delta: NOT PROVEN** — stated as `:P2b_seized_delta_contained`, machine-verified on both accepting seize goldens and refuted on the rejecting one, general proof blocked on the two bridges named in that file's §5 (with machine-checked counterexamples showing `ptokenPairsContain` is not pointwise sound without `validTxOutValue` canonicity). **UPLC route unchanged: NOT-REACHABLE-AT-UPLC.** | **No K at all, and none needed:** the faithfulness axiom quantifies the CEK step count (`seizeAcceptsUnbounded`), so P2(a) is the ONLY row in this table that is not budget-bounded. Fidelity gate: **13/13** agreement between `seizeModel` and the production `programmableSeize` flat executed on PlutusCoreBlaster's CEK (`WSC/Model/SeizeDiff.lean:all_13_model_agrees_with_bytecode`), of which **3/3** also match the Haskell ledger's recorded verdicts (2 accepting + **1 rejecting**). UPLC measurements that forced this route: cheapest accepting seize run **2,570** steps; prep at 2,000 unfinished in 77 min, at 9,000 unfinished in 62 min; vacuity probes at 600 and 1,000 return `Valid` for "no accepting context exists". | P2(a) uses NO `WSC/Honest.lean` axiom — not `LR_BUDGET_seize` (there is none) and not `DirWF`: the seized policy is read from whatever directory node the redeemer points at, and P2 does **not** claim that node is authentic (ARCHITECTURE.md's separate L2.5 obligation, which lives with `DirWF`). The entire trust delta is the one transcription axiom; its docstring (`WSC/Model/SeizeModel.lean` §7) lists what the goldens do NOT exercise: constructor fall-through into a well-formed 6-field tag, `pdropList` negative-index clamping, the `remainingProgCSDelta` `perror` branches (:1767/:1768), and the laziness/strictness boundary of argument S1. |
-| **P2′** | *A seized-policy mint cannot bypass the seize: the issuance `DelegateSeize` arm binds that mint to this seize.* | **DEFERRED** (Z2 note: the minting-policy budget obstacle is gone — shaped prep is budget-independent — so this now waits only on a `DelegateSeize`-shaped context.) | — | Lives on the minting policy, so it inherits P4's budget situation, and its postcondition also names the seize redeemer — so it is only meaningful once P2 (or a shaped P2) exists. |
-| **P1** | *Transfers conserve programmable tokens inside the mini-ledger: for every registered `(cs, tn)`, the amount at base outputs is at least the amount at base inputs plus the net mint.* | **NOT-REACHABLE-AT-UPLC** (unchanged) — **SOURCE MODEL BUILT AND CROSS-CHECKED; ONE containment path PROVED on it.** `WSC/Model/GlobalModel.lean` transcribes the whole `TransferAct` path with per-clause source citations and calls PlutusCoreBlaster's real CIP-153 builtin denotations rather than modelling them. `WSC/Model/GlobalGoldens.lean` proves by `native_decide` that the model's verdict equals the REAL bytecode's on **4/4** global goldens, including the rejecting `transfer-containment-violation-REJECT`. PROVED on the model: `WSC/Props/P1_Transfer.lean:pathC_sound` (ARCHITECTURE Tier 3.1 Path C — the builtin `valueContains` dispatch is containment-sound, discharged through the PROVED `PlutusCore/Value/Algebra.lean` lemmas) and `:accum_lookup`. `P1_model` itself is **STATED, not proved** — Paths A/B and links L1.2-L1.6 are recorded as `Prop` definitions with per-item status in that file's OBLIGATION STATUS block. | **No UPLC K** (unchanged): the containment-carrying accepts cost 3,262 and 3,726 CEK steps; preps extrapolate to years (K-MEASUREMENTS §5.1/§5.2). Model-level positive witness + negative control: `WSC/Model/GlobalGoldens.lean` (`model_is_non_vacuous`, `model_matches_bytecode_containment_violation`). | Rests on **one** axiom, `globalModel_faithful` (whole-validator model↔bytecode equivalence; evidence, discharge route and residual risk in its docstring). **Two findings**: (a) ARCHITECTURE §3-P1's `mintPos` form is REFUTED for burns — the true (and the form §5.2's Preservation actually consumes) inequality is the SIGNED `out ≥ in + mintOf`; (b) `WSC/Honest.lean`'s `DirWF` omits the interval-PARTITION conjunct that ARCHITECTURE §5.3 describes, so "registered ⟹ no covering node" is NOT derivable from the axiom base and is carried as an explicit hypothesis (`coveringNodeExists … = false`). |
+| **P1** | *Transfers conserve programmable tokens inside the mini-ledger: for a non-exemptable `(cs,tn)`, the amount at base outputs is at least the amount at base inputs plus the SIGNED net mint.* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** — `WSC/Props/Shaped/P1Shaped.lean` `P1_T1` `:223`, `P1_T2` `:273`, `P1_T6` `:794`, `P1_T7` `:839`, all ✅ Valid, **0 project axioms** (`[propext, sorryAx, Classical.choice, Quot.sound]`). **The `NOT-REACHABLE-AT-UPLC` verdict of earlier revisions is WITHDRAWN.** The source-model route (`WSC/Props/P1_Transfer.lean`) is retained as the only statement quantifying over ALL contexts; `P1_model` there is STATED-NOT-PROVED. | **K = 4400** over **SHAPES T1/T2/T6/T7**. Vacuity probes at all four shapes: Falsified (`:380`, `:403`, `:861`, `:884`). Concrete accepting instances through the real CEK: K = **2603** (T1), **3572** (T2), **3150** (T6), **3572** (T7). Excluded-case witness `exec_rejects_escape` (a ledger-legal containment violation, REJECTED by the bytecode). | Bounded twice. **Only 1 of 3 containment dispatch paths** is covered at UPLC (Path A); Paths B/C and input-side aggregation (≥2 mini-ledger inputs) are blocked by Blaster defect **D6**. Path C is proved at Lean level (`pathC_sound`). The exemption hypothesis is carried explicitly as `Model.coveringNodeExists … = false`; bridging it to ground truth costs `TS3` (`Composition.lean` §7.1). **FINDING: ARCHITECTURE §3-P1's `mintPos` form is REFUTED against the bytecode** (`P1ShapedWitness.mintPos_form_REFUTED`); the true form, and the one §5.2's Preservation consumes, is the SIGNED one. |
+| **P2** | *An accepted seizure relocates only the seized policy and it stays in the mini-ledger.* | **BOTH conjuncts PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** — `WSC/Props/Shaped/P2Shaped.lean` `P2a_shaped_structure` `:232`, `P2b_shaped_containment` `:288`, joint `P2_shaped` `:370`, all ✅ Valid, **0 project axioms**. **`NOT-REACHABLE-AT-UPLC` WITHDRAWN.** Conjunct (a) is additionally `PROVEN-ON-SOURCE-MODEL-modulo-faithfulness-axiom` (`P2a_bytecode`, + `seizeModel_faithful`), which is the version that quantifies over all contexts and all step counts. | **K = 3800** over **SHAPE S1** (shaped prep 3.0 s; the unshaped prep never completed — 77 min @2000, 62 min @9000). Vacuity probe at S1: Falsified `:630`. The 600 and 1000 probes are `Valid`, i.e. **every earlier UPLC P2 statement was provably vacuous**. Witnesses K = **3004** / **3328**, plus two rejecting controls. Model fidelity gate: **13/13** golden agreement incl. a rejecting vector. | **Conjunct (b) is the sharpest shape-dependence in the library**: it is FALSE-in-general on the source model (obligation B1, two machine-checked counterexamples — `ptokenPairsContain` is unsound with duplicate token names or unsorted maps) and closes at S1 only because S1's values are structurally canonical. Do not generalize it by inspection. P2 does NOT claim the directory node the redeemer points at is authentic (ARCHITECTURE L2.5). Three by-construction equalities forced by a `#prep_uplc` limitation — see the module header. |
+| **P3** | *You cannot spend a mini-ledger UTxO unless the global (transfer) or seize validator runs in the same transaction.* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K** — the only UNSHAPED leaf. `WSC/Props/P3_Base.lean:67`, ✅ Valid, 0 project axioms; negative control `:83`, tightness `:100` Falsified, vacuity probe `:112` Falsified, concrete accepting witness `:202`/`:209`. | **K = 600**, no shape. Golden `programmableLogicBase.base-spend-transfer-tx` halts accepting in **208** steps; in-library `P3Witness.ctx` accepted at 600 on **both** `.exec` and `.prop`. | Covers base-spend runs halting within 600 steps. Its conclusion is "the credential is in `txInfoWdrl`"; upgrading that to "the validator actually ran" is `LR_WDRL_RUNS_VALIDATOR`, not part of the proof. This is the one leaf `top_claim` actually consumes (via `p3_lifted`), and the reason `top_claim` carries `sorryAx`. |
+| **P4** | *Every accepted mint routes tokens into the mini-ledger or is a pure burn (Local / DelegateTransfer / DelegateSeize / BurnOnly).* | **ALL FOUR ARMS PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE, SHAPE BY SHAPE** — arm 1 `Local`: `P4LocalShaped.lean` `P4_local_noEscape_shaped` `:203`, `P4_local_arm_shaped` `:299`, `P4_disjunction_at_L1` `:349`, plus the index-loosened `P4_local_noEscape_shapedIdx` `:407` (SUPERSEDES the L1 form); arm 2: `P4_disjunction_at_DT1` `:244`; arm 3: `P4_disjunction_at_DS1` `:406`; arm 4: `P4Shaped.lean:165` + `P4ShapedIdx.lean:59`. All ✅ Valid, **0 project axioms**. The disjunction over a FULLY SYMBOLIC redeemer tag remains `Undetermined`. | Arm 4: **K = 900**, SHAPES **M1/M2**, witness K = **784**. Arms 1-3: **K = 2500**, SHAPES **L1/L2, DT1, DS1**, witnesses K = **1681**, **1257**, **1466** — each EXACTLY the step count of its production golden. Vacuity probes at every one of those shapes: Falsified (`P4Shaped:247`, `P4ShapedIdx:103`, `P4LocalShaped:455`/`:545`, `P4DelegateShaped:360`/`:530`). | Four theorems over four pairwise-disjoint shape classes is **not** one theorem over a symbolic redeemer. Arm 1 is the strong one: the policy's OWN no-escape scan over every output, in ground-truth `noEscape` vocabulary. **Arms 2 and 3 prove strictly less** — only that a sibling validator RUNS (`credentialInWithdrawals`). The registration conjunct at SHAPE L2 is `Undetermined`. **Budget-bridge gap: `LR_BUDGET_minting` is published at 900 only**, below the 1257/1466/1681 that arms 1-3 cost; `WithinBudget`'s `K_mint` clause must be raised in step with a 2500 bridge. |
+| **P4a** | *Every accepted mint invokes the token's own minting-logic script (common corollary of all four arms).* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** — `P4Shaped.lean:121` (M1), `P4ShapedIdx.lean:42` (M2, symbolic withdrawal index — strictly more general), `P4a_local_shaped` `:235` (L1). ✅ Valid, 0 project axioms. Fully symbolic: `Undetermined` after 3,208 s. | Same as P4's arms. Full control set at each shape (negative control Valid, tightness Falsified, vacuity Falsified). | Same as P4. |
+| **P5** | *A containment exemption can only be claimed for a genuinely unregistered policy: accept + NonMember ⟹ an authentic directory node covers `cs` (`key < cs < next`).* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** — `P5Shaped.lean` `P5_shaped_indexed` `:209`, ✅ Valid, 0 project axioms; composed with the pure-Lean ladder in `WSC/Props/P5_NonMember.lean` this yields ADDENDUM E3's ∃-form `P5_shaped_exists` `:239` and the ground-truth `P5_shaped_groundtruth` `:276` (**+`TS3`, `Deployed`, `OnChain` only — `TS5` is NOT needed**). Over a FULLY SYMBOLIC context the same obligation still returns NO verdict (killed at 5,241 s). | **K = 1600**, **SHAPE G1**. Vacuity probe at G1: Falsified `:398`. Witness K = **1541** (halts at 1541, budget-errors at 1540), `validRewardingContext` with ZERO failing conjuncts, accepted by the shaped AND the unshaped executable term. | Escape-critical: P5's strength = `DirWF`'s strength. The postcondition is the covering-node witness, **not** `¬ IsRegistered`; the bridge to "not registered" is now proved (§0.3). Requires the CIP-153 PlutusCoreBlaster branch, which is **unpushed** (§3 D5). Honest falsification on the record: the index-FREE variant (SHAPE G2) is `Falsified` with `pIdx = nIdx = 1` — not a validator defect (on chain `TS2` excludes it), and a positive argument for the indexed form (`SHAPING-RESULTS.md` §6). |
+| **P6** | *Claiming Member is self-penalizing: an accepted Member classification adds the positive minted amount to the value that must remain at base outputs.* | **PROVEN-AT-UPLC-WITHIN-BUDGET-K-AND-SHAPE** — `P6Shaped.lean` `P6_shaped_member_adds_to_requirement` `:234`, `P6_shaped_member_mint_stays_at_base` `:259`, ✅ Valid, 0 project axioms; `P6_shaped_noBaseInputs` `:209` is pure Lean (**no `sorryAx` at all** — the only headline theorem the kernel fully checks). Bridged to `Composition.lean`'s vocabulary by `P6Bridge.lean`. `NOT-REACHABLE-AT-UPLC` WITHDRAWN. Source-model core retained: `P6_Member.lean` `mintWalk_sublist`, `mintWalk_member_retains`. | **K = 3300**, **SHAPE G6**. Vacuity probe at G6: Falsified `:363`. Witness K = **2837**, plus `exec_rejects_escape_under_member` and the discriminating pair `exec_accepts_same_escape_under_nonmember`. | **⚠️ THE CAUTIONARY ROW OF THE WHOLE CAMPAIGN.** P6 was first stated at **2500**, returned `✅ Valid`, and was **genuinely VACUOUS** — the shape class was accept-UNSAT and only the mandatory vacuity probe caught it. Preserved as `WSC/Shaped/Probe/G6Vacuous2500.lean` (a stanza that *expects* `Valid`). No accept-hypothesis theorem in this library may be quoted without its probe. |
+| **P2′** | *A seized-policy mint cannot bypass the seize: the issuance `DelegateSeize` arm binds that mint to this seize.* | **PARTIALLY SUBSUMED, binding claim DEFERRED** — the arm is proved at SHAPE DS1 (`P4_delegateSeize_arm_shaped`), but it concludes only `seizeScopedToNodeOf` / "the seize validator runs". | — | Its postcondition names the seize redeemer, so it needs P2 and P4-arm-3 in the SAME statement; nobody has written it. See also `LeafSet.p4`'s `LR5` gap below. |
 
-### Composition
+### Composition (`WSC/Composition.lean`, tasks V4 + U2)
 
 | Item | State | Note |
 |---|---|---|
-| `WSC/Composition.lean` (invariant `I`, `Preservation`, chain induction, top claim) | **DEFERRED** — the file does not exist. | Blocked less by the leaves than by the missing ledger-level vocabulary: there is no `Ledger` type, so §5.3's `lr_utxo_semantics` and `ts_genesis` are deliberately NOT stated in `WSC/Honest.lean` (recorded there rather than invented). |
-| `L-monotone` (registration is insert-only) | **ASSUMED** — `DirWF` conjunct (i). | Discharged by U10. |
-| `L-mint-needs-reg` | **DEFERRED** | Would follow from P4 + `TS_MINTING_IDENTITY`. |
+| `top_claim`, `no_programmable_tokens_outside_mini_ledger`, `preservation`, `nonEscape_of_registered` | **PROVED AS A REDUCTION.** Real Lean theorems, green in the clean-room rebuild — but stated over an explicit `leaves : LeafSet hp Shape` hypothesis bundle, and they carry `sorryAx` (through P3). **Never quote as "the claim is proved"; quote as "the claim reduces to exactly these four obligations plus 26 axioms".** | Ledger vocabulary exists: `UTxO`/`Ledger`/`OutOfBase`/`RegisteredIn`/`I`/`Reachable`. Per-theorem `#print axioms` in `WSC/AUDIT.md` §3. |
+| **`LeafSet` instantiation** | **OPEN — no `LeafSet` value is constructed anywhere in the library** (grep-verified; `WSC/AUDIT.md` §3.1 item 2). | This is precisely the gap between "reduction" and "proof". |
+| `LeafSet.p1` (exit via transfer, P6 folded in) | **INGREDIENT PROVED, RESIDUE OPEN** — `leafP1_of_shapedGlobalContainment` (§10.2) gives the field's exact type from `ShapedGlobalContainment hp Shape`, whose single field is the two remaining non-vocabulary obligations: the **shape bridge instantiated at the 4400 prep** and `LR_BUDGET_global` at 4400. The vocabulary bridges (§10.1) are PROVED: `outSum ≡ sumOutsIf`, `inSum ≡ sumInsIf`, `contain_iff_modelSums`; `mintSigned ≡ mintOf` definitionally. | Costs `TS3`, `Deployed`, `OnChain`, `NodeAcceptsGlobal`. |
+| `LeafSet.p4` (entrance) | **INGREDIENT PROVED, RESIDUE OPEN** — `p4_disjuncts_of_custody` (§10.3) derives the field from the full four-way `LocalCustodyOk ∨ DelegateTransferOk ∨ DelegateSeizeOk ∨ BurnOnlyOk`, which is what the four shaped arm theorems conclude. Residues: shape coverage, the shape bridge, and a minting budget bridge at 2500. | Carries U2's finding that **`WSC.LR5` does NOT entail `seizeCred ∈ txInfoWdrl`** from `seizeScopedToNodeOf` (`validScriptInfo` constrains the RUNNING script's purpose only) — isolated as `SeizeWdrlOfScoped`; needs a strengthened `LR5` or a new `LR_REDEEMER_PURPOSES_REAL` with a `Conway/TxInfo.hs transTxRedeemers` audit row. |
+| `LeafSet.p2` (exit via seize) | **OPEN** — the shaped P2 theorems exist but nothing connects them to the field. | Needs the shape bridge plus "structure preserved ⟹ `Contain` for a non-seized policy", an unwritten lemma. |
+| `LeafSet.nopre` (`L-mint-needs-reg`) | **OPEN, the weakest leaf.** Nobody has started it. | Needs the FULL P4 over a symbolic redeemer plus trace induction. |
+| `L-monotone` (registration is insert-only) | **ASSUMED** — `DirWF` conjunct (i) per-tx; `lr_registration_source` + `DIRWF_L` at ledger level. | Discharged by U10. |
+| `LR_BALANCE_SLOT` | **AXIOM, but its exact statement is now DERIVED** — `LR_BALANCE_SLOT_of_valueAlgebra` proves it from `WSC.LR7` plus two named `CardanoLedgerApi`-only residues (`ValueAlgebra`, 3 fields; `LedgerCanon`). Instantiating both deletes the axiom. | U2 finding: **`valueOf` is NOT additive over `merge`** without canonicity (`merge_not_additive_without_canonicity`, a `native_decide` counterexample), and CLAB has **zero** `Value` algebra — so "mechanical" was wrong. Template is PCB's `PlutusCore/Value/Algebra.lean` (~330 lines) and it is not reusable as-is. |
 
-## 2. Axiom base (`WSC/Honest.lean`) — what is assumed
+### The shape bridge (`WSC/ShapeBridge.lean`, task U1)
 
-Grouped as ARCHITECTURE.md §5.3 does. **Read the numbering-collision table at
-the top of `WSC/Honest.lean` before citing a name** — the file-local `TS1…TS5`
-and `LR1…LR7` do not mean the same things as §5.3's.
+| Item | State |
+|---|---|
+| `isSuccessful (appliedXShaped.prop args) ↔ isSuccessful (appliedX.prop (shapedCtx args))` | **PROVED for all 16 shaped preps, no axiom.** 25 verdicts re-verified in the U3 rebuild (19 Valid + 6 Expected-Falsified controls). The `exec`-level form (`XRun K`) is **kernel-checked `rfl`** — `[propext, Classical.choice, Quot.sound]`, no `sorryAx` — and holds at every budget; `inputs_M1` "does not depend on any axioms". |
+| Tier A (6 shapes: B1@600, M1/M2@900, G1/GIdx/GNIdx@1600) | RHS is the unshaped prep's `prop` at the same budget — complete, no residual. |
+| Tier B (10 shapes: G6@3300, L1/L2/DT1/DS1@2500, S1@3800, T1/T2/T6/T7@4400) | RHS is `XRun K`; **no unshaped prep exists at those budgets and none is affordable.** Inherits the `PropExecFaithful` warning (`SHAPE-BRIDGE.md` §5). |
+| **Is it consumed?** | **NO.** `Honest.lean`'s budget bridges and `Composition.lean`'s `LeafSet` still name unshaped preps. Highest-value next action: restate `LR_BUDGET_*` against `ShapeBridge.XRun K` — four axiom statements, no new proving (`WSC/AUDIT.md` F3). |
+| In the default build target? | **Yes, since U3** — `WSC.lean` imports it (36 s). `lake build WSC` did not check it before. |
 
-| Group | Axioms | Discharged by |
-|---|---|---|
-| Modelling boundary | `OnChain`, `Deployed` | Never — they are the model/chain bridge. |
-| TRUSTED-SETUP | `TS1` (params-anchor integrity), `TS2` (params-NFT uniqueness), `TS_MINTING_IDENTITY`, `mlhPolicyId` (abstract) | Deployment audit of the one-shot params anchor policy; U10 for the registration side. `TS_SCRIPT_HASH_BINDING` is **checked, not assumed** (E7, `WSC/flats/PROVENANCE.md`). |
-| LEDGER-RULE (per-tx) | `LR1`–`LR7`, `LR_CTX` | Trusting the Cardano ledger; **every** conjunct is mapped to a cited ledger rule in `LR_CTX`'s audit table. The two conjuncts that were NOT justified (§3 D1/D2) were fixed in CLAB by task Z1, and `LR_CTX`'s `CLABMapOrderAgrees` side condition was deleted as unnecessary. |
-| LEDGER-RULE (triggers) | `LR_MINT_RUNS_POLICY`, `LR_WDRL_RUNS_VALIDATOR`, `LR_SPEND_RUNS_VALIDATOR` | Trusting the Cardano ledger (UTXOW scripts-needed). |
-| Non-negativity | `NONNEG` | Trusting the ledger; the ledger-WIDE form still has to be restated in `Composition.lean`. |
-| Budget bridge | `LR_BUDGET_base` (K=600), `LR_BUDGET_minting` (K=900), `LR_BUDGET_global` (K=1600), `LR_BUDGET_seize` (**no K**) | A budget-monotonicity meta-theorem about `runSteps` that the substrate does not provide. Each is gated on an explicit non-vacuity hypothesis; only `BaseNonVacuous` is dischargeable today. |
-| DIRECTORY | `DIRWF` (3 conjuncts), `TS3`, `TS4`, `TS5` | **U10** — `mkDirectoryNodeMP` at UPLC. Escape-critical. |
-| NOT STATED (deliberately) | §5.3 `ts_genesis`, §5.3 `lr_utxo_semantics` | Need a `Ledger` type; belong in `Composition.lean`. Inventing them here would have been a wrong axiom. |
-| NOT EXPRESSIBLE | §5.3 `lr_collateral_pubkey_only` | PlutusV3 `TxInfo` has no collateral field; the collateral exit route must be closed by a ledger-level argument outside this model. |
+## 2. Axiom base — what is assumed
 
-## 3. Defects found this session (task Y3); D1/D2 FIXED by task Z1
+**47 `axiom` declarations**, and **no `axiom` anywhere in `Prep/*`, `Shaped/*` or
+`Props/Shaped/*`** — the shaped layer really does add no assumption, which is its
+central claim and is now machine-verified. `top_claim` reaches **26** of the 47;
+read that as a **floor**, since instantiating the open `LeafSet` fields adds the
+other 21. Full per-theorem census: `WSC/AUDIT.md` §3. **Read the
+numbering-collision table at the top of `WSC/Honest.lean` before citing a name** —
+the file-local `TS1…TS5` / `LR1…LR7` do not mean ARCHITECTURE §5.3's.
 
-**D1 — ✅ FIXED (task Z1). Was: `validRedeemerMap` is REFUTED for every WSC
-issuance transaction (top-priority substrate defect).** CLAB ordered
-`ScriptPurpose` as
-`Minting < Spending < Rewarding < Certifying < …`
-(`CardanoLedgerApi/V3/Contexts.lean:20-27, 66-85`, the Plutus constructor order).
-The Cardano ledger emits `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order —
-`ConwaySpending < ConwayMinting < ConwayCertifying < ConwayRewarding < …`
-(`cardano-ledger` @ `cd8b7fab8`,
-`eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs:202-213`, derived `Ord`)
-— and does **not** re-sort
-(`transTxRedeemers = unsafeFromList ∘ mapM … ∘ Map.toList`,
-`eras/babbage/impl/src/Cardano/Ledger/Babbage/TxInfo.hs:217-221`, used for V3 at
-`eras/conway/impl/src/Cardano/Ledger/Conway/TxInfo.hs:499,512`). Any transaction
-carrying both a spending and a minting redeemer — i.e. every programmable-token
-mint — is therefore NOT CLAB-sorted, so `validMintingContext` is false and any
-P4/P4a/P2′ theorem is vacuous on exactly its target class. Independently
-reproduced on the goldens: the 2 accepting minting goldens have redeemer
-purposes `[Spending, Minting, Rewarding, Rewarding, Rewarding]` and
-`validRedeemerMap = false`.
+| Group | Axioms | Reached by `top_claim`? | Discharged by |
+|---|---|---|---|
+| Modelling boundary | `OnChain`, `Deployed` | yes | Never — they are the model/chain bridge. |
+| TRUSTED-SETUP | `TS1`, `TS2`, `TS_MINTING_IDENTITY`, `mlhPolicyId` | only `mlhPolicyId` | Deployment audit of the one-shot params anchor; U10 for the registration side. `TS_SCRIPT_HASH_BINDING` is **checked, not assumed** (E7, `WSC/flats/PROVENANCE.md`). |
+| LEDGER-RULE (per-tx) | `LR1`–`LR7`, `LR_CTX` | only `LR_CTX` | Trusting the Cardano ledger; every `LR_CTX` conjunct is mapped to a cited ledger rule (`WSC/LR-CTX-AUDIT.md`). |
+| LEDGER-RULE (triggers) | `LR_MINT_RUNS_POLICY`, `LR_WDRL_RUNS_VALIDATOR`, `LR_SPEND_RUNS_VALIDATOR` | yes | Trusting the ledger (Conway UTXOW scripts-needed). |
+| Non-negativity | `NONNEG`, `NONNEG_L` | yes | Trusting the ledger. |
+| Node-accept / step abstractions | `NodeAccepts{Base,Minting,Global,Seize}`, `nodeSteps{Base,Minting,Global,Seize}` | all but `nodeStepsSeize` | Never — they ARE the "a node ran this script for this many steps" interface. |
+| Budget bridge | `LR_BUDGET_base` (K=600), `LR_BUDGET_minting` (**900**), `LR_BUDGET_global` (prep-parametric, gated on `GlobalPreppedAt`), `LR_BUDGET_seize` (**no K — unusable by construction**) | only `LR_BUDGET_base` | A budget-monotonicity meta-theorem about `runSteps` that the substrate does not provide. `K_global` was republished at **4400** (P1's witnesses cost up to 3572) with `K_global_nonmember = 1600` as P5's sub-bound. `BaseNonVacuous` and `MintingNonVacuous` are DISCHARGED (`Composition.baseNonVacuous`, `Composition.mintingNonVacuous`); `GlobalNonVacuous` is PROVED in `ShapeBridge` but still recorded open in `Honest.lean` (`WSC/AUDIT.md` F7); `SeizeNonVacuous` is unreachable at any affordable budget. |
+| DIRECTORY | `DIRWF` (**4** conjuncts since V4), `TS3`, `TS4`, `TS5` | none — they enter with the leaves | **U10** — `mkDirectoryNodeMP` at UPLC. **Escape-critical.** Measured: the raw↔ground-truth reconciliation costs `TS3` only, **not** `TS5`. |
+| LEDGER-LEVEL (`Composition.lean`) | `LedgerStep`, `Genesis` (declared, not defined); `lr_utxo_semantics`, `lr_inputs_in_ledger`, `lr_registration_source`, `LR_BALANCE_SLOT`, `ts_genesis`, `ts_minting_identity_L`, `NONNEG_L`, `DIRWF_L` | **all 10** | Trusting the ledger (the `lr_*` four + `NONNEG_L`); deployment audit (`Genesis`/`ts_genesis`/`ts_minting_identity_L`); **U10** (`DIRWF_L`, escape-critical). `LR_BALANCE_SLOT` is derivable — see the Composition table. |
+| FAITHFULNESS (deliberately NOT in `Honest.lean` — a different KIND of assumption) | `Model.globalModel_faithful`, `SeizeModel.seizeModel_faithful` | no | Source-line citations + golden differential (global 4/4, seize 13/13, both including rejecting vectors). Each is a whole-validator model↔bytecode equivalence. |
+| NOT EXPRESSIBLE | ARCHITECTURE §5.3 `lr_collateral_pubkey_only` | — | PlutusV3 `TxInfo` has no collateral field; the collateral exit route must be closed outside this model. |
 
-**FIX AS LANDED (Z1).** `ltScriptPurpose` in `CardanoLedgerApi/V3/Contexts.lean`
-now uses the ledger order
-`Spending < Minting < Certifying < Rewarding < Voting < Proposing`, with the
-`cardano-ledger` citations in its docstring; the same defect in the V1/V2
-`ltScriptPurpose` (`CardanoLedgerApi/V1/Contexts.lean`) was fixed to the
-`AlonzoPlutusPurpose` order `Spending < Minting < Certifying < Rewarding`
-(`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Scripts.hs:308-313`; the Conway order
-restricted to those four kinds is the same sequence, so it is era-robust). The
-alternative — weakening `validRedeemerMap` to duplicate-freeness — was NOT taken:
-the ledger order is a ledger fact, so correcting it keeps the precondition as
-strong as reality permits. Effects, all machine-checked: both accepting minting
-goldens now PASS `validRedeemerMap` (their only failing conjunct is the zero fee);
-`WSC/Honest.lean` audit rows L and M are JUSTIFIED and its `CLABMapOrderAgrees`
-quarantine on `LR_CTX` is DELETED; `WSC/Props/P4_Minting.lean`'s caveat theorem is
-now `ctx_satisfies_validMintingContext`. **`validMintingContext`
-is satisfiable on P4's target class again, so the minting theorems are no longer
-vacuous by construction** — what still blocks a verdict on P4a is the Z3 search
-wall, not vacuity: re-measured post-fix at budget 900, both the vacuity probe and
-the P4a obligation are still `Undetermined` at a 600 s Z3 cap (601 s wall each),
-indistinguishable from the pre-fix runs.
+## 3. Defects — current ledger
 
-**D2 — ✅ FIXED (task Z1). Was: `validWithdrawals` is REFUTED for withdrawal maps
-mixing script and key credentials.** Ledger `Credential` Ord is `ScriptHashObj < KeyHashObj`
-(`libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs:96-99`), CLAB's is
-`PubKeyCredential < ScriptCredential` (`CardanoLedgerApi/V1/Credential.lean:61-66`),
-and `transTxBodyWithdrawals` does not re-sort (`Conway/TxInfo.hs:544-546, 692-694`).
-Narrower than D1: WSC's own withdrawals are all script credentials, where the two
-orders agree. **FIX AS LANDED (Z1):** `ltCredential` in
-`CardanoLedgerApi/V1/Credential.lean` now reads
-`ScriptCredential < PubKeyCredential`, with the ledger citation and a note on the
-`AccountAddress = (Network, Credential)` key (Plutus drops the network; harmless
-because `validateWrongNetworkWithdrawal`,
-`eras/shelley/impl/src/Cardano/Ledger/Shelley/Rules/Utxo.hs:181,384`, admits one
-network per transaction). As predicted, this changes NO golden verdict — every
-golden withdrawal credential is a script credential — which confirms that the
-seize goldens' `validWithdrawals` failure is a harness artifact (A2), not a CLAB
-defect.
+**D1 (`validRedeemerMap` ordering) — ✅ FIXED (Z1), and now EXERCISED.** CLAB used
+the Plutus constructor order for `ScriptPurpose`; the ledger emits
+`ConwayPlutusPurpose AsIx` order and does not re-sort (`Conway/Scripts.hs:202-213`,
+`Babbage/TxInfo.hs:217-221`). `ltScriptPurpose` (V3 and V1/V2) now uses the ledger
+order with citations. SHAPE **DS1** carries a real 2-entry `[Minting, Rewarding]`
+redeemer map that `validMintingContext` accepts, with a Falsified vacuity probe and
+a concrete accepted witness — so the fix is exercised, not merely asserted.
+`P4Shaped.lean`'s D1 stanza is stale on this point (V3 finding, not yet corrected).
 
-**D3 — ~~no golden satisfies `validXContext`~~ — FIXED (task Z5). All 9 ACCEPTING
-goldens now satisfy `validXContext` verbatim; the golden suite IS the anti-vacuity
-witness set.** The three builder artifacts below were repaired upstream in
-wsc-poc's
-`ProgrammableTokens.Test.ScriptContext.Builder.buildLedgerShapedScriptContext`
-(positive balanced fee; `txInfoWdrl` in the ledger's `Credential` order, which also
-fixes the `Rewarding` entries of `txInfoRedeemers`; min-UTxO ada on every output),
-the 13 goldens were re-dumped and re-verified at PV11, and the pre-fix JSONs are
-kept under `WSC/goldens/pre-fix/`. Post-fix, **10 of 13 goldens are TRUE** and the
-only 3 FALSE are tamper-intrinsic (2x `isBalanced` from output-deleting tampers,
-1x `validScriptInfo` from the cross-grafted purpose). Machine-checked by
-`WSC/Goldens/Audit.lean`'s `every_accepting_golden_satisfies_its_precondition`,
-`A1_every_golden_has_a_positive_fee`, `A2_no_withdrawal_order_violations`,
-`A3_no_golden_has_lovelace_free_outputs` and `no_order_violations_remain`.
-Downstream caveats discharged: `WSC/Goldens/Witnesses.lean`
-(`ctx_satisfies_validSpendingContext`), `WSC/Props/P4_Minting.lean`
-(`ctx_satisfies_validMintingContext`) and `WSC/Model/SeizeDiff.lean`
-(`accepting_seize_goldens_satisfy_validRewardingContext`). Historical description
-of the defect follows.
+**D2 (`validWithdrawals` credential order) — ✅ FIXED (Z1).** `ltCredential` is now
+`ScriptCredential < PubKeyCredential` (`Credential.hs:96-99`). Changed no golden
+verdict, as predicted, which confirms the seize goldens' earlier
+`validWithdrawals` failure was a harness artifact.
 
-**D3 (historical) — no golden satisfied `validXContext`, so the golden suite could
-not supply an anti-vacuity witness.** All 13 golden contexts were CBOR-decoded into Lean and
-every `validTxInfo` conjunct evaluated: all 13 have `txInfoFee = 0`, so
-`txInfoFee > 0` (`Contexts.lean:1201`) fails. This is a builder artifact — the
-goldens are produced by the repo's `ScriptContext.Builder`, not captured from a
-chain (`WSC/goldens/MANIFEST.md`). Two further builder artifacts surfaced in the
-same pass: the 3 seize goldens emit their two script withdrawal credentials
-DESCENDING (`0x40…` before `0x14…`), and the 2 accepting seize goldens have a
-residual output carrying **no ada entry at all**, which min-ada forbids on chain.
-Consequence: the only `validXContext`-satisfying accepting witness in the library
-is the hand-built `WSC.P3Witness.ctx`. **STILL OPEN after Z1** — D1/D2 were CLAB's
-fault, D3 is the builder's: post-fix **8 of the 13 goldens fail on the fee ALONE**
-(7 accepting — the base spend, all 3 global transfers and all 3 minting goldens —
-plus `mint-local-empty-withdrawals-REJECT`), up from 6 before the fix, so a single
-builder change (a positive fee with the balance adjusted) would turn each of them
-into a genuine `validXContext` witness. Fix: give the golden builder a positive
-fee, sorted withdrawals and min-ada on every output, then re-dump. **Done in task
-Z5 — see the FIXED note above.**
+**D3 (no golden satisfied `validXContext`) — ✅ FIXED (Z5).** All 9 ACCEPTING
+goldens satisfy `validXContext` verbatim; 10 of 13 are TRUE and the 3 FALSE are
+tamper-intrinsic. Machine-checked in `WSC/Goldens/Audit.lean`. Pre-fix JSONs kept
+under `WSC/goldens/pre-fix/`.
 
-**D4 — CLAB does not assert the PV11 rule `txInfoInputs ∩ txInfoReferenceInputs = ∅`**
-(`Conway/TxInfo.hs:492, 811-822`). This is a *missing* conjunct, i.e. the
-precondition is weaker than reality, which strengthens the theorems — recorded,
-not a problem.
+**D4 — CLAB does not assert the PV11 rule
+`txInfoInputs ∩ txInfoReferenceInputs = ∅`** (`Conway/TxInfo.hs:492, 811-822`). A
+*missing* conjunct, i.e. the precondition is weaker than reality, which
+strengthens the theorems. Recorded, not a problem. (Note: `SeizeShaped.lean`'s
+header uses "D4" for an unrelated `#prep_uplc` limitation — the numbering collides;
+read in context.)
 
-**D5 — the substrate is not reproducible off this machine.** P5/P6/P1 need the
-CIP-153 Value builtins, which live only on the **unpushed** PlutusCoreBlaster
-branch `cip153-value-builtins` @ `9f9ca8c` (ADDENDUM E11). Until it is pushed and
-the `lakefile.lean` pin changed to a full rev, any "proved against production
-bytecode" claim for the global validator carries that caveat.
+**D5 — the substrate is not reproducible off this machine.** `lakefile.lean` pins
+PlutusCoreBlaster by **absolute local path** to the unpushed branch
+`cip153-value-builtins` @ `9f9ca8c` (ARCHITECTURE E11). Every "proved against
+production bytecode" claim for the global/seize validators inherits this.
+**Highest operational risk in the repository.**
 
-## 3b. Task Z2 addendum — what the shaped layer changed
+**D6 — Blaster `#prep_uplc` emits kernel-ill-typed `Blaster.dite'` terms** when a
+CIP-153 `Value` builtin result stays symbolic (the motive is not updated after De
+Morgan / Bool-polarity rewrites). Reproductions:
+`WSC/Shaped/Probe/{T3PrepFAILS,T4PrepFAILS}.lean` (deliberately non-building; not
+imported anywhere — verified in the U3 rebuild). **Blocks P1's containment dispatch
+Paths B/C and input-side aggregation at UPLC.** Needs an upstream fix.
 
-`WSC/SHAPING-RESULTS.md` is authoritative; the four things to know here:
+**D7 (task U3) — `WSC/goldens/K-MEASUREMENTS.md` §5.1's prep costs are ~49x
+pessimistic.** See §0.5. Not a code defect; a measurement defect that has already
+misdirected work.
 
-1. **Two obligations changed state** (P4a and P5 rows above), against the same
-   flats and the same budgets, with no new axiom.
-2. **Shaped `#prep_uplc` is budget-independent** (1.2–1.3 s at 900…4,000). The
-   prep extrapolations that made P1 (K = 3,262/3,726), P2 (2,570) and P6
-   "NOT-REACHABLE-AT-UPLC" no longer apply; those rows keep their source-model
-   results, but at UPLC they are now UNTESTED rather than unreachable. NOTE for
-   P2 in particular: the E2 spike's negative result shaped list SPINES only and
-   left datums and the redeemer as symbolic `Data`, whereas Z2's shapes close the
-   skeleton all the way to scalar leaves.
-3. **One honest falsification.** The index-free P5 variant with a FREE
-   `paramsRefIdx` (SHAPE G2) is `Falsified` with counterexample `pIdx = nIdx = 1`:
-   the validator then resolves its params UTxO at the directory node and
-   authenticates against THAT datum's field 0, so the postcondition's `dirCS`
-   named an object the validator never read. Not a validator defect (on chain
-   `TS2` excludes it), and a positive argument for P5's indexed form.
-   `WSC/SHAPING-RESULTS.md` §6.
-4. **Every shaped theorem is bounded by its shape as well as its budget.**
-   `WSC/Composition.lean` cannot consume a shaped leaf as a universal one without
-   a shape-coverage argument, which does not exist. See §4 item 3.
+**D8 (task U3) — `set_option warn.sorry false` in 15 modules makes the build-log
+`sorry` census incomplete** (~42 `admit`s hidden, so the "19 expected sorries"
+whitelist is a count of *unsuppressed* warnings only). Use `#print axioms` →
+`sorryAx`; reproducible in one command via `WSC/Shaped/Probe/U3Census.lean`.
 
 ## 4. What would move the needle, in order
 
-1. ✅ **DONE (task Z1)** — Fix D1/D2 in CLAB (small, mechanical): without it P4/P4a
-   were vacuous on their target transaction class no matter what budget is used.
-   Vacuity-by-precondition is gone; the remaining obstacle to P4a is the Z3 search
-   wall (re-measured post-fix at budget 900, see §3 D1).
-2. ✅ **DONE (task Z2)** — Prove P4a and P4's `BurnOnly` arm at budget 900, by
-   SHAPING the context rather than by raising a budget (`WSC/SHAPING-RESULTS.md`).
-   Follow-up on this axis: shape the other three arms at 1,700 (prep 1.2 s);
-   `Local` (K = 1,681) would turn the no-escape custody scan into a theorem.
-3. ✅ **DONE (task Z2)** — Prove P5 at budget 1600, same way. Follow-up: attempt a
-   shaped P1 (budget 3,300) and a shaped P2 (2,600) — the prep barrier that ruled
-   those out is gone (shaped prep is budget-independent), so only the solver
-   question remains. Then either produce a **shape-coverage argument** or publish
-   the shaped layer explicitly as a bounded-model-checking tier and record in
-   `WSC/Honest.lean` which axioms it replaces ON THOSE SHAPES ONLY.
-4. ~~Fix D3 so the golden suite can act as the anti-vacuity witness set.~~ **DONE (Z5).** Next fidelity step is now §6 action 2 of `WSC/LR-CTX-AUDIT.md`: capture a context from `cardano-ledger`'s own `ScriptContext` builder, since LR-CTX still rests on harness-built (if now ledger-shaped) contexts.
-5. **U10** — `mkDirectoryNodeMP` at UPLC, discharging `DirWF`. Highest assurance
-   ROI: it is the only escape-critical assumption.
-6. For P1 and P2, stop attempting fully-symbolic preps and decide between shaped
-   contexts (with per-shape measured K — K-MEASUREMENTS §3 already lists the
-   numbers) and the source-model route.
+1. **Restate `LR_BUDGET_*` against `ShapeBridge.XRun K`** — four axiom statements,
+   no new proving. Puts the composition on the kernel-checked bridge, removes
+   `PropExecFaithful` from the trust base, removes the need for `GlobalPreppedAt`,
+   dissolves the Tier A/B split, and unblocks `LeafSet.p1`/`p4`.
+2. **Instantiate the `LeafSet`.** `p1` and `p4` need only their residues (item 1 +
+   coverage); `p2` needs "structure preserved ⟹ `Contain`"; `nopre` needs the full
+   P4 plus trace induction. Until one `LeafSet` value exists, the top claim is an
+   implication with an open antecedent.
+3. **Decide the shape-coverage question, and say so in public** — either produce an
+   argument (`SHAPE-BRIDGE.md` §10 lists three routes, all costly) or publish the
+   shaped layer explicitly as a bounded-model-checking tier and record in
+   `Honest.lean` which axioms it replaces ON THOSE SHAPES ONLY. Doing neither is
+   the current state and the biggest presentational risk.
+4. **U10 — `mkDirectoryNodeMP` at UPLC**, discharging `DirWF`/`DIRWF_L`. The only
+   escape-critical assumption; highest assurance ROI.
+5. **Push the PCB `cip153-value-builtins` branch and re-pin `lakefile.lean` to a
+   full rev** (D5). Cheap, and without it nothing here is independently checkable.
+6. **Fix D6 upstream** — that is what would extend P1 to dispatch Paths B/C and to
+   ≥2 mini-ledger inputs.
+7. **Instantiate `ValueAlgebra` + `LedgerCanon`** to delete `LR_BALANCE_SLOT`;
+   budget it as a ~330-line `Value`-algebra development, not a mechanical step.
+8. **Minting budget bridge at 2500**, and raise `WithinBudget`'s `K_mint` clause
+   with it, so P4's arms 1-3 are usable by the composition.
 
-## 5. Reproduction of everything cited here
+## 5. Reproduction
 
 ```
-# the proof library (P3 green, probes Falsified as expected)
-cd <CLAB checkout> && lake build WSC
+# the whole library, clean-room (401 jobs, 93.7 s, 98 ✅ markers, 0 errors)
+cp -a <CLAB checkout> <SCRATCH>/clab && cd <SCRATCH>/clab
+rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
+/usr/bin/time -v lake build WSC WSC.ShapeBridge
+
+# the axiom census behind §2 and WSC/AUDIT.md §3 (2.7 s warm)
+lake build WSC.Shaped.Probe.U3Census
 
 # CEK step counts K of the 13 goldens (3.2 s)  -- WSC/goldens/K-MEASUREMENTS.md §6
 cp -a /home/gumbo/iohk/PlutusCoreBlaster <SCRATCH>/pcb-kmeasure   # git log -1 == 9f9ca8c
 cp WSC/goldens/KMeasure.lean.disabled <SCRATCH>/pcb-kmeasure/KMeasure.lean
 cd <SCRATCH>/pcb-kmeasure && lake env lean KMeasure.lean
 
-# prep-cost wall (budget sweeps)  -- WSC/goldens/prep-probes/*.lean.disabled
-
 # per-conjunct golden validXContext audit (§3 D1/D2/D3)
 python3 WSC/goldens/ctx-audit/GenCtxAudit.py       && lake env lean CtxAudit.lean
 python3 WSC/goldens/ctx-audit/GenCtxAuditDetail.py && lake env lean CtxAuditDetail.lean
 ```
+
+**Always time with `lake build`, never `lake env lean`** — the latter omits
+`--load-dynlib` and is 15-53x slower, which is the source of D7.

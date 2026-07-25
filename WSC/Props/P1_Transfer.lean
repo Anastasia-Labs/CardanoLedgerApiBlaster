@@ -222,17 +222,36 @@ def coveringNodeExists (dirCS : CurrencySymbol) (cs : CurrencySymbol) :
        | _ => false)
       || coveringNodeExists dirCS cs rest
 
-/-- **FINDING (reported, not silently patched).**  `WSC/Honest.lean`'s `DirWF`
-(ADDENDUM E4) has three conjuncts — insert-only, key-uniqueness, NFT-name/datum
-binding — but it does NOT state the INTERVAL-PARTITION property that
-ARCHITECTURE.md §5.3's `directory_partition` row describes ("(key,next) intervals
-partition the key space; hence an authentic node with `key < cs < next` witnesses
-`cs ∉ keys`").  Key-uniqueness alone does not forbid a covering node for a
-registered `cs` — the two nodes have DIFFERENT keys.  Consequently the
-hypothesis `coveringNodeExists … = false` cannot be discharged from
-`WSC/Honest.lean` as it stands; it is carried explicitly by the theorems below
-and must be added to `DirWF` (a fourth conjunct) as part of U10.  This is the
-same trust surface P5 has, stated where it actually bites. -/
+/-- **⚠️ SUPERSEDED (task U3 audit, 2026-07-25) — the finding below WAS acted on;
+this `Prop` is kept only as the historical record of the gap.**
+
+WHAT CHANGED. Task V4 added the missing INTERVAL conjunct as `DirWF`'s **fourth**
+conjunct (`WSC/Honest.lean`, ADDENDUM E4), and the bridge that consumes it is now
+a PROVED THEOREM, not an obligation:
+
+* `WSC.covering_node_excludes_registration` (`WSC/Honest.lean:1337`) —
+  `#print axioms` gives `[propext, Classical.choice, Quot.sound]` only, i.e. it is
+  a kernel-checked consequence of the strengthened `DirWF`;
+* `WSC.Composition.covering_excludes_ledger_registration`
+  (`WSC/Composition.lean:1105`) — the ledger-level half, from `DIRWF_L`;
+* `WSC.Composition.coveringRaw_false_of_registered` (task U2, §7.1) — closes the
+  gap in the exact RAW vocabulary the theorems below use
+  (`Model.coveringNodeExists`), at a cost of `WSC.TS3` and the two ledger axioms
+  `LedgerStep` / `lr_inputs_in_ledger`, and NOT `WSC.TS5`.
+
+WHAT REMAINS TRUE. `DirWF`/`DIRWF_L` are still AXIOMS (escape-critical; U10 —
+`mkDirectoryNodeMP` at UPLC — is what would discharge them), and the theorems
+below still carry `coveringNodeExists … = false` as an EXPLICIT hypothesis. So
+the trust surface is unchanged in size; what changed is that discharging it is
+now a proved implication from the axiom base instead of a missing conjunct.
+
+ORIGINAL FINDING (historical). `WSC/Honest.lean`'s `DirWF` (ADDENDUM E4) had
+three conjuncts — insert-only, key-uniqueness, NFT-name/datum binding — but did
+NOT state the INTERVAL-PARTITION property that ARCHITECTURE.md §5.3's
+`directory_partition` row describes ("(key,next) intervals partition the key
+space; hence an authentic node with `key < cs < next` witnesses `cs ∉ keys`").
+Key-uniqueness alone does not forbid a covering node for a registered `cs` — the
+two nodes have DIFFERENT keys. -/
 def DirWF_partition_conjunct_missing : Prop :=
   ∀ (dirCS cs : CurrencySymbol) (refs : List TxInInfo),
     -- what U10 must supply, and Honest.lean's `DirWF` currently does not:

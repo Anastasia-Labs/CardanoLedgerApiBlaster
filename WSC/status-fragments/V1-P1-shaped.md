@@ -1,3 +1,9 @@
+> **⚠️ SUPERSEDED (task U3, 2026-07-25).** This fragment has been merged into
+> `WSC/STATUS.md`, which is now the single authoritative table, and audited in
+> `WSC/AUDIT.md`. It is kept as the per-task record only. Where it disagrees with
+> `WSC/STATUS.md`, `WSC/STATUS.md` wins — the disagreements found by the U3 audit
+> are itemised in `WSC/AUDIT.md` §7.
+
 # Status fragment — task V1: **P1 (containment) PROVED AT UPLC over shaped contexts**
 
 Written instead of editing `WSC/STATUS.md` (cross-agent collision policy). A later

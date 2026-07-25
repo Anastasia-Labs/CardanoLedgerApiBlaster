@@ -1,3 +1,9 @@
+> **⚠️ SUPERSEDED (task U3, 2026-07-25).** This fragment has been merged into
+> `WSC/STATUS.md`, which is now the single authoritative table, and audited in
+> `WSC/AUDIT.md`. It is kept as the per-task record only. Where it disagrees with
+> `WSC/STATUS.md`, `WSC/STATUS.md` wins — the disagreements found by the U3 audit
+> are itemised in `WSC/AUDIT.md` §7.
+
 # status fragment — unit Z6: **shaped P2 (seize) at UPLC, BOTH conjuncts**
 
 Author: Philip DiSarro. Measured 2026-07-25, 32-core box, warm `.lake`, all

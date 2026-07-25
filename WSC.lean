@@ -132,3 +132,13 @@ import WSC.Props.Shaped.P6Shaped
 -- tasks defined the same two ground-truth quantities independently; the bridge is
 -- two `rfl`-style inductions and adds no trust).
 import WSC.Props.Shaped.P6Bridge
+-- ── the SHAPE BRIDGE (task U1), added to the default target by the U3 audit ──
+-- `isSuccessful (appliedXShaped.prop args) ↔ isSuccessful (appliedX.prop (shapedCtx
+-- args))` for all 16 shaped preps, plus the kernel-checked `exec`-level form
+-- (`XRun K`, no optimizer, `rfl`).  It was NOT in this root module when U1 landed
+-- it, so `lake build WSC` did not check it; the U3 clean-room rebuild measured the
+-- cost of including it at 36 s and 25 of the 98 solver verdicts, so it is imported
+-- here rather than left to a separate invocation.  READ §5 of WSC/SHAPE-BRIDGE.md
+-- before quoting Tier B rows: they are stated against `XRun K`, and the residual
+-- `PropExecFaithful` is NOT discharged.
+import WSC.ShapeBridge
