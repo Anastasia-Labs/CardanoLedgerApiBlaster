@@ -197,6 +197,53 @@ def failingConjuncts (v : Vector) : Option (List String) :=
   (conjunctReport v).map fun l =>
     (l.filter (fun (p : String × Bool) => !p.2)).map (fun (p : String × Bool) => p.1.trim)
 
+/-! ## Localising an ORDER failure to the adjacent pair that breaks it
+
+`validRedeemerMap` / `validWithdrawals` are strict-ascending checks, so a failure
+is always witnessed by ONE adjacent pair.  Naming that pair is what distinguishes
+the two very different causes found in this suite:
+
+* a `(Spending, Minting)` pair means the failure is at a PURPOSE-KIND boundary,
+  where CLAB's order disagrees with `cardano-ledger`'s — a CLAB defect
+  (`WSC/STATUS.md` §3 D1), not a defect of the transaction;
+* a `(Rewarding c₁, Rewarding c₂)` pair with both credentials being script
+  credentials means the failure is inside a kind, where CLAB and the ledger agree
+  — so the transaction really is mis-ordered (a harness artifact). -/
+
+/-- Coarse label of a `ScriptPurpose`: its constructor, and for `Rewarding` also
+whether the credential is a script credential (the case where CLAB's and the
+ledger's `Credential` orders agree — `WSC/STATUS.md` §3 D2). -/
+def purposeKind : CardanoLedgerApi.V3.ScriptPurpose → String
+  | .Minting _ => "Minting"
+  | .Spending _ => "Spending"
+  | .Rewarding c =>
+      if CardanoLedgerApi.V2.isScriptCredential c then "Rewarding(script)"
+      else "Rewarding(pubkey)"
+  | .Certifying _ _ => "Certifying"
+  | .Voting _ => "Voting"
+  | .Proposing _ _ => "Proposing"
+
+private def firstNonAscending {α : Type} [LT α] [DecidableLT α] (label : α → String) :
+    List α → Option (String × String)
+  | a :: b :: rest =>
+      if decide (a < b) then firstNonAscending label (b :: rest)
+      else some (label a, label b)
+  | _ => none
+
+/-- The first adjacent `txInfoRedeemers` pair that is not strictly ascending
+under CLAB's `ltScriptPurpose`, labelled by purpose kind.  `none` = sorted. -/
+def firstRedeemerOrderViolation (ctx : ScriptContext) : Option (String × String) :=
+  firstNonAscending purposeKind
+    (ctx.scriptContextTxInfo.txInfoRedeemers.map
+      (fun (p : CardanoLedgerApi.V3.ScriptPurpose × CardanoLedgerApi.V2.Redeemer) => p.1))
+
+/-- Same for `txInfoWdrl`, labelled by credential kind. -/
+def firstWithdrawalOrderViolation (ctx : ScriptContext) : Option (String × String) :=
+  firstNonAscending
+    (fun c => if CardanoLedgerApi.V2.isScriptCredential c then "script" else "pubkey")
+    (ctx.scriptContextTxInfo.txInfoWdrl.map
+      (fun (p : CardanoLedgerApi.V2.Credential × PlutusCore.Integer.Integer) => p.1))
+
 /-! ## Localising the audit failures: canonicalisation + named relaxations
 
 The audit (`WSC/LR-CTX-AUDIT.md`) finds every golden context FALSE, and every
@@ -207,10 +254,26 @@ pure permutation: no value is invented, `isBalanced` is untouched) and the two
 VALUE classes are handled by two named, individually-justified relaxations.
 Nothing else about the context is changed. -/
 
-/-- Canonically re-sort the withdrawal map (by credential) and the redeemer map
-(by `ScriptPurpose`) — the two orders the Cardano ledger itself imposes when it
-builds a `ScriptContext`, and the two the harness got wrong.  A permutation
-only: multiset content, values, fee and balance are all unchanged. -/
+/-- Re-sort the withdrawal map (by credential) and the redeemer map (by
+`ScriptPurpose`) into the order CLAB's `validWithdrawals` / `validRedeemerMap`
+demand.  A permutation only: multiset content, values, fee and balance are all
+unchanged, so its sole effect is to isolate "is the failure nothing but order?".
+
+READ THE DIRECTION OF THIS REPAIR CAREFULLY (it differs per failure class, see
+`WSC/LR-CTX-AUDIT.md` §4):
+
+* For the withdrawal maps, and for the redeemer maps of the seize goldens, the
+  violating pair is INSIDE one purpose/credential kind (two script credentials
+  emitted descending), where CLAB's order and `cardano-ledger`'s agree — so
+  sorting genuinely repairs a mis-ordered context.
+* For the redeemer maps of the two accepting MINTING goldens the violating pair
+  is `(Spending, Minting)`, and there CLAB's order is the one that is wrong:
+  `cardano-ledger` emits `txInfoRedeemers` in `ConwayPlutusPurpose AsIx` order
+  (`ConwaySpending < ConwayMinting < …`) and does not re-sort, so the golden is
+  ledger-correct and re-sorting moves it AWAY from reality.  This function is
+  still the right instrument there — it shows the failure is order-only — but the
+  conclusion is "fix CLAB" (`WSC/STATUS.md` §3 D1, quarantined in
+  `WSC/Honest.lean`'s `CLABMapOrderAgrees`), not "fix the transaction". -/
 def canonicaliseOrder (ctx : ScriptContext) : ScriptContext :=
   let ti := ctx.scriptContextTxInfo
   { ctx with
