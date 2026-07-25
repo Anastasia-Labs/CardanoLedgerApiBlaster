@@ -69,6 +69,21 @@ docs and K-MEASUREMENTS.md already cite the file-local names. Mapping:
 6. Added the missing §5.3 ledger-trigger axioms and `TS_MINTING_IDENTITY`;
    recorded the three §5.3 items that are deliberately NOT stated here.
 
+## CORRECTION LOG (task V4, 2026-07-25)
+
+7. `DirWF` gained its FOURTH conjunct, `(iv) dirNoOverlap … (dirPreState ctx)` —
+   the interval-partition property of ARCHITECTURE.md §5.3's
+   `directory_partition` / ADDENDUM E4, whose absence was reported (not patched)
+   by `WSC/Props/P1_Transfer.lean`'s `DirWF_partition_conjunct_missing`. With it,
+   `covering_node_excludes_registration` (ADDENDUM E3's required bridge) is a
+   **THEOREM** in this file rather than a missing link, and the
+   `coveringNodeExists … = false` hypothesis P1/P6 carry explicitly becomes
+   derivable from "`cs` is registered". FINDING recorded in `dirPreState`'s
+   docstring: the conjunct must be stated over the PRE-STATE snapshot (refs +
+   spent inputs); over `dirCandidates` (which includes outputs) it would be FALSE
+   for every directory insert. Escape-critical; same discharge (U10).
+   Ledger-level counterpart: `DIRWF_L` in `WSC/Composition.lean`.
+
 RECONSTRUCTION FLAG (retained from the previous revision): the binding
 `arch-final.md` was not available when the axiom STATEMENTS were first drafted.
 `WSC/ARCHITECTURE.md` (base document + ADDENDUM v3, canonical on
@@ -922,9 +937,114 @@ def dirKeyUniqueIns (dirCS : CurrencySymbol) (ts : List TxInInfo) : Prop :=
     authenticDirNode dirCS t₁.txInInfoResolved → authenticDirNode dirCS t₂.txInInfoResolved →
     dirNodeKey t₁.txInInfoResolved = dirNodeKey t₂.txInInfoResolved → t₁ = t₂
 
+/-! ### The interval-partition vocabulary (ADDENDUM E4 conjunct (iv), added by
+task V4)
+
+`WSC/Props/P1_Transfer.lean`'s `DirWF_partition_conjunct_missing` recorded the
+gap this section closes: without an interval statement, key-uniqueness does NOT
+forbid a covering node for a registered `cs` (the two nodes have *different*
+keys), so "an authentic node covering `cs` exists ⟹ `cs` is not registered" —
+the bridge P5 and P1 both need (ADDENDUM E3) — was not derivable from the axiom
+base. -/
+
+/-- An authentic directory node of `os` is keyed exactly `cs` — the ground-truth
+"`cs` is registered in the snapshot `os`". -/
+def registeredIn (dirCS cs : CurrencySymbol) (os : List TxOut) : Prop :=
+  ∃ o ∈ os, authenticDirNode dirCS o = true ∧ dirNodeKey o = some cs
+
+/-- Some authentic directory node of `os` STRICTLY covers `cs`
+(`key < cs < next`) — the ground-truth form of the exemption witness that P5's
+postcondition produces (ADDENDUM E3). -/
+def coveringIn (dirCS cs : CurrencySymbol) (os : List TxOut) : Prop :=
+  ∃ o ∈ os, authenticDirNode dirCS o = true ∧
+    ∃ k n, dirNodeKey o = some k ∧ dirNodeNext o = some n ∧ k < cs ∧ cs < n
+
+/-- **The interval-partition property, non-overlap half.** No authentic
+directory node's KEY lies strictly inside another authentic node's `(key, next)`
+interval.
+
+This is the exact strength `covering_node_excludes_registration` consumes, and
+nothing more. TWO deliberate scope decisions, both recorded rather than silently
+made:
+
+* **The COVERAGE half is not asserted.** ARCHITECTURE.md §5.3's
+  `directory_partition` row says the intervals "partition the key space", which
+  also asserts that every non-key symbol IS covered by some node. That half is a
+  *liveness* fact (it says an honest NonMember proof can always be built); no
+  safety obligation in this library consumes it, so asserting it would only
+  enlarge the trust surface. U10 would prove both halves at once.
+* **Sentinel-boundedness is not asserted** for the same reason: `TS4`
+  (`key < next` for every authentic node, itself a consequence of `DIRWF` (iii))
+  is all the covering-interval arithmetic needs. -/
+def dirNoOverlap (dirCS : CurrencySymbol) (os : List TxOut) : Prop :=
+  ∀ o₁ ∈ os, ∀ o₂ ∈ os,
+    authenticDirNode dirCS o₁ = true → authenticDirNode dirCS o₂ = true →
+    ∀ k₁ n₁ k₂ : CurrencySymbol,
+      dirNodeKey o₁ = some k₁ → dirNodeNext o₁ = some n₁ → dirNodeKey o₂ = some k₂ →
+      ¬ (k₁ < k₂ ∧ k₂ < n₁)
+
+/-- The UTxOs a transaction shows that are **pre-state** UTxOs: resolved
+reference inputs and resolved spent inputs. Both come out of the ledger's UTxO
+set as it was *before* the transaction; the produced outputs do NOT.
+
+WHY THE DISTINCTION IS LOAD-BEARING (finding, task V4): stating the non-overlap
+conjunct over `dirCandidates` (which includes outputs) would make it **FALSE for
+every directory INSERT**. An insert spends the node `(key = k, next = n)` and
+produces `(k, cs)` together with `(cs, n)`; the spent input still carries
+`next = n`, so `k < cs < n` holds for a visible node while `cs` is the key of
+another visible node — precisely the configuration `dirNoOverlap` forbids. A
+consistent snapshot is required, and `dirPreState` is the consistent snapshot a
+`ScriptContext` actually exposes. -/
+def dirPreState (ctx : ScriptContext) : List TxOut :=
+  (ctx.scriptContextTxInfo.txInfoReferenceInputs.map (·.txInInfoResolved)) ++
+  (ctx.scriptContextTxInfo.txInfoInputs.map (·.txInInfoResolved))
+
+/-- `registeredIn` is monotone in the snapshot. -/
+theorem registeredIn_mono {dirCS cs : CurrencySymbol} {os os' : List TxOut}
+    (hsub : ∀ o ∈ os, o ∈ os') (h : registeredIn dirCS cs os) :
+    registeredIn dirCS cs os' := by
+  obtain ⟨o, ho, ha, hk⟩ := h
+  exact ⟨o, hsub o ho, ha, hk⟩
+
+/-- `coveringIn` is monotone in the snapshot. -/
+theorem coveringIn_mono {dirCS cs : CurrencySymbol} {os os' : List TxOut}
+    (hsub : ∀ o ∈ os, o ∈ os') (h : coveringIn dirCS cs os) :
+    coveringIn dirCS cs os' := by
+  obtain ⟨o, ho, ha, hc⟩ := h
+  exact ⟨o, hsub o ho, ha, hc⟩
+
+/-- **THE BRIDGE LEMMA (ADDENDUM E3), snapshot form — A THEOREM, not an axiom.**
+*In a snapshot whose authentic directory nodes do not overlap, a node that
+strictly covers `cs` witnesses that `cs` is NOT registered in that snapshot.*
+
+Proof: a registration of `cs` is an authentic node keyed `cs`; the covering node
+is an authentic node whose interval strictly contains `cs`; `dirNoOverlap`
+applied to the pair is the contradiction. -/
+theorem covering_excludes_registeredIn
+    {dirCS cs : CurrencySymbol} {os : List TxOut}
+    (hno : dirNoOverlap dirCS os) (hcov : coveringIn dirCS cs os) :
+    ¬ registeredIn dirCS cs os := by
+  rintro ⟨o₂, ho₂, ha₂, hk₂⟩
+  obtain ⟨o₁, ho₁, ha₁, k, n, hk, hn, hlt, hgt⟩ := hcov
+  exact hno o₁ ho₁ o₂ ho₂ ha₁ ha₂ k n cs hk hn hk₂ ⟨hlt, hgt⟩
+
+/-- `IsRegistered` (the tx-visible registry projection, a `Bool` scan of the
+reference inputs) implies the ground-truth `registeredIn` over the resolved
+reference inputs. -/
+theorem registeredIn_of_IsRegistered {dirCS cs : CurrencySymbol} :
+    ∀ (refs : List TxInInfo), IsRegistered dirCS refs cs = true →
+      registeredIn dirCS cs (refs.map (·.txInInfoResolved))
+  | [], h => by simp [IsRegistered] at h
+  | t :: rest, h => by
+      simp only [IsRegistered, Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq] at h
+      rcases h with ⟨ha, hk⟩ | hrest
+      · exact ⟨t.txInInfoResolved, by simp, ha, hk⟩
+      · obtain ⟨o, ho, hb⟩ := registeredIn_of_IsRegistered rest hrest
+        exact ⟨o, by simp only [List.map_cons, List.mem_cons]; exact Or.inr ho, hb⟩
+
 /-- **DirWF (ADDENDUM E4)**: the directory linked list is well-formed in the
-view of one transaction. THREE conjuncts, all binding per the adversarial
-review:
+view of one transaction. FOUR conjuncts, all binding per the adversarial
+review (conjunct (iv) added by task V4 — see the CORRECTION LOG entry 7):
 
 **(i) INSERT-ONLY / NO KEY REMOVAL** (⟹ `L-monotone`; no deregistration
 attack; ESCAPE-CRITICAL). Every authentic directory node CONSUMED by the
@@ -945,14 +1065,27 @@ authentic node: its datum decodes, satisfies `key < next`, and its
 issuance policy's datum-free `hasNodeNFT` check (Issuance.hs:154-157) sound, and
 what makes a covering-interval witness (`key < cs < next`) meaningful at all.
 
+**(iv) INTERVAL NON-OVERLAP** (ESCAPE-CRITICAL; ADDENDUM E4's "partition",
+§5.3's `directory_partition`; ADDED BY TASK V4). No authentic node's key lies
+strictly inside another authentic node's `(key, next)` interval, over the
+transaction's PRE-STATE snapshot (`dirPreState`: resolved reference inputs and
+resolved spent inputs — NOT the outputs, see `dirPreState`'s docstring for why
+including them would make the conjunct false for every insert). This is what
+`covering_node_excludes_registration` consumes, and it is the reason
+"an authentic node covering `cs` exists ⟹ `cs` is not registered" is now a
+THEOREM rather than a missing link. Without it, key-uniqueness (ii) is not
+enough: a keyed node and a covering node for the same `cs` have DIFFERENT keys,
+so (ii) permits exactly the deregistration-by-covering-proof escape.
+
 WHY UNAVOIDABLE: none of the four imported validators constrains what the
 directory looks like; they only authenticate individual nodes by NFT. The
 invariant is maintained by the directory minting policy + directory spending
 script, which are OUTSIDE this formalization.
 
 AUDIT / DISCHARGE: U10 — import `mkDirectoryNodeMP.flat`, prove per-insert
-preservation of (i)+(ii)+(iii) at UPLC, lift over history. (i) and (iii) are the
-escape-critical conjuncts and appear in the top-claim docstring. -/
+preservation of (i)+(ii)+(iii)+(iv) at UPLC, lift over history. (i), (iii) and
+(iv) are the escape-critical conjuncts and appear in the top-claim docstring
+(`WSC/Composition.lean`). -/
 def DirWF (hp : HonestParams) (ctx : ScriptContext) : Prop :=
   -- (i) insert-only / no key removal
   (∀ t ∈ ctx.scriptContextTxInfo.txInfoInputs,
@@ -969,7 +1102,13 @@ def DirWF (hp : HonestParams) (ctx : ScriptContext) : Prop :=
      hasCurrencySymbol hp.directoryNodeCS o.txOutValue →
      ∃ d, dirNodeDatum o = some d ∧
           d.key < d.next ∧
-          csTokens hp.directoryNodeCS o.txOutValue = some [(Data.B d.key, Data.I 1)])
+          csTokens hp.directoryNodeCS o.txOutValue = some [(Data.B d.key, Data.I 1)]) ∧
+  -- (iv) interval non-overlap over the PRE-STATE snapshot (task V4)
+  dirNoOverlap hp.directoryNodeCS (dirPreState ctx)
+
+/-- Conjunct (iv) of `DirWF`, projected out. -/
+theorem DirWF.noOverlap {hp : HonestParams} {ctx : ScriptContext} (h : DirWF hp ctx) :
+    dirNoOverlap hp.directoryNodeCS (dirPreState ctx) := h.2.2.2.2.2
 
 /-- **DIRWF**: `DirWF` holds for every on-chain transaction of the audited
 deployment. THE single named top trust assumption; ESCAPE-CRITICAL.
@@ -979,6 +1118,50 @@ at UPLC). Until then, published claims must say "P5 is as strong as DirWF". -/
 axiom DIRWF :
   ∀ (hp : HonestParams) (ctx : ScriptContext),
     Deployed hp → OnChain ctx → DirWF hp ctx
+
+/-- **`covering_node_excludes_registration` (ADDENDUM E3), per-transaction form
+— PROVED AS A THEOREM FROM `DIRWF`.**
+
+*If some pre-state UTxO the transaction shows is an authentic directory node
+whose `(key, next)` interval strictly covers `cs`, then `cs` is NOT registered in
+the transaction's reference-input view.*
+
+This is the bridge that `WSC/Props/P1_Transfer.lean`'s
+`DirWF_partition_conjunct_missing` reported as absent, and it is exactly what
+turns P5's postcondition (a covering-node witness, E3) into the composition's
+"`cs` cannot be exempted because it is registered" — by contraposition.
+
+SCOPE, stated precisely: the conclusion is about the tx-visible registry
+projection `IsRegistered`, which is sound for POSITIVE registration facts only
+(see `IsRegistered`'s audit note). The LEDGER-level form — "`cs ∉ R L`" — needs a
+`Ledger` type and is proved in `WSC/Composition.lean`
+(`covering_excludes_ledger_registration`) from the ledger-level non-overlap
+axiom `DIRWF_L` there. Both bottom out in the SAME conjunct (iv) and the SAME
+discharge (U10). -/
+theorem covering_node_excludes_registration
+    (hp : HonestParams) (ctx : ScriptContext) (cs : CurrencySymbol)
+    (hwf : DirWF hp ctx)
+    (hcov : coveringIn hp.directoryNodeCS cs (dirPreState ctx)) :
+    IsRegistered hp.directoryNodeCS ctx.scriptContextTxInfo.txInfoReferenceInputs cs = false := by
+  by_cases h : IsRegistered hp.directoryNodeCS
+      ctx.scriptContextTxInfo.txInfoReferenceInputs cs = true
+  · exact absurd
+      (registeredIn_mono
+        (fun o ho => by
+          simp only [dirPreState, List.mem_append]; exact Or.inl ho)
+        (registeredIn_of_IsRegistered _ h))
+      (covering_excludes_registeredIn hwf.noOverlap hcov)
+  · simpa using h
+
+/-- The same bridge, taking the deployment axiom instead of a `DirWF` hypothesis:
+for a real transaction of the audited deployment, a covering node excludes
+registration. -/
+theorem covering_node_excludes_registration_onchain
+    (hp : HonestParams) (ctx : ScriptContext) (cs : CurrencySymbol)
+    (hdep : Deployed hp) (hoc : OnChain ctx)
+    (hcov : coveringIn hp.directoryNodeCS cs (dirPreState ctx)) :
+    IsRegistered hp.directoryNodeCS ctx.scriptContextTxInfo.txInfoReferenceInputs cs = false :=
+  covering_node_excludes_registration hp ctx cs (DIRWF hp ctx hdep hoc) hcov
 
 /-! ### TS3 / TS4 / TS5 — directory facts kept under their historical names
 

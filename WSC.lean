@@ -95,3 +95,10 @@ import WSC.Shaped.GlobalShapedP1MintPrep
 import WSC.Shaped.GlobalShapedP1Out
 import WSC.Shaped.GlobalShapedP1OutPrep
 import WSC.Props.Shaped.P1Shaped
+
+-- COMPOSITION (task V4): the ledger-level objects, the per-transaction
+-- Preservation theorem, and the lift to the top-level claim.  READ the
+-- "§9 DISCHARGE STATUS" block at the bottom of that file before citing it: the
+-- top theorem is a machine-checked REDUCTION of the claim to four named leaf
+-- obligations, none of which is fully discharged today.
+import WSC.Composition
