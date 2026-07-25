@@ -10,6 +10,10 @@ import WSC.Redeemer
 import WSC.Spec
 import WSC.Honest
 import WSC.Props.P3_Base
+-- P4/P4a (issuance minting policy) at budget 900: statements + the machine-checked
+-- budget characterization and both positive witnesses. See the SOLVER COST stanza
+-- in that file for what is and is not closed.
+import WSC.Props.P4_Minting
 -- Golden→Lean bridge + the three Y4 fidelity results (LR-CTX audit, real-suite
 -- positive witness, redeemer/datum mirror gate). See WSC/LR-CTX-AUDIT.md.
 import WSC.Goldens

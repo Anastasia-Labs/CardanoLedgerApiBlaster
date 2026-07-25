@@ -16,7 +16,9 @@ namespace WSC
 
 open CardanoLedgerApi.IsData.Class
 open CardanoLedgerApi.V3 (Address Credential CurrencySymbol TokenName Value
-                          MintValue ScriptContext TxInInfo TxOut valueOf)
+                          MintValue ScriptContext ScriptHash ScriptPurpose
+                          RedeemerMap TxInInfo TxOut valueOf hasCurrencySymbol
+                          credentialInWithdrawals)
 open PlutusCore.Data (Data)
 open PlutusCore.Integer (Integer)
 
@@ -114,6 +116,201 @@ def classifiedNonMember (proofs : List MintProof) (mint : MintValue) (cs : Curre
   match mintProofFor cs proofs mint with
   | some (.NonMember _) => true
   | _ => false
+
+/-! ## §3-P4: the four custody predicates of the issuance minting policy
+
+Every definition below is GROUND TRUTH ONLY: `ScriptContext` fields, the
+`Value`/`MintValue` Data encodings, and the `IsData` mirrors of
+WSC/Redeemer.lean. None of them refers to a validator-computed value, an
+index taken from the redeemer is only ever used to *look up* a ledger field,
+and the redeemer's constructor is never consulted (see the note on
+constructor fall-through in WSC/Props/P4_Minting.lean).
+
+Source: src/programmable-tokens-onchain/lib/SmartTokens/Contracts/Issuance.hs
+at wsc-poc worktree `new-session-3c417d` (line numbers read 2026-07-25). -/
+
+/-- **C1 — the minting-logic script ran.** The token's minting-logic script
+credential appears in the transaction's withdrawal map.
+
+Validator counterpart (commentary): `mintingLogicCred = pdata $ pcon $
+PScriptCredential mintingLogicHash'` (Issuance.hs:136) and
+`mintingLogicInvokedAt` (Issuance.hs:150-151), which compares the credential of
+the withdrawal entry at the redeemer-supplied index `wdrlIdx` against it. This
+predicate is the index-free consequence: whatever index the redeemer names, the
+credential is *somewhere* in `txInfoWdrl`. C1 is a conjunct of ALL FOUR arms
+(Issuance.hs:195, 216, 242, 253). -/
+def mintingLogicInvoked (mintingLogicHash : ScriptHash) (ctx : ScriptContext) : Bool :=
+  credentialInWithdrawals (Credential.ScriptCredential mintingLogicHash)
+    ctx.scriptContextTxInfo.txInfoWdrl
+
+/-- **Registration NFT presence.** Value `v` holds exactly one directory NFT
+under policy `dirCS` whose token name is the *bytes of `cs`*.
+
+Validator counterpart: `hasNodeNFT` (Issuance.hs:156-157) —
+`pvalueOf # value # directoryNodeCS # ownAsTokenName #== 1` with
+`ownAsTokenName = pcon $ PTokenName (pto ownCS)` (Issuance.hs:141). Since
+`CurrencySymbol` and `TokenName` are both `ByteString` abbrevs
+(CardanoLedgerApi/V1/Value.lean:11-12), `cs` is used directly as the token
+name — that IS `pto ownCS`. -/
+def hasNodeNFT (dirCS : CurrencySymbol) (cs : CurrencySymbol) (v : Value) : Bool :=
+  valueOf dirCS cs v == 1
+
+/-- Some reference input's resolved value carries `cs`'s directory node NFT.
+Index-free consequence of `PRegisteredByReferenceInput` (Issuance.hs:172-173)
+and of the reg-by-REF-only delegate arms (Issuance.hs:208-209, 226-227). -/
+def anyRefInputHasNodeNFT (dirCS cs : CurrencySymbol) : List TxInInfo → Bool
+  | [] => false
+  | i :: rest =>
+      hasNodeNFT dirCS cs i.txInInfoResolved.txOutValue || anyRefInputHasNodeNFT dirCS cs rest
+
+/-- Some output carries `cs`'s directory node NFT. Index-free consequence of
+`PRegisteredByOutput` (Issuance.hs:174-176) — the arm that exists ONLY in
+`Local`, and only because `Local` does its own custody scan
+(Issuance.hs:166-168). -/
+def anyOutputHasNodeNFT (dirCS cs : CurrencySymbol) : List TxOut → Bool
+  | [] => false
+  | o :: rest =>
+      hasNodeNFT dirCS cs o.txOutValue || anyOutputHasNodeNFT dirCS cs rest
+
+/-- **The no-escape scan (Local custody).** Every output whose payment
+credential is not the mini-ledger base credential holds zero of `cs`.
+
+Validator counterpart: `noEscape` (Issuance.hs:183-193) — a `pall` over
+`ptxInfo'outputs` using RAW field access (`pasConstr` + `phead`/`ptail`, so
+datum and reference script are never forced), comparing the output's payment
+credential *Data* against `pforgetData pprogLogicCred` (:182, :190) and
+otherwise requiring `pnot # (phasCS # value # ownCS)` (:192). Here the
+comparison is on decoded `Credential`s rather than their `Data` encodings —
+equivalent by injectivity of the `Credential` `IsData` encoding — and
+`hasCurrencySymbol` (CardanoLedgerApi/V1/Value.lean:170-173) is the ground-truth
+counterpart of `phasCS`. -/
+def noEscape (progLogicCred : Credential) (cs : CurrencySymbol) : List TxOut → Bool
+  | [] => true
+  | o :: rest =>
+      (payCred o == progLogicCred || !hasCurrencySymbol cs o.txOutValue)
+      && noEscape progLogicCred cs rest
+
+/-- Field-wise equality of two `GlobalParams` (avoids adding a `BEq` derivation
+to the frozen mirror in WSC/Redeemer.lean). -/
+def paramsBEq (p q : GlobalParams) : Bool :=
+  p.directoryNodeCS == q.directoryNodeCS && p.progLogicCred == q.progLogicCred &&
+  p.globalLogicCred == q.globalLogicCred && p.seizeLogicCred == q.seizeLogicCred
+
+/-- **The protocol-params view of a transaction.** EVERY reference input that
+carries the protocol-params NFT policy `ppCS` has an inline datum decoding to
+exactly `p`.
+
+This is the ground-truth hypothesis under which the params-dependent custody
+arms can even be *named* (the validator reads `directoryNodeCS`,
+`progLogicCred`, `globalLogicCred`, `seizeLogicCred` out of that datum). It is
+stated as a ∀-scan, so it RESTRICTS the transaction and cannot smuggle a
+postcondition: it says nothing about withdrawals, outputs or the mint map.
+Under honest deployment the params NFT is unique, so exactly one reference
+input satisfies the guard and `p` is its datum.
+
+Validator counterpart: `pparamsAtRefIdx` (ProgrammableLogicBase.hs:824-838) —
+reference input at the redeemer's `paramsRefIdx`, guarded by
+`phasCSH # currencySymbol # ptxOutValue` (:832, presence of the policy, NOT an
+NFT-quantity check) and decoding `POutputDatum` as
+`PProgrammableLogicGlobalParams` (:833-835), erroring otherwise (:836, :838). -/
+def paramsView (ppCS : CurrencySymbol) (p : GlobalParams) : List TxInInfo → Bool
+  | [] => true
+  | i :: rest =>
+      (!hasCurrencySymbol ppCS i.txInInfoResolved.txOutValue ||
+        (match i.txInInfoResolved.txOutDatum with
+         | .OutputDatum d =>
+             match (IsData.fromData d : Option GlobalParams) with
+             | some q => paramsBEq q p
+             | none => false
+         | _ => false))
+      && paramsView ppCS p rest
+
+/-- Reference input at a redeemer-supplied index, rejecting a negative index.
+Validator counterpart: `pcheckedDrop` + `phead` (Issuance.hs:126-130, used at
+:172, :208, :226) — the explicit negative-index guard is why `none` is returned
+for `idx < 0` instead of clamping to 0. -/
+def refInputAt (idx : Integer) (refs : List TxInInfo) : Option TxInInfo :=
+  if idx < 0 then none else refs[idx.toNat]?
+
+/-- **The seize-scope binding (DelegateSeize).** Some redeemer entry in
+`txInfoRedeemers` is a `Rewarding seizeCred` purpose whose redeemer decodes to a
+`SeizeAct`, and that `SeizeAct`'s `directoryNodeIdx` points at a reference input
+carrying `cs`'s directory node NFT — i.e. the seize is scoped to `cs`'s node.
+
+Validator counterpart: `seizeEntry` / `seizeScopeOk` (Issuance.hs:231-240) —
+the redeemer-map entry at `seizeRedeemerIdx`, its purpose coerced to
+`PScriptPurpose` and matched against `PRewarding seizeCred` (:233-234), its
+redeemer coerced to `PProgrammableLogicGlobalRedeemer` and matched against
+`PSeizeAct` (:235-236), then `pdata seizeCred #== pseizeLogicCred` and
+`pdirectoryNodeIdx #== nodeRefIdx` (:237-238) where `nodeRefIdx` is the very
+index the `regByRefOk` NFT check used (:226). This predicate is the index-free
+consequence: the seize's node index resolves to a reference input keyed `cs`. -/
+def seizeScopedToNodeOf (seizeCred : Credential) (dirCS cs : CurrencySymbol)
+    (refs : List TxInInfo) : RedeemerMap → Bool
+  | [] => false
+  | (ScriptPurpose.Rewarding c, r) :: rest =>
+      (c == seizeCred &&
+        (match (IsData.fromData r : Option PLGRedeemer) with
+         | some (.SeizeAct dirIdx _ _ _ _ _) =>
+             (match refInputAt dirIdx refs with
+              | some i => hasNodeNFT dirCS cs i.txInInfoResolved.txOutValue
+              | none => false)
+         | _ => false))
+      || seizeScopedToNodeOf seizeCred dirCS cs refs rest
+  | _ :: rest => seizeScopedToNodeOf seizeCred dirCS cs refs rest
+
+/-! ### The four arms -/
+
+/-- **Arm 1 — `Local` (Issuance.hs:159-198).** The policy proves custody
+itself: the minting-logic script ran, `cs` is registered in the directory
+(reference input OR output), and no output outside the mini-ledger base
+credential holds any `cs`. -/
+def LocalCustodyOk (mintingLogicHash : ScriptHash) (p : GlobalParams)
+    (cs : CurrencySymbol) (ctx : ScriptContext) : Bool :=
+  mintingLogicInvoked mintingLogicHash ctx &&
+  (anyRefInputHasNodeNFT p.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs ||
+   anyOutputHasNodeNFT p.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoOutputs) &&
+  noEscape p.progLogicCred cs ctx.scriptContextTxInfo.txInfoOutputs
+
+/-- **Arm 2 — `DelegateTransfer` (Issuance.hs:200-219).** Custody is delegated
+to the global transfer validator: the minting-logic script ran, `cs` is
+registered via a REFERENCE INPUT ONLY (F-1: an output-side fresh node would
+leave the global's directory view pre-insert — Issuance.hs:204-206), and the
+global logic credential appears in the withdrawal map, so the global transfer
+validator runs on this transaction (⟹ P1). -/
+def DelegateTransferOk (mintingLogicHash : ScriptHash) (p : GlobalParams)
+    (cs : CurrencySymbol) (ctx : ScriptContext) : Bool :=
+  mintingLogicInvoked mintingLogicHash ctx &&
+  anyRefInputHasNodeNFT p.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs &&
+  credentialInWithdrawals p.globalLogicCred ctx.scriptContextTxInfo.txInfoWdrl
+
+/-- **Arm 3 — `DelegateSeize` (Issuance.hs:221-245).** Custody is delegated to
+the standalone seize validator: the minting-logic script ran, `cs` is registered
+via a reference input, and a `SeizeAct` redeemer for the params seize credential
+is scoped to `cs`'s directory node (⟹ P2). -/
+def DelegateSeizeOk (mintingLogicHash : ScriptHash) (p : GlobalParams)
+    (cs : CurrencySymbol) (ctx : ScriptContext) : Bool :=
+  mintingLogicInvoked mintingLogicHash ctx &&
+  anyRefInputHasNodeNFT p.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs &&
+  seizeScopedToNodeOf p.seizeLogicCred p.directoryNodeCS cs
+    ctx.scriptContextTxInfo.txInfoReferenceInputs ctx.scriptContextTxInfo.txInfoRedeemers
+
+/-- **Arm 4 — `BurnOnly` (Issuance.hs:247-255).** No custody proof is needed
+because nothing is created: the minting-logic script ran, and NO token of `cs`
+has a strictly positive quantity in `txInfoMint`.
+
+Validator counterpart: `ptryLookupValue # ownCS' # mint` then
+`pall # plam (\pair -> pfromData (psndBuiltin # pair) #<= 0)`
+(Issuance.hs:251-254) — the WHOLE `ownCS` token map, not just its head
+(Issuance.hs:249-250). `mintPos` (this file) is the ground-truth counterpart;
+`ptryLookupValue` errors when `ownCS` is absent from the mint map, which
+`validMintingContext` excludes anyway (`validScriptInfo` clause 3,
+CardanoLedgerApi/V3/Contexts.lean:987: `MintingScript cs → hasCurrencySymbol cs
+txInfoMint`). -/
+def BurnOnlyOk (mintingLogicHash : ScriptHash) (cs : CurrencySymbol)
+    (ctx : ScriptContext) : Bool :=
+  mintingLogicInvoked mintingLogicHash ctx &&
+  !mintPos cs ctx.scriptContextTxInfo.txInfoMint
 
 /-! ## §3-P2: seize structure preservation (skeleton) -/
 
