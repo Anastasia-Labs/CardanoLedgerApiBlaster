@@ -206,3 +206,35 @@ import WSC.Props.Shaped.P1ShapedR
 import WSC.Props.Shaped.P5ShapedR
 import WSC.Props.Shaped.P6ShapedR
 import WSC.Props.Shaped.GlobalRealizability
+import WSC.Props.Shaped.ShapeRealizability
+-- ── task C2: NODE-REALIZABLE RE-CUTS of the MINTING and SEIZE shapes ─────────
+-- Audit F2 / WSC/Props/Shaped/ShapeRealizability.lean proved every pre-C2 shape
+-- EMPTY as a class of ledger transactions: the redeemer map is too small to
+-- witness the script witnesses the same shape bakes (Conway `MissingRedeemers`).
+-- These modules re-cut the ISSUANCE policy's four arm shapes (M1R, M2R, L1R,
+-- DT1R, DS1R) and the SEIZE validator's shape (S1R) so the redeemer map covers
+-- every script witness EXACTLY — one `Spending` entry per script input, one
+-- `Minting` entry per minted policy, one `Rewarding` entry per script withdrawal,
+-- the rule reproduced on 13/13 goldens — and re-prove P4 (all four custody arms,
+-- the four-way disjunction, and the loosened-index rung) and P2 (BOTH conjuncts)
+-- over them.  Same flats, same budgets, same ground-truth postconditions, and
+-- every witness K unchanged (784 / 1681 / 1257 / 1466 / 3004+3328), each still
+-- matching its production golden's measured step count where one exists.
+-- WSC/Realizability.lean is the missing LR-CTX row as a decidable predicate (a
+-- DEFINITION, not an axiom; C3 owns the CLAB-side row).
+-- READ WSC/Props/Shaped/RealizableShapes.lean FIRST: it holds the before/after
+-- table, the per-shape realizability theorems that are C2's acceptance criterion,
+-- the machine-checked `redeemerCovered = false → true` flip for every pre-C2
+-- witness, the axiom census, and the one shape NOT re-cut (L2).
+import WSC.Realizability
+import WSC.Shaped.MintingShapedR
+import WSC.Shaped.MintingShapedRIdx
+import WSC.Shaped.MintingLocalShapedR
+import WSC.Shaped.MintingDelegateShapedR
+import WSC.Shaped.SeizeShapedR
+import WSC.Props.Shaped.P4ShapedR
+import WSC.Props.Shaped.P4ShapedRIdx
+import WSC.Props.Shaped.P4LocalShapedR
+import WSC.Props.Shaped.P4DelegateShapedR
+import WSC.Props.Shaped.P2ShapedR
+import WSC.Props.Shaped.RealizableShapes
