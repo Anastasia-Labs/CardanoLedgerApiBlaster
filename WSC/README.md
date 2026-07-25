@@ -10,10 +10,14 @@ it. `WSC/STATUS.md` is the per-property table. `WSC/EXEC-SUMMARY.md` is one page
 no Lean identifiers. `WSC/COVERAGE.md` is the coverage question and its answer.
 `WSC/REPRODUCE.md` is the third-party build recipe.
 
-**Verified build state (task E5, three clean-room runs, 2026-07-25):** 431 jobs,
-1 m 39 s – 1 m 57 s, 1.50 GB peak RSS, **159 solver verdicts (102 `✅ Valid` +
-57 `✅ Expected Falsified`), 0 errors, 0 `⚠️ Undetermined`**, source reconciliation
-exact, 93 WSC modules.
+**Verified build state (task G3, two clean-room runs at HEAD `f4486ca`,
+2026-07-25):** 432 jobs, 1 m 46 s – 2 m 10 s, **162 solver verdicts (103 `✅ Valid` +
+59 `✅ Expected Falsified`), 0 errors, 0 `⚠️ Undetermined`**, source reconciliation
+exact and now done **per verdict** rather than by totals, 94 WSC modules, 20 expected
+`sorry` warnings, 5 `unused variable`. Peak RSS 1.50–1.66 GB — **load-dependent, and
+not an instrument**: unmodified `7039cdb` also measures 1.64 GB under the same
+concurrent load. (At E5 `7039cdb`, quiet box, three runs: 431 jobs, 1:39–1:57,
+159 verdicts = 102 + 57, 93 modules.)
 
 ---
 
@@ -124,7 +128,7 @@ proved empty and **must not be quoted**.)
 | **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R | 2603 / 3572 / 3150 / 3572 |
 | **P2** | Seizure preserves structure, and cannot reduce the base-credential total below inputs plus mint | 3800 / S1R | 3004 (accept), 3328 |
 | **P3** | Spending at the base credential requires the global **or** the seize validator to run — the keystone | 600 / unshaped | golden 208 |
-| **P4** | Any accepted mint runs the minting-logic script; the four redeemer arms are exhaustive and each is constrained | 900 / M1R, M2R; 2500 / L1R, DT1R, DS1R | 784 / **784** / 1681 / 1257 / 1466 |
+| **P4** | Any accepted mint runs the minting-logic script; the four redeemer arms are exhaustive and each is constrained | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 |
 | **P5** | A non-member transfer cannot register a new policy in the directory | 1600 / G1R | 1541 |
 | **P6** | A directory member's transfer adds its transfer-logic script to the withdrawal requirement, and its mint stays at base | 3300 / G6R | 2837 |
 
@@ -153,10 +157,16 @@ the map is not read.
   result**, so the shape-dependence is inherited by
   `containment_on_seize_class`. This is the sharpest doubt in the library.
 * **P3** — proved over a fully symbolic context, but at budget 600.
-* **P4** — SHAPE **L2** (the free-registration-index rung of P4-Local) was never
-  re-cut; its class is **proved empty**. `P4_local_noEscape_shapedIdx` must not be
-  quoted. SHAPE **M2R** meets 3 of 4 bars in the library; the missing bar has been
-  measured (§5.1) but not landed.
+* **P4** — SHAPE **L2** (the free-registration-index rung of P4-Local) had a class
+  **proved empty**, so `P4_local_noEscape_shapedIdx` must not be quoted. It is now
+  **superseded**: SHAPE **L2R** (`WSC/Shaped/MintingLocalShapedRIdx.lean`, new at
+  `f4486ca`) is the same rung cut over the node-realizable redeemer map, it
+  definitionally contains L1R, and **`P4_local_noEscape_RIdx` is the theorem to
+  cite**. Two riders travel with it: the headline is *derived* from a `✅ Valid`
+  negative control because the direct goal is `⚠️ Undetermined` at a 300 s cap (the
+  negative control is strictly **stronger**, so nothing is lost), and **C1 at L2R is
+  `⚠️ Undetermined` and is not asserted**. SHAPE **M2R** now meets **4 of 4** bars —
+  its accepting CEK witness landed at `f4486ca` with `K = 784` pinned two-sided.
 * **P5** — exactly as strong as the `DirWF` / `DIRWF_L` assumption. Proving
   `mkDirectoryNodeMP` at UPLC is what would turn that from assumed into proven.
 * **P6** — one shape (G6R), and its predecessor at budget 2500 was the campaign's one
@@ -215,7 +225,7 @@ layer adds no assumption, machine-verified.
 3. **`PropExecFaithful` (F8) — MEDIUM.** Theorems are on `.prop`; witnesses and every
    measured K are on `.exec`; the equality is unproved and deliberately **not**
    axiomatized. It binds all 12 re-cut groups and **both** composed results.
-4. **"`sorry`-free" is false (F4).** 100 theorem-position results are closed by
+4. **"`sorry`-free" is false (F4).** 101 theorem-position results are closed by
    `blaster`'s `admit`; every top-level theorem inherits `sorryAx`. The build log's
    `sorry` warning count is **not** a census — 38 modules suppress it, and a
    line-oriented grep of `#print axioms` undercounts `sorryAx` as 17 when the true
@@ -226,7 +236,15 @@ layer adds no assumption, machine-verified.
    `WSC/REPRODUCE.md` is the recipe. Still open: the branch is **not published**, the
    `require` is an absolute path needing a two-file edit, and lake does not enforce the
    recorded revision for a path dependency.
-6. **SHAPE L2 (F19)** was never re-cut; its class is proved empty.
+6. **The redeemer-coverage predicate is not the ledger's rule (F18).** It is the
+   **all-Plutus specialisation**: Conway's `hasExactSetOfRedeemers` skips needed
+   scripts that are native timelocks, and `TxInfo` carries only script *hashes*, so
+   the filter is **not expressible** in the PlutusV3 API at all. Used positively
+   (witnesses, inhabitation) this is conservative and safe. Used **negatively** it
+   asserts more than the ledger guarantees, and **six emptiness results were
+   downgraded accordingly** — they now carry an explicit `RedeemerCoverageAt w` side
+   condition in their TYPE, with two visible suppliers. The predicates are named
+   `…AllPlutus` throughout so the reading cannot be forgotten.
 7. **`ValueAlgebra` / `LedgerCanon`** uninstantiated, so `LR_BALANCE_SLOT` stays an
    axiom — `valueOf` is not additive over `merge` without canonicity
    (`native_decide` counterexample).
@@ -276,10 +294,15 @@ library says "the acceptance hypothesis is used", Lean agrees.
 
 ### 4.6 The source reconciliation
 
-Every solver verdict is matched to a source stanza: **57** `(solve-result: 1)` +
-**2** `(solve-result: 0)` + **100** `blaster` tactic invocations = **159**, exact, with
-block comments stripped first and with the 5 `by`-newline-`blaster` sites counted.
-No stanza is unaccounted for and none is skipped.
+Every solver verdict is matched to **the source line it points at**: **59**
+`(solve-result: 1)` + **2** `(solve-result: 0)` + **101** `blaster` tactic
+invocations = **162**, exact, **zero verdicts unclassified**. At G3 this replaced the
+older method of counting stanzas in the source and comparing totals — a totals match
+can be produced by two compensating errors, a per-verdict map cannot. **Six** of the
+101 are written `:= by` with `blaster` on the next line, and one of those six carries
+an argument, so no single grep finds them all; that is precisely why the check now
+starts from the log rather than from the source. No stanza is unaccounted for and
+none is skipped.
 
 ### 4.7 The redeemer-coverage rule was transcribed from the ledger and checked both ways
 
@@ -305,7 +328,7 @@ self-criticism, never its claims.
 * That `.prop` and `.exec` are the same term (F8).
 * That any concrete witness is genuinely on-chain — `OnChain` is opaque.
 * That "N = 0" means the code does the work (§1.1).
-* That "`sorry`-free" holds — 100 results are `admit`-closed; use `#print axioms`,
+* That "`sorry`-free" holds — 101 results are `admit`-closed; use `#print axioms`,
   parsed across newlines, not the warning count.
 * That this builds elsewhere without the two manual steps in `WSC/REPRODUCE.md`.
 
@@ -364,8 +387,9 @@ self-criticism, never its claims.
 work.** A one-entry redeemer map cannot coexist with two script withdrawals under
 Conway UTXOW. The consequence was that six proved properties were statements about
 **empty classes**. It was found by the campaign's own audit, published before anyone
-else could, sized in the same document, and then **repaired for 11 of 12 shapes**,
-with the repair verified in both directions and every witness K measured unchanged.
+else could, sized in the same document, and then **repaired for all 13 shapes** (11
+of 12 at C4; the twelfth, SHAPE L2, was re-cut as L2R at `f4486ca`), with the repair
+verified in both directions and every witness K measured unchanged.
 
 That sequence — build, audit, find your own critical defect, publish it, size it, fix
 it, re-audit — is the strongest evidence in this repository about the *method*, and it
@@ -380,9 +404,11 @@ with `lake env lean` (no `--load-dynlib`, so the solver ran interpreted) — a m
 that had already caused one task to skip work as "unaffordable"; a `sorry`-count
 claimed as a census when 38 modules suppress the warning; a published `sorryAx` count
 of 27 that was an artifact of grepping line-oriented output that wraps (the true
-figure is **37**); stale golden cost tables; a `PROVENANCE.md` note that was simply
-false; and a module header claiming the top claim was "proved over a realizable class"
-when it was proved *assuming `p2`*.
+figure is **37**); a `#print axioms` total of 169 that missed the **five** results
+printed in the *other* output form, "does not depend on any axioms", with no brackets
+to parse (the true total is **174**); stale golden cost tables; a `PROVENANCE.md` note
+that was simply false; and a module header claiming the top claim was "proved over a
+realizable class" when it was proved *assuming `p2`*.
 
 **And, new at this revision, a process finding (F20).** Of four units in the final
 stage, one delivered **nothing at all** and a second produced correct, verified work
@@ -393,6 +419,16 @@ campaign's instruments could see this** — the verdict count, the axiom census 
 marker table all looked perfectly healthy, because they can only measure work that was
 committed. The seal unit verified the work, landed it, and wrote the missing files.
 
+**The fix is a procedure, not a better instrument**, because every instrument the
+campaign owns measures what EXISTS. It was adopted and executed at the following
+stage: resolve each assigned finding to a commit, a path, a declaration name and a
+*reading* of that declaration **before** rebuilding anything; reconcile every verdict
+delta to a **source line** rather than to a total; and unfold the definitions a claim
+depends on instead of accepting the claim's own summary. Applied to the three
+findings that F20 left open, all three were found genuinely landed — which is the
+outcome the procedure is meant to be able to *distinguish*, not the outcome it
+assumes.
+
 ---
 
 ## 6. HOW TO REPRODUCE
@@ -401,9 +437,10 @@ Full recipe including substrate reconstruction: **`WSC/REPRODUCE.md`**.
 
 ```bash
 # 1. clean-room rebuild of the whole library
-#    expect: 431 jobs, 1:39-1:57 wall, 1.50 GB peak, 159 ✅ markers (102 Valid +
-#            57 Expected Falsified), 0 errors, 0 ⚠️/❌, 20 expected `sorry`
-#            warnings, 93 WSC modules, 5 `unused variable` (all Composition.lean)
+#    expect (HEAD f4486ca): 432 jobs, 1:46-2:10 wall, 162 ✅ markers (103 Valid +
+#            59 Expected Falsified), 0 errors, 0 ⚠️/❌, 20 expected `sorry`
+#            warnings, 94 WSC modules, 5 `unused variable` (all Composition.lean),
+#            RSS 1.50-1.66 GB (load-dependent — NOT an instrument)
 cp -a <CLAB> <SCRATCH>/clab && cd <SCRATCH>/clab
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
 /usr/bin/time -v lake build WSC WSC.ShapeBridge 2>&1 | tee build.log

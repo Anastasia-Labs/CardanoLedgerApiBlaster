@@ -27,9 +27,11 @@ all four programs every time.
 **The target sentence is not proved.** Three weaker things are:
 
 1. **The problem was reduced, rigorously, to four sub-obligations plus a list of
-   26 clearly named assumptions.** This reduction is checked by machine. It is the
-   durable part of the work: anyone who later discharges the four sub-obligations gets
-   the full result.
+   clearly named assumptions** — 26 for the weakest form of the result, 28 for each of
+   the two strongest. This reduction is checked by machine. It is the durable part of
+   the work: anyone who later discharges the four sub-obligations gets the full
+   result. The count is a **floor, not a ceiling**: it is what today's proof consumes,
+   and a stronger result will consume more.
 2. **Six specific safety properties of the four production programs were proved** —
    about transfers, seizure, minting, directory registration, and the rule that ties
    the whole scheme together. Each was proved by exhaustively checking the real
@@ -65,7 +67,10 @@ open worry.**
 proofs are completed by an automated solver, and the results are recorded as verdicts
 in a build log rather than re-verified by the underlying proof checker. There are
 about a hundred such results, and every top-level conclusion depends on at least one
-of them. This is a normal and defensible engineering trade — the solver is what makes
+of them. A related and separate gap: the statements the solver proves and the
+executions the concrete examples run are, strictly speaking, about two different
+forms of the same program, and their equality is not proved. Both top-level results
+inherit that gap. This is a normal and defensible engineering trade — the solver is what makes
 analysing real compiled code affordable at all — but "machine-checked" here means
 "checked by the solver, with the verdict on the record", not "checked by the kernel".
 A related trap is documented so it cannot recur: the build's own warning counts
@@ -99,12 +104,29 @@ first blamed on the wrong component, and the misattribution was then corrected a
 two causes separated by machine rather than by argument. A third: in the final round,
 one work unit delivered nothing and another left a completed fix sitting outside the
 repository, so a known weakness stayed open despite having been solved — none of the
-project's own health metrics could detect this, and that blind spot is now written
-down.
+project's own health metrics could detect this, because all of them measure work that
+exists. That blind spot is now written down, and the response was a change of
+procedure rather than a new metric: the following round's first action was to check,
+finding by finding, that the claimed work was actually in the repository and said what
+it was reported to say, **before** measuring anything. It was, in all three cases.
+The same round also found that the project's own rule about redeemer witnessing was
+stronger than the real ledger rule, which made six of its "this case is impossible"
+results weaker than they read; those six were relabelled, in the code, with the extra
+condition they actually need.
 
 Alongside this, the analysis forced two corrections to the system's own written
 specification: one stated inequality was simply wrong for token burns, and one
 well-formedness condition was missing a clause.
+
+## What changed in the final round
+
+Three loose ends left open by the previous round were closed and independently
+verified: the last transaction family without a worked concrete example got one; the
+one family whose theorem covered an impossible case was replaced with a real one; and
+the over-strong witnessing rule described above was bounded and every use of it
+audited one by one. The verified build grew by one module and three solver results,
+and every one of those was traced to the exact line of source that produced it. No
+assumption was added anywhere in the layer that is supposed to add none.
 
 ## Bottom line
 

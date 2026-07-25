@@ -4,10 +4,12 @@
 measured *in this repository*, with the file/line or the measurement cited. Where a
 result is not there yet, this table says so in those words.
 
-**Revision: this file was rewritten at task E5 (2026-07-25) from three independent
-clean-room rebuilds at the E5 HEAD on branch `wsc-containment-proofs`, not from any
+**Revision: rewritten at task E5 (2026-07-25) from three independent clean-room
+rebuilds, and RE-MEASURED at task G3 from two more at HEAD `f4486ca` — never from a
 task report.** It supersedes the C4 revision and the E1/E3/E4 fragments, which are
-folded in and kept as the per-task record. Any disagreement between a fragment and
+folded in and kept as the per-task record. **G3 checked the G-stage units' work
+EXISTED before believing any of it** (`AUDIT.md` §7.6); that check is now mandatory
+for any unit gating another's, and it is why finding F20 exists. Any disagreement between a fragment and
 this file is resolved in favour of this file, and the disagreements are itemised in
 `WSC/AUDIT.md` §7 and §8.
 
@@ -54,13 +56,28 @@ this file is resolved in favour of this file, and the disagreements are itemised
    *At C4:* **11 of 12 shapes were re-cut** to carry exactly the redeemer entries the
    rule demands, every property was re-proved over them, and each re-cut shape has a
    certified inhabitant satisfying `validXContext` **and both halves** of the Conway
-   rule.
+   rule. *At G1 (`f4486ca`):* the twelfth, SHAPE L2, was re-cut as **L2R** — so
+   **all 13 re-cut shapes now carry the full four-item bar** and no property in the
+   library ranges over an unrepaired shape. (The roster module
+   `RealizableShapes.lean` was not extended with an `l2r_realizable` alias; L2R's
+   realizability theorem is `WSC.L2RWitness.ctx_realizable` in `P4LocalShapedR.lean`.
+   Cosmetic, noted so nobody greps the roster and concludes L2R lacks one.)
+   *Caveat carried since G2 (F18):* the rule the re-cut is checked against is the
+   **all-Plutus specialisation** of Conway's, not Conway's rule itself. That is
+   conservative for these positive inhabitation claims and only for those.
    *Now:* coverage is stated in Lean (`WSC/Coverage.lean`) and **refuted** —
    `not_covers_at_T1R_size` exhibits three ledger-valid, redeemer-exact transactions
    that the real bytecode accepts in **exactly 2,603 steps** (the certified
-   inhabitant's own K) and that lie outside **all twelve** re-cut shapes. Two differ
-   by a list length, one by a constructor tag; none is repairable by adding a shape
-   parameter. **0 project axioms, no `sorryAx`.**
+   inhabitant's own K) and that lie outside **all twelve** re-cut shapes named in
+   `Coverage.lean` (`rangeG1R`, `rangeG6R`, `rangeT1R/T2R/T6R/T7R`, `rangeM1R/M2R`,
+   `rangeL1R`, `rangeDT1R`, `rangeDS1R`, `rangeS1R`). Two differ by a list length,
+   one by a constructor tag; none is repairable by adding a shape parameter.
+   **0 project axioms, no `sorryAx`.** **Not re-proved for L2R:** `Coverage.lean` was
+   written before SHAPE L2R existed and was **not** extended with a `rangeL2R`
+   disjunct, so the refutation is literally about those twelve. This weakens nothing —
+   the refutation is a *negative* result, and adding a thirteenth disjunct could only
+   ever make it harder to hold, never easier — but the theorem as stated does not
+   mention L2R and should not be quoted as if it did.
    **Honest label for the whole shaped layer: exhaustive symbolic checking of the real
    compiled code over named bounded families of `Data` skeletons that are
    node-realizable, and that are now known NOT to cover the transactions the claim is
@@ -73,14 +90,16 @@ this file is resolved in favour of this file, and the disagreements are itemised
    `WSC.Composition.covering_excludes_ledger_registration`), so the surface is the
    same size but discharging it is now an implication rather than a gap.
 6. **"`sorry`-free" is FALSE for this library, including for every top-level
-   theorem.** **100** theorem-position results are closed by `blaster`'s `admit`; what
+   theorem.** **101** theorem-position results are closed by `blaster`'s `admit`; what
    certifies them is the `✅ Valid` verdict in the build log, not the Lean kernel. Every
    top-level theorem inherits `sorryAx` — the older ones through P3, the two shaped
    ones through P3 *and* through `P1R_T1`/`bridge_T1R` or
    `P2b_R_containment`/`bridge_S1R`. **And the build log's `sorry` warning count is
    NOT a census:** 38 modules set `warn.sorry false`, and a line-oriented grep of
    `#print axioms` undercounts `sorryAx` as 17 when the true figure is **37**. The
-   instrument is `#print axioms`, parsed across newlines.
+   instrument is `#print axioms`, parsed **across newlines** *and* for **both output
+   forms** — 5 results print "does not depend on any axioms" with no brackets, and a
+   bracket-only parser reports 169 results instead of the true **174**.
 7. **This checkout now builds elsewhere — but only after two manual steps, and the
    substrate branch is still unpublished.** `WSC/substrate/` carries a verified
    incremental `git bundle` reconstructing PlutusCoreBlaster
@@ -96,31 +115,40 @@ this file is resolved in favour of this file, and the disagreements are itemised
 
 ---
 
-## 1. VERIFIED BUILD STATE (task E5 clean-room rebuild, three runs)
+## 1. VERIFIED BUILD STATE (task G3 clean-room rebuild, two runs, HEAD `f4486ca`)
+
+*E5's three-run figures at `7039cdb` are given in parentheses where they differ.*
 
 | measurement | value |
 |---|---|
 | command | `rm -rf .lake/build/lib/lean/WSC*` then `lake build WSC WSC.ShapeBridge` |
-| exit status | 0 — **431 jobs**, all three runs |
-| wall clock | **1 m 39.29 s / 1 m 46.56 s / 1 m 57.07 s** — three independent runs. **Quote the range 1:39–1:57**, never a point value |
-| user + sys CPU | 402.7–434.9 s + 50.3–54.0 s (417–456 %) |
-| max RSS | **1.50–1.52 GB** (down from C4's 1.65 GB) |
-| WSC modules re-elaborated | **93** |
-| solver verdicts | **159** = **102 `✅ Valid`** + **57 `✅ Expected Falsified`** |
-| `⚠️ Undetermined` / `❌` | **0**, all three runs |
-| `error:` lines | **0** (hard requirement — met, all three runs) |
+| exit status | 0 — **432 jobs**, both runs (E5: 431) |
+| wall clock | **1 m 46.22 s / 2 m 09.91 s** — two independent runs. **Quote the range 1:46–2:10**, never a point value (E5, quiet box: 1:39–1:57) |
+| user + sys CPU | 466.7–515.0 s + 64.3–70.3 s (450–499 %) |
+| max RSS | **1.652–1.658 GB**. **This is NOT an instrument** — it tracks machine load, not the library: a clean-room build of *unmodified* `7039cdb` under the same concurrent load also measures 1.64 GB. Quote **1.50–1.66 GB, load-dependent** |
+| WSC modules re-elaborated | **94** (E5: 93; +1 = `WSC.Shaped.MintingLocalShapedRIdx`) |
+| solver verdicts | **162** = **103 `✅ Valid`** + **59 `✅ Expected Falsified`** (E5: 159 = 102 + 57) |
+| `⚠️ Undetermined` / `❌` | **0**, both runs |
+| `error:` lines | **0** (hard requirement — met, both runs). *Caveat F21: two `Error:`-prefixed lines from a `panic!` in CLAB's `Recursor.all` macro DO appear; pre-existing, benign, exit 0* |
 | `declaration uses 'sorry'` | **20** (19 blaster `admit` in `ShapeBridge`, 1 pre-existing in PCB `CekMachine.lean:299`) — **not a census**, §0.6 |
 | `unused variable` | **5**, all at `Composition.lean:2442-2446` — Lean's own confirmation of §0.2 |
-| source reconciliation | 100 `blaster` tactics + 2 `solve-result: 0` + 57 `solve-result: 1` = **159**, exact |
-| `#print axioms` results | **173** distinct; **37** carry `sorryAx`; 72 use `native_decide`; **124** carry zero project axioms |
-| `axiom` declarations | **51** (Honest 38, Composition 10, P1_Transfer 2, SeizeModel 1) — unchanged by stage 11 |
-| `axiom` under `Prep/`, `Shaped/`, `Props/Shaped/` | **0** — the shaped layer adds no assumption |
+| source reconciliation | **101** `blaster` tactics + 2 `solve-result: 0` + **59** `solve-result: 1` = **162**, exact — and now checked **per verdict**, by reading the source line each `file:line:col` marker points at, rather than by comparing totals |
+| `#print axioms` results | **174** distinct (E5: 173); **37** carry `sorryAx` (unchanged); 72 use `native_decide`; **124** carry zero project axioms (unchanged). The single new result is `g6_class_is_empty_nonNative` |
+| `axiom` declarations | **51** (Honest 38, Composition 10, P1_Transfer 2, SeizeModel 1) — unchanged by stage 11 **and by the G stage** |
+| `axiom` under `Prep/`, `Shaped/`, `Props/Shaped/` | **0** — the shaped layer adds no assumption; survives G1's new SHAPE L2R module intact |
 
-Stage-by-stage reconciliation from the C4 baseline: **429 → 431 jobs**, **158 → 159
-verdicts**. E1 `+1 module / +1 verdict` (`bridge_S1R`, 1 Valid); E4 `+1 / +0`
-(`WSC/Coverage.lean` runs no solver); E2 `+0 / +0` (**produced nothing** — see
-`AUDIT.md` §7.2); E5 `+0 / +0` (documents and the substrate artifact).
-`101 + 1 = 102` Valid, `57 + 0 = 57` Expected Falsified.
+Stage-by-stage reconciliation from the C4 baseline: **429 → 431 → 432 jobs**,
+**158 → 159 → 162 verdicts**. E1 `+1 module / +1 verdict` (`bridge_S1R`, 1 Valid);
+E4 `+1 / +0` (`WSC/Coverage.lean` runs no solver); E2 `+0 / +0` (**produced
+nothing** — see `AUDIT.md` §7.2); E5 `+0 / +0` (documents and the substrate
+artifact); **G2 `+0 / +0`** (F18 — every new result is ordinary Lean); **G1
+`+1 module / +3 verdicts`**, pinned to source lines: `P4LocalShapedR.lean:597`
+(1 Valid, the L2R negative control), `:677` and `:708` (2 Expected Falsified, the
+L2R tightness and vacuity stanzas). F17's paste adds **0** — it is `native_decide`
+throughout. `102 + 1 = 103` Valid, `57 + 2 = 59` Expected Falsified.
+
+**Both G-stage units delivered artifacts; neither is an E2.** G3's first action was
+the existence check, before any rebuild — `AUDIT.md` §7.6.
 
 ---
 
@@ -128,30 +156,59 @@ verdicts**. E1 `+1 module / +1 verdict` (`bridge_S1R`, 1 Valid); E4 `+1 / +0`
 
 All six are **PROVED at UPLC against the production bytecode**, over the **re-cut**
 shapes. The pre-re-cut theorems are retained, still `✅ Valid`, but range over classes
-proved empty and **must not be quoted**.
+proved empty and **must not be quoted** — this now includes
+`P4_local_noEscape_shapedIdx` (SHAPE L2), superseded by `P4_local_noEscape_RIdx`
+(SHAPE L2R). Note the emptiness proofs themselves were downgraded at G2: six of them
+now carry an explicit `RedeemerCoverageAt w` side condition, because CLAB's coverage
+predicate is the **all-Plutus** reading of Conway's rule and is therefore too strong
+to use negatively without it (F18).
 
 | # | Status | Theorem(s) | Budget / shape | Witness K | Realizability | 4-point bar |
 |---|---|---|---|---|---|---|
 | **P1** | PROVED, Path A only | `P1R_T1/T2/T6/T7` (`P1ShapedR.lean`) | 4400 / T1R, T2R, T6R, T7R | 2603 / 3572 / 3150 / 3572 | `t1R…t7R_realizable` | **4/4** each |
 | **P2** | PROVED, both conjuncts | `P2a_R_structure`, `P2b_R_containment`, `P2_R_gates_are_earned` (`P2ShapedR.lean`) | 3800 / S1R | 3004 (accept) / 3328 | `s1r_realizable(Exact)` | **4/4** |
 | **P3** | PROVED, unshaped | `P3_base_requires_global_or_seize_run` (`P3_BaseRun.lean`) | 600 / — | golden 208 | n/a (unshaped) | n/a |
-| **P4** | PROVED, all four arms | `P4_disjunction_at_{L1R,DT1R,DS1R}`, `P4_burnonly_arm_R` | 900 / M1R, M2R; 2500 / L1R, DT1R, DS1R | 784 / **784** / 1681 / 1257 / 1466 | `m1r,m2r,l1r,dt1r,ds1r_realizable` | **4/4**, M2R **3/4 landed** — see F17 |
+| **P4** | PROVED, all four arms | `P4_disjunction_at_{L1R,DT1R,DS1R}`, `P4_burnonly_arm_R`, **`P4_local_noEscape_RIdx` (L2R)** | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 | `m1r,m2r,l1r,dt1r,ds1r_realizable`; L2R via `L2RWitness.ctx_realizable` | **4/4 — every row, M2R included** (F17 landed at `f4486ca`) |
 | **P4a** | PROVED | `P4a_R_*`, `P4a_RIdx_*`, `P4a_local_R` | as P4 | as P4 | as P4 | as P4 |
 | **P5** | PROVED | `P5R_shaped_indexed/_exists/_groundtruth` (`P5ShapedR.lean`) | 1600 / G1R | 1541 | `g1R_realizable` | **4/4** |
 | **P6** | PROVED | `P6R_shaped_member_adds_to_requirement`, `_mint_stays_at_base`, `_noBaseInputs` | 3300 / G6R | 2837 | `g6R_realizable` | **4/4** |
 
 The four-point bar is: theorem `✅ Valid`; vacuity probe at **its own** prep term and
 **its own** shape reporting `✅ Expected Falsified`; concrete accepting CEK witness;
-shape realizability theorem. **11 of 12 re-cut shapes meet it in full in the
-library.**
+shape realizability theorem. **Every one of the now-13 re-cut shapes meets it in full
+in the library** (T1R, T2R, T6R, T7R, G1R, G6R, M1R, M2R, L1R, **L2R**, DT1R, DS1R,
+S1R). There is no longer a 3/4 row.
 
-**M2R (F17), the single 3/4 row — the missing bar has now been MEASURED, but not
-landed.** Task E5 built the witness in a scratch module: the real compiled
-`programmableTokenMinting` bytecode **accepts** `M2RWitness.ctx` on
-`appliedMintRShapedIdx900.exec`, with `#print axioms` showing **0 project axioms and
-no `sorryAx`**, and the exact step count is **K = 784 — byte-identical to SHAPE
-M1R's**. Landing it is a two-theorem paste into `P4ShapedRIdx.lean`'s `M2RWitness`
-namespace, after which this row becomes 4/4. See `AUDIT.md` §7.5.
+**M2R (F17) — LANDED at `f4486ca`, and G3 verified the landing.** The real compiled
+`programmableTokenMinting` bytecode **accepts** `M2RWitness.ctx` through
+`appliedMintRShapedIdx900.exec` — the same shaped applied term the module's five
+property theorems quantify over — and the exact step count is **K = 784, pinned
+TWO-SIDED** (halts at 784, budget-errors at 783), **byte-identical to SHAPE M1R's**.
+Both carry `[propext, Classical.choice, Lean.ofReduceBool, Lean.trustCompiler,
+Quot.sound]`: **0 project axioms, no `sorryAx`**. `WSC/Props/Shaped/P4ShapedRIdx.lean:174-194`.
+G3 checked, by unfolding `mintingPolicyInputs900` and `mintRInputsIdx`, that the
+K-measurement and the acceptance are about the **same run** — see `AUDIT.md` §7.6.1.
+Zero solver verdicts added.
+
+**L2R (F19) — NEW at `f4486ca`.** `WSC/Shaped/MintingLocalShapedRIdx.lean` is SHAPE
+L1R with the `Local` arm's registration reference-input index left **symbolic**, cut
+over the node-realizable two-entry redeemer map. It **definitionally contains** SHAPE
+L1R (`localRCtxIdx_at_one`, by `rfl`), so `P4_local_noEscape_RIdx` strictly
+strengthens `P4_local_noEscape_R` and **supersedes** the retired
+`P4_local_noEscape_shapedIdx`. **Cite `P4_local_noEscape_RIdx`.** Two riders travel
+with the citation, both stated in-source:
+
+* The headline is **derived** from `P4_local_RIdx_negative_control` (`✅ Valid` at a
+  300 s Z3 cap) via `halt_not_error`, because the *direct* goal is
+  `⚠️ Undetermined`. The negative control is strictly **stronger** — `isSuccessful`
+  and `isUnsuccessful` are `True` on disjoint `State` constructors — so nothing is
+  lost, but a reviewer should know which statement the solver saw.
+* **C1 at SHAPE L2R is `⚠️ Undetermined` at the 300 s cap and is NOT asserted as a
+  theorem.** C1 at the concrete-index SHAPE L1R (`P4a_local_R`) is unaffected.
+
+The loosened index is demonstrably **live**: `L2RWitness.ctxIdx0` at `regIdx = 0` is
+ledger-valid, redeemer-covered, satisfies `noEscape`, and is **rejected** by the real
+bytecode.
 
 **Every witness K is unchanged by the re-cut** — evidence that the validators never
 dereference `txInfoRedeemers`, except `DelegateSeize`, whose K was re-measured (1466).
@@ -289,14 +346,16 @@ strengthens nothing (see F18).
 |---|---|---|---|
 | **F2-coverage** | CRITICAL | **OPEN — and now PROVED FALSE** | No argument that the shapes exhaust the transactions the claim is about, and stage 11 replaced that absence with a machine-checked refutation at T1R's own size. **The binding constraint on the whole deliverable.** |
 | **F1** | CRITICAL | **NARROWED TO A RATIO** | Both composed results have complete `LeafSet`s (N = 0), but **1 of 4 leaves is the bytecode and 3 are the shape** on each side. Closing `p2` cost zero axioms and added zero bytecode content. For the general class nothing is proved. |
-| **F2-realizability** | CRITICAL | **REPAIRED (11/12)** | Shapes re-cut to satisfy Conway `hasExactSetOfRedeemers`; verified in both directions (new shapes pass, old shapes fail, 13/13 goldens match). SHAPE **L2** not re-cut. |
+| **F2-realizability** | CRITICAL | **REPAIRED (13/13)** | Shapes re-cut to satisfy Conway `hasExactSetOfRedeemers`; verified in both directions (new shapes pass, old shapes fail, 13/13 goldens match). SHAPE **L2 is now re-cut as L2R** (G1, `f4486ca`), so there is no longer an unrepaired shape. Note the rule the shapes are checked against is the **all-Plutus** specialisation — see F18. |
 | **D6** | HIGH | OPEN | Blaster emits kernel-ill-typed `dite'` when a CIP-153 `Value` builtin result stays symbolic. Blocks SHAPES T3/T4, hence P1 dispatch Paths B/C and input-side aggregation. Needs an upstream fix. |
 | **F8** | MEDIUM | OPEN, **now binding on BOTH composed results** | `PropExecFaithful`: theorems on `.prop`, witnesses on `.exec`, equality unproved and deliberately not axiomatized. All 12 re-cut groups inherit it; so do both composed results, via `bridge_T1R` and `bridge_S1R`. |
-| **F4** | MEDIUM | OPEN by nature | "`sorry`-free" is false; 100 results are `admit`-closed and every top-level theorem carries `sorryAx`. |
+| **F4** | MEDIUM | OPEN by nature | "`sorry`-free" is false; **101** results are `admit`-closed and every top-level theorem carries `sorryAx`. |
 | **D5** | was HIGH → **MEDIUM** | **PARTIALLY REPAIRED** | Revision now recorded in three places; verified offline bundle in `WSC/substrate/` reconstructs the pinned tree byte-identically; `WSC/REPRODUCE.md` is the third-party recipe. **Still open:** branch unpublished, path absolute, rev not enforced by lake. |
-| **F20** | MEDIUM | **NEW, PROCESS** | One stage-11 unit (E2) delivered **nothing**; a second (E3) produced correct work but left it uncommitted in scratch, with two dangling cross-references. The canonical repo's most damning caveat stayed open despite having been solved. E5 landed it. |
-| **D11 / F17** | was MEDIUM | **ANSWERED, NOT LANDED** | SHAPE M2R's witness **is** accepted by the real bytecode, **K = 784**, 0 project axioms — measured at E5 (`AUDIT.md` §7.5). Two theorems remain to be pasted into `P4ShapedRIdx.lean`. |
-| **F19** | LOW | OPEN | SHAPE **L2 not re-cut**; `P4_local_noEscape_shapedIdx` still ranges over a class proved empty. Must not be quoted. |
+| **F20** | MEDIUM | **PROCESS FIX ADOPTED** | One stage-11 unit (E2) delivered **nothing**; a second (E3) produced correct work but left it uncommitted in scratch. No instrument could see either, because every instrument measures what EXISTS. E5 landed E3's work. **G3 adopted the fix as a procedure** (`AUDIT.md` F20): existence check before measurement; deltas reconciled to source **lines**, not totals; definitions the claim depends on are unfolded and read. At G3 both G-stage units passed the existence check outright. |
+| **D11 / F17** | was MEDIUM | **CLOSED — LANDED (G1, `f4486ca`)** | `M2RWitness.exec_accepts_at_900` and `K_is_784` **pinned two-sided** are in `P4ShapedRIdx.lean:174-194`. 0 project axioms, no `sorryAx`, 0 new solver verdicts. G3 verified the acceptance and the K-measurement are about the **same run**, by unfolding `mintingPolicyInputs900` and `mintRInputsIdx`. SHAPE M2R meets 4/4. |
+| **F19** | LOW | **CLOSED (G1, `f4486ca`)** | SHAPE **L2R** exists (`WSC/Shaped/MintingLocalShapedRIdx.lean`), is node-realizable, definitionally contains L1R (`localRCtxIdx_at_one`, `rfl`), and carries all four bar items. **Cite `P4_local_noEscape_RIdx`**, not the retired `P4_local_noEscape_shapedIdx`. Two riders: the headline is **derived** from a `✅ Valid` negative control (the direct goal is `⚠️ Undetermined` at a 300 s cap) via `halt_not_error`, which is strictly stronger, not weaker; and **C1 at L2R is `⚠️ Undetermined` and is not asserted**. |
+| **F21** | INFO | **NEW (G3)** | The clean-room log carries two lines beginning `Error:` — a `panic!` from CLAB's `Recursor.all` macro at `V3/Contexts.lean`. Benign (definition elaborates, exit 0) and **pre-existing** (present in the C4-era log at the same definition). Recorded because the "zero errors" instrument is a line-anchored, case-sensitive grep and does not see them. |
+| **F22** | INFO | **NEW (G3)** | `bridge_GIdx` / `bridge_GNIdx` (`ShapeBridge.lean:900-948`) are the only results over `appliedGlobalShapedIdx1600` / `appliedGlobalShapedNIdx1600`, and neither term has a vacuity probe, a concrete witness, or a reduction lemma to `globalShapedCtx` — `GlobalShapedIdx.lean` is defs-only. An `↔` between two unsatisfiable statements is true. Not load-bearing (cited only in narrative), so informational; cheap fix is one `rfl` lemma inheriting `bridge_G1`'s witness. |
 | **D12 / F18** | LOW | **RESOLVED (task G2)** | The faithful rule is **not expressible** in `TxInfo` — it needs `isNativeScript`, a predicate on a script BODY, and `TxInfo` carries only hashes (the companion `scriptsProvided` filter is a no-op, guaranteed by `babbageMissingScripts`). So: predicates renamed `…AllPlutus` at every use site; the true rule stated modulo a language oracle with the two directions now THEOREMS (`redeemerCoverageModNative_of_allPlutus` positive; `coveredByNonNative_strictly_weaker` / `noExtra_not_conservative` negative, all at `[propext, Quot.sound]`); every negative use audited one by one (`ShapeRealizability.lean` §2.3) — **6 unaffected** (spending route), **6 downgraded** to an explicit `¬ isNative w` side condition now carried in the TYPE via `RedeemerCoverageAt w`, **1 measurement** whose interpretation only is downgraded. `g6_class_is_empty_nonNative` is the axiom-free true-rule form of the one unconditional negative result. Positive results, leaves and both composed containment theorems are untouched. |
 | **`SeizeWdrlOfScoped`** | MEDIUM | OPEN, newly tractable | `LR5` does not entail `seizeCred ∈ txInfoWdrl`. The same rule in the other direction is now audit row S, and is what discharges the shape leaves in §3. |
 | **`ValueAlgebra`/`LedgerCanon`** | MEDIUM | OPEN | Uninstantiated, so `LR_BALANCE_SLOT` stays an axiom. `valueOf` is not additive over `merge` without canonicity (machine-checked counterexample). ~330 lines. |
@@ -327,20 +386,33 @@ conclusion is to stop trying to close it by enumeration.
    The measure that matters is 1-of-4 → 2-of-4. Needs `p4` at a minting shape and
    `nopre` at a registration shape, composed into the same class — i.e. a union
    `Shape` over several re-cut shapes.
-4. **Bridge and consume the other 10 re-cut shapes** (`exec_<S>R` by `rfl`,
+4. **Bridge and consume the other re-cut shapes** (`exec_<S>R` by `rfl`,
    `bridge_<S>R` by `blaster`, ~1 s each on the evidence of `bridge_T1R`/`bridge_S1R`).
-5. **Land M2R's CEK witness (F17)** — already measured (K = 784, 0 axioms); a
-   two-theorem paste. Cheapest item on the list.
-6. **Re-cut SHAPE L2 (F19)**, or retire its theorem.
-7. **Instantiate `ValueAlgebra` + `LedgerCanon`**, removing `LR_BALANCE_SLOT` from the
+5. **Instantiate `ValueAlgebra` + `LedgerCanon`**, removing `LR_BALANCE_SLOT` from the
    axiom base.
-8. **Restate the 12 shaped groups on `Runs.XRun K`** with 12 fresh vacuity probes, to
+6. **Restate the shaped groups on `Runs.XRun K`** with fresh vacuity probes, to
    delete `PropExecFaithful` (F8) campaign-wide. Real risk: one may come back `Valid`,
    i.e. vacuous, as happened to P6 at 2500.
-9. **A shape-coverage programme — DO NOT START ONE.** `COVERAGE.md` recommends against
+7. **A shape-coverage programme — DO NOT START ONE.** `COVERAGE.md` recommends against
    it on the campaign's own arithmetic. The fallback if (1) stalls is the source-model
    route with an explicit faithfulness axiom — a *stated* trade, which is more than any
    affordable coverage programme offers.
+
+**Removed from this list at G3, because they are DONE:** "land M2R's CEK witness
+(F17)" and "re-cut SHAPE L2 (F19)". Both landed at `f4486ca` and were verified at G3
+(`AUDIT.md` §7.6.1, §7.6.2).
+
+**Also NOT recommended at G3: further loosening rungs of the L2R kind.** L2R was
+worth doing because it retired a theorem quantified over a *proved-empty* class. But
+it cost a 300-second solver cap, left C1 `⚠️ Undetermined`, and moved the
+code-to-shape ratio **not at all**. Loosening rungs buy narrowness, not coverage.
+
+**House rule adopted at G3 (from G1's measurement):** Blaster's default solver
+timeout is **infinity** (`Blaster/Command/Syntax.lean:15`), and an uncapped goal at a
+new shape ground for >13 minutes with no diagnostic. **Every `blaster` call in a new
+shape must carry an explicit `(timeout: …)`.** On `Undetermined` the tactic leaves
+the goal open rather than admitting (`Blaster/Command/Tactic.lean:47-50`), so a cap
+is a hang guard and not a soundness hole.
 
 ---
 
@@ -350,8 +422,10 @@ Full third-party recipe, including substrate reconstruction: **`WSC/REPRODUCE.md
 
 ```bash
 # the whole library, clean-room
-#   E5: 431 jobs, 1:39-1:57, 159 ✅ markers (102 V + 57 F), 0 errors,
-#       20 expected `sorry` warnings, 93 WSC modules, 5 `unused variable`, RSS 1.50 GB
+#   G3 (f4486ca): 432 jobs, 1:46-2:10, 162 ✅ markers (103 V + 59 F), 0 errors,
+#       0 ⚠️, 20 expected `sorry` warnings, 94 WSC modules, 5 `unused variable`,
+#       RSS 1.50-1.66 GB (LOAD-DEPENDENT — not an instrument)
+#   E5 (7039cdb): 431 jobs, 1:39-1:57, 159 ✅ markers (102 V + 57 F), 93 WSC modules
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
 /usr/bin/time -v lake build WSC WSC.ShapeBridge 2>&1 | tee build.log
 
