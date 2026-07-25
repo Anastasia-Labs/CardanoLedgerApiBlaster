@@ -16,7 +16,7 @@ I have complete, verified grounding. Notably I confirmed several facts that corr
 
 | Fact | Location | Consequence |
 |---|---|---|
-| Project is `lakefile.lean`, Lean `v4.24.0`, requires `PlutusCore` (PlutusCoreBlaster @ `main`) + `Blaster` (@ `beta-lambda-cache-optimization`) via git | `CardanoLedgerApiBlaster/lakefile.lean` | New project depends on CLAB, which transitively brings PlutusCore+Blaster. |
+| Project is `lakefile.lean`, Lean `v4.24.0`, requires `PlutusCore` (PlutusCoreBlaster @ `main`) + `Blaster` (@ `beta-lambda-cache-optimization`) via git — **PlutusCore pin SUPERSEDED by ADDENDUM E11 (local path, `cip153-value-builtins` @ `9f9ca8c`)** | `CardanoLedgerApiBlaster/lakefile.lean` | New project depends on CLAB, which transitively brings PlutusCore+Blaster. |
 | Proof idiom: `#import_uplc n PlutusV3 double_cbor_hex "x.flat"` → `def nInputs p ctx : List Term := toTerm p :: xInputs ctx` → `#prep_uplc appliedN n nInputs BUDGET` → `theorem … validXContext ctx → isSuccessful (appliedN.prop p ctx) → POST := by blaster` | `Tests/Scripts/MintingPolicy/{MintingPolicy,Properties}.lean` | Canonical template for all six. |
 | `MintValue := V2.Value` (abbrev) | `V3/Contexts.lean:295` | **Corrects property-statements:** `mintOf cs tn ctx := valueOf cs tn ctx.scriptContextTxInfo.txInfoMint` — no `mintToValue` accessor exists or is needed. |
 | `validTxOutValue` **requires** `(Data.B "", Data.Map [(Data.B "", Data.I n)]) :: rest` with `n > 0`, `rest` sorted & positive | `V1/Contexts.lean:769-784` | **Discharges skeptic 1.3 (ada-first) via the precondition, not a new axiom.** Every input/output value is guaranteed lovelace-first; the `pstripAdaH`/`ptail#pasMap` sites are sound on ledger TxOut values. |
@@ -560,3 +560,51 @@ concrete ctxs per validator (vacuity probes per the E2 spike are mandatory for e
 P2/P3/P4/P2′: "expected-provable, bounded". P1: "bounded; PROVISIONAL risk via B3". P5/P6:
 "bounded; expected after CIP-153 decode". DirWF: ASSUMED, escape-critical, U10 scheduled.
 Never "PROVEN-BY-DESIGN".
+
+## E11 — Substrate pins (X4; supersedes the "PlutusCoreBlaster @ `main`" row of §0.1)
+
+**Current pins** (`CardanoLedgerApiBlaster/lakefile.lean`, branch `wsc-containment-proofs`):
+
+| Dependency | Pin | Why |
+|---|---|---|
+| `Blaster` | git `https://github.com/input-output-hk/Lean-blaster` @ `beta-lambda-cache-optimization` (resolved `59db213`) | UNCHANGED — the solver pin stays on its git rev. |
+| `PlutusCore` | **local path** `/home/gumbo/iohk/PlutusCoreBlaster`, branch `cip153-value-builtins` @ `9f9ca8c76baf3b5efdb63c33ca0091efa606b474` | The CIP-153 Value builtins live only on this (unpushed) branch; without them the global validator does not even DECODE. |
+
+**Why the local path.** `programmableLogicGlobal` is compiled against the CIP-153 Value builtins.
+PlutusCoreBlaster `main` @ `4ef48606303c45225d3ed2e2a87fc50280a763b7` has flat builtin tags 94–99
+commented out (`PlutusCore/UPLC/FlatEncoding/Basic.lean:269+`), so the import fails with
+`Decoding error … Could not decode program!` (negative control re-verified 2026-07-25 by running the
+same `#import_uplc` against the stale `.lake/packages/PlutusCore` @ `4ef4860` build). Against the
+local branch the same flat reports
+`Successfully decoded double CBOR hex 'WSC/flats/programmableLogicGlobal.flat'`, and the decoded
+program carries **46 CIP-153 builtin occurrences** (InsertCoin 4, UnionValue 14, ValueContains 2,
+ValueData 4, UnValueData 22, LookupCoin 0) out of 282 builtin occurrences / 3444 term nodes — i.e.
+tags 94–99 are genuinely consumed, not silently skipped. This unblocks P1/P5/P6 *in principle*
+(WSC/Prep/Global.lean; P-theorems still gated on Stage-3b shaped preps + measured K).
+
+**What the branch contains** (2 commits, +2832/−6 over `a04042c`):
+`830819b` adds the six CIP-153 builtins end-to-end — `BuiltinFun` constructors
+(`Term/Basic.lean`), flat tags 94–99 (`FlatEncoding/Basic.lean`), textual encoding, `ToExpr`,
+denotations (`BuiltinFunctions/Value.lean`), cost-model entries for all five budget eras
+(`CostModels.lean`), plus `PlutusCore/Value/{Basic,Tests}.lean`.
+`9f9ca8c` adds the blaster-friendly denotation restatement + `PlutusCore/Value/Algebra.lean`
+(53 lemmas) that P1's containment algebra will be have-fed from (D1 resolution, §0.2).
+
+**How to restore the git pin.** In `lakefile.lean` replace
+`require PlutusCore from "/home/gumbo/iohk/PlutusCoreBlaster"` with the commented line kept directly
+above it (`require PlutusCore from git "https://github.com/input-output-hk/PlutusCoreBlaster" @ "main"`),
+then `lake update PlutusCore` to rewrite `lake-manifest.json` (the manifest entry flips between
+`{"type":"path","dir":…}` and `{"type":"git","rev":…}`). Reverting drops the global validator back to
+"does not decode" — `WSC/Prep/Global.lean` (and therefore `WSC/Imports.lean`, `WSC.lean`) will fail
+to build, so the import must be commented out again in lockstep.
+
+**Reproducibility requirement (BINDING).** This checkout is currently reproducible only on this
+machine: `git ls-remote origin cip153-value-builtins` on the PlutusCoreBlaster remote returns
+nothing — the branch is UNPUSHED. Before the WSC proof library can be built anywhere else (CI
+included), `cip153-value-builtins` must be pushed to `input-output-hk/PlutusCoreBlaster` and the
+`lakefile.lean` pin changed to `git … @ "cip153-value-builtins"` (or the merge commit), pinned by
+full rev, not branch name. Until then, any claim of the form "P1/P5/P6 proved against production
+bytecode" carries the caveat that the verifying substrate exists only as a local branch. The
+`dropList`-only trio (base/minting/seize) is unaffected: it decodes on both substrates, and the
+repoint was verified behaviour-neutral for it (X4 step 4 regression gate: P3_Base's five markers
+unchanged; base non-vacuous @600, minting/seize vacuous @600).
