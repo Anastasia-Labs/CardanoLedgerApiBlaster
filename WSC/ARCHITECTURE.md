@@ -626,3 +626,26 @@ bytecode" carries the caveat that the verifying substrate exists only as a local
 `dropList`-only trio (base/minting/seize) is unaffected: it decodes on both substrates, and the
 repoint was verified behaviour-neutral for it (X4 step 4 regression gate: P3_Base's five markers
 unchanged; base non-vacuous @600, minting/seize vacuous @600).
+
+> **PARTIAL DISCHARGE (task E5, 2026-07-25) — the paragraph above stands, with one
+> change.** "Reproducible only on this machine" is no longer accurate, and "must be
+> pushed *before* it can be built anywhere else" is now too strong. The repository
+> carries `WSC/substrate/pcb-cip153-value-builtins.bundle` — an **incremental** git
+> bundle (39,068 bytes, sha256
+> `3d34a23d5e25ac09beddcdf6032ecb3d13c47d064239b09be8040842d1a82789`) holding exactly
+> the two branch commits on top of the PUBLIC base `a04042c`. Task E5 applied it from
+> a clone of the base and verified it reconstructs HEAD `9f9ca8c` and tree
+> `e75862b26b5055e8cc36ea8cf393054e2417ca62` with `diff -r` clean. The revision is now
+> also recorded in `lake-manifest.json` (lake **preserves** `"rev"`/`"inputRev"` on a
+> `"type":"path"` entry across a full build — measured; it does not *verify* them, and
+> `lake update` would drop them).
+>
+> **What remains binding:** the branch is still unpushed, so the bundle's custody is
+> the trust anchor; the `require` is still an absolute path, so building elsewhere
+> needs a two-file edit (`lakefile.lean` AND the manifest's `"dir"`). Pushing the
+> branch and restoring a real git pin retires all of it in one line.
+>
+> Recipes: `WSC/substrate/README.md` (apply/verify, and why a whole-history bundle
+> made from this SHALLOW clone would be unusable) and `WSC/REPRODUCE.md` (full
+> third-party build). Audit disposition: `WSC/AUDIT.md` §6.2 — D5 downgraded
+> HIGH/OPEN → MEDIUM/PARTIALLY REPAIRED, not closed.

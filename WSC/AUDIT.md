@@ -1,77 +1,88 @@
-# WSC containment campaign — FINAL AUDIT (task C4)
+# WSC containment campaign — FINAL AUDIT (task E5, the seal)
 
-**What this file is.** The last technical gate before the campaign is quoted
-outside this repository, and the authoritative statement of what is and is not
-established. Nothing below is taken on any earlier agent's word — including the
-five agents (A1, A2, C1, C2, C3) whose work this audit gates. Every number was
-re-measured in a clean-room rebuild on 2026-07-25 at the revision named below; every
-claim that could not be reproduced is corrected in place and listed in §8 FINDINGS.
+**What this file is.** The authoritative statement of what is and is not
+established, and the last technical gate before the campaign is quoted outside this
+repository. Nothing below is taken on any earlier agent's word — including the four
+stage-11 agents (E1, E2, E3, E4) whose work this audit gates. Every number was
+re-measured here, in three independent clean-room rebuilds on 2026-07-25; every
+claim that could not be reproduced is corrected in place and listed in §8.
 
-**This revision SUPERSEDES the A3 audit**, which in turn superseded U3. The A3 body
-is folded in here finding by finding; its original remains in `git log`
-(`416087d`). Where this audit disagrees with A3 the disagreement is stated, not
-patched over — and there is one large disagreement, §0.
+**This revision SUPERSEDES the C4 audit**, which superseded A3, which superseded U3.
+Their bodies are folded in finding by finding; the originals remain in `git log`
+(`300f9e0`, `416087d`). Where this audit disagrees with C4 the disagreement is
+stated, not patched over.
 
-**THE HEADLINE CHANGE SINCE A3.** A3's two CRITICAL findings were F1 ("the top claim
-is proved only where the class, not the code, does the work") and F2 ("no shape
-coverage argument exists; **and every shape is unrealizable**"). The second half of
-F2 — the sharper half — is now **REPAIRED for 11 of 12 shapes** (tasks C1, C2) and
-the repair is machine-checked in both directions. F1 is **partially answered**
-(task C4): there is now a `LeafSet` over a shape class that is *not* empty, three of
-whose four fields are discharged and one of whose fields is discharged **by the
-production bytecode with its acceptance hypothesis genuinely used**. Neither finding
-is closed. Both are smaller, and the residue is stated as a number.
-
-Audited revision: branch `wsc-containment-proofs`, HEAD = the C4 commit on top of
-`e7329ed`, tree clean.
+Audited revision: branch `wsc-containment-proofs`, the E5 commit on top of
+`8163803`, tree clean.
 Environment: 32-core box, Lean 4.24.0, Z3 4.15.2, `maxHeartbeats 0`,
-Blaster git `59db213ca6396269d2606b7dd9ac2bc26ae7c4ce`
-(branch `beta-lambda-cache-optimization`), PlutusCoreBlaster by **local path**
-`/home/gumbo/iohk/PlutusCoreBlaster` (branch `cip153-value-builtins`, **unpushed**;
-see §8 D5 — `lake-manifest.json` records **no revision at all** for it).
+Blaster git `59db213ca6396269d2606b7dd9ac2bc26ae7c4ce` (branch
+`beta-lambda-cache-optimization`, pinned by rev in `lake-manifest.json`),
+PlutusCoreBlaster by local path at rev `9f9ca8c76baf3b5efdb63c33ca0091efa606b474`
+(branch `cip153-value-builtins`, unpushed — see §6.2).
+
+**THE HEADLINE CHANGES SINCE C4.**
+
+1. **Audit F1's obligation gap is closed: N = 0.** There is now a `LeafSet` with
+   **no** remaining leaf hypothesis, over a class that is not empty — and a **second**
+   one for the seize purpose. But the number that matters is not N; it is the
+   **ratio**, and it is measured in §3.4: *on each side, one of four leaves is the
+   production bytecode and three are the shape.*
+2. **The most damning practical caveat, D5, is materially repaired.** The substrate
+   is now pinned by revision in three places and carries an offline `git bundle`
+   that this audit independently applied and byte-compared. It is not fully closed —
+   the branch is still unpublished.
+3. **Shape coverage is now stated in Lean, and it is PROVED FALSE** at the smallest
+   bound the family already covers, with three node-realizable transactions the real
+   bytecode accepts in exactly the certified witness's 2,603 steps.
+4. **One stage-11 unit delivered nothing at all** (§7.2, finding **F20**), so F17,
+   F18 and F19 were all still open when this audit began. F17 is now **measured and
+   answered** here, though not landed as a theorem.
 
 ---
 
 ## 0. THE ONE-PARAGRAPH ANSWER
 
-The library is internally consistent and its measurements reproduce: **429 jobs,
-90–103 s, 158 solver verdicts all ✅, zero errors, zero unexplained `sorry`s**, and the
-leaf theorems say what they claim to say in ground-truth vocabulary. Six safety
-properties of the four production validators are genuinely proved against the **real
-compiled bytecode**, whose provenance is verified end to end (§6). Two things
-changed since A3 and they are the only reasons to re-read this file:
+The library is internally consistent and its measurements reproduce: **431 jobs,
+1 m 39 s – 1 m 57 s over three runs, 159 solver verdicts all ✅, zero errors, zero
+unexplained `sorry`s**, source reconciliation exact, and the leaf theorems say what
+they claim to say in ground-truth vocabulary. Six safety properties of the four
+production validators are genuinely proved against the **real compiled bytecode**,
+whose provenance this audit re-verified end to end (4/4, §6.1). Three things changed
+since C4 and they are the only reasons to re-read this file:
 
-1. **The shaped classes are no longer empty.** A3 reported, as a measured fact, that
-   every shape in the library was unrealizable as a node-built transaction: the
-   shapes baked a one-entry redeemer map while carrying two script withdrawals, and
-   Conway UTXOW requires one redeemer entry per script witness. Tasks C1/C2 re-cut
-   **11 of the 12** shapes to carry the redeemer entries the rule demands, re-proved
-   **every** headline over the re-cut shapes, and certified each with a concrete
-   inhabitant satisfying `validXContext` **and both halves of Conway's
-   `hasExactSetOfRedeemers`** — the latter transcribed into CLAB by task C3 from the
-   ledger source and cross-checked on all 13 goldens (§4b). **Every witness CEK step
-   count is byte-identical to before the re-cut** (2603/3572/3150/3572/1541/2837/
-   784/1681/1257/1466/3004+3328), because none of the four validators dereferences
-   `txInfoRedeemers` except `DelegateSeize`. The one shape not re-cut is **L2**.
-2. **A `LeafSet` now exists over a non-empty class, and the bytecode does work in
-   it.** `RealizableLeaves.containment_on_realizable_class_of_p2` (task C4) is the
-   top claim over `T1RShape`, with `p1` discharged from `WSC.P1R_T1` — the
-   production `programmableLogicGlobal` bytecode at budget 4400 — through a new
-   shape bridge and `LR_BUDGET_global`. **Its acceptance hypothesis is used**, which
-   was false of every previous leaf discharge in this library. `p4` and `nopre` are
-   discharged *by the shape* (a pure-transfer transaction mints nothing and
-   registers nothing) and say so; `p2` is carried as the single remaining
-   hypothesis, i.e. an **N = 1** obligation gap.
+1. **Both composed results now have complete `LeafSet`s — and the honest measure is
+   the ratio, not the count.** `RealizableLeaves.containment_on_realizable_class`
+   (transfer, over `T1RShapeNS`) discharges `p1` from the production
+   `programmableLogicGlobal` bytecode with its acceptance hypothesis **consumed**,
+   and discharges `p2`, `p4`, `nopre` **from the shape**, with their acceptance
+   hypotheses **unused and bound as `_`**.
+   `RealizableLeaves.containment_on_seize_class` (seize, over `S1RShape`) is the
+   mirror image: `p2` is the production `programmableSeize` bytecode with its
+   acceptance hypothesis consumed, and the other three are the shape. **One of four
+   leaves is the code, on each side.** Closing `p2` on the transfer side cost
+   **nothing** in trust base — the axiom sets are set-equal, measured in §3.1.
+2. **The coverage question has an answer, and it is "no".** `WSC/Coverage.lean`
+   states coverage in Lean and refutes it for the twelve re-cut shapes at
+   `SizeBound 2 2 2 2 0` — SHAPE T1R's own size — with three counterexamples that
+   are ledger-valid, Conway-redeemer-exact, accepted by the real CEK, and cost
+   **exactly 2,603 steps**, byte-identical to the certified inhabitant. The machine
+   cannot tell them apart from a covered transaction; only the skeleton can. No
+   project axiom, no `sorryAx`.
+3. **Reproducibility moved from "one machine" to "one machine plus a verified
+   artifact"** (§6.2).
 
 The top-level sentence *"in an honest deployment, programmable tokens cannot exist
-outside the mini-ledger"* is still **not proved**, and the reasons remain structural:
-there is still no shape-**coverage** argument, every bytecode result is still bounded
-twice (a CEK step budget AND a fixed `Data` skeleton), `p2` is still open, and 28
-project axioms plus `sorryAx` still stand under the composed result. The deliverable
-is: six real, controlled, non-vacuous properties of the production bytecode over
-named bounded families that are now **node-realizable**; a machine-checked reduction
-of the top claim to four leaf obligations plus 28 axioms; and that reduction
-discharged three-quarters of the way over one realizable class. Not the claim.
+outside the mini-ledger"* is still **not proved**, and the reasons are now sharper
+rather than merely structural: there is no shape-coverage argument **and coverage is
+now known to be false for this family**, every bytecode result is still bounded twice
+(a CEK step budget AND a fixed `Data` skeleton), and 28 project axioms plus `sorryAx`
+still stand under both composed results. The deliverable is: six real, controlled,
+non-vacuous properties of the production bytecode over named bounded families that
+are node-realizable; a machine-checked reduction of the top claim to four leaf
+obligations plus 28 axioms; that reduction discharged **completely** over two
+realizable classes, with one quarter of the work done by the code on each; and a
+machine-checked refutation of the coverage step that would connect the two. Not the
+claim.
 
 ---
 
@@ -80,8 +91,8 @@ discharged three-quarters of the way over one realizable class. Not the claim.
 ### 1.1 Method
 
 ```
-cp -a /home/gumbo/iohk/CardanoLedgerApiBlaster <SCRATCH>/clab-c4
-cd <SCRATCH>/clab-c4
+cp -a /home/gumbo/iohk/CardanoLedgerApiBlaster <SCRATCH>/clab-E5
+cd <SCRATCH>/clab-E5
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.olean \
        .lake/build/lib/lean/WSC.ilean .lake/build/lib/lean/WSC.olean.hash \
        .lake/build/lib/lean/WSC.ilean.hash .lake/build/lib/lean/WSC.trace
@@ -93,47 +104,45 @@ Dependency oleans (`CardanoLedgerApi` and the `PlutusCore` / `Blaster` packages 
 the right cut and a full `lake clean` is not needed: no WSC verdict is computed in a
 dependency module — every `#import_uplc`, `#prep_uplc` and `#blaster` lives in a
 `WSC/` module — so deleting the WSC oleans forces all of them to run for real.
-Confirmed by the log: **90 distinct `WSC.*` modules re-elaborated**, including all 15
-shaped/unshaped `#prep_uplc` modules, all 4 `#import_uplc` sites, and all 158 solver
+Confirmed by the log: **93 distinct `WSC.*` modules re-elaborated**, including all
+shaped/unshaped `#prep_uplc` modules, all 4 `#import_uplc` sites, and all 159 solver
 invocations.
+
+**Run 3 was executed after this task's own changes were applied** (§6.2), to confirm
+they are inert with respect to the build. They are.
 
 ### 1.2 Result, against the audited baselines
 
-| measurement | A3 (`80cdac7`) | C1 (`48689b4`) | C2 (`e7329ed`) | **C4 (this audit)** |
-|---|---|---|---|---|
-| exit status | 0 — 405 jobs | 0 — 416 jobs | 0 — 428 jobs | **0 — `Build completed successfully (429 jobs)`** |
-| wall clock | 1 m 38.50 s | 1 m 45.66 s | 1 m 34.93 s | **1 m 30.22 s / 1 m 42.57 s** (two independent runs — quote the range, not a point) |
-| user + sys CPU | 275.9 + 33.6 s | — | 379.5 + 50.1 s | **380.4 s + 56.6 s (484 %)** |
-| max RSS | 1.65 GB | 1.64 GB | 1.66 GB | **1.65 GB** (1,648,992 KB) |
-| WSC modules re-elaborated | 67 | 78 | 89 | **90** |
-| `error:` lines | 0 | 0 | 0 | **0** (hard requirement — met) |
-| solver verdicts | 101: 66 V + 35 F | 119: 75 V + 44 F | 157: 100 V + 57 F | **158: 101 `✅ Valid` + 57 `✅ Expected Falsified`** |
-| `⚠️ Undetermined` / `❌` | 0 | 0 | 0 | **0** |
-| `declaration uses 'sorry'` | 20 | 20 | 20 | **20** (census §2) |
-| `unused variable` warnings | 5 | 5 | 5 | **5** — all at `Composition.lean:2442-2446` (§5.4) |
+| measurement | A3 (`80cdac7`) | C4 (`300f9e0`) | **E5 (this audit)** |
+|---|---|---|---|
+| exit status | 0 — 405 jobs | 0 — 429 jobs | **0 — `Build completed successfully (431 jobs)`** |
+| wall clock | 1 m 38.50 s | 1 m 30.22 / 1 m 42.57 s | **1 m 39.29 s / 1 m 46.56 s / 1 m 57.07 s** (three runs — **quote the range 1:39–1:57**, never a point) |
+| user + sys CPU | 275.9 + 33.6 s | 380.4 + 56.6 s | **402.7–434.9 s + 50.3–54.0 s** (417–456 %) |
+| max RSS | 1.65 GB | 1.65 GB | **1.50–1.52 GB** |
+| WSC modules re-elaborated | 67 | 90 | **93** |
+| `error:` lines | 0 | 0 | **0** (hard requirement — met, all three runs) |
+| solver verdicts | 101: 66 V + 35 F | 158: 101 V + 57 F | **159: 102 `✅ Valid` + 57 `✅ Expected Falsified`** |
+| `⚠️ Undetermined` / `❌` | 0 | 0 | **0** (all three runs) |
+| `declaration uses 'sorry'` | 20 | 20 | **20** (census §2) |
+| `unused variable` | 5 | 5 | **5** — all at `Composition.lean:2442-2446` (§5.4) |
 
-### 1.3 The verdict delta reconciles exactly, stage by stage
+Note the RSS change is a **reduction** (1.65 → 1.50 GB) and the median wall clock is
+up ~10 s; both are consistent with +2 modules of ordinary Lean and no new solver load.
 
-`101 → 158` is `+57`, and every marker is accounted for:
+### 1.3 The verdict delta reconciles exactly
 
-* **C3** (`755d75e…7174e3d`): **+0 jobs, +0 verdicts.** C3's additions are CLAB
-  definitions (`scriptPurposesWitnessed`, `redeemerCoverage`, `noExtraRedeemers`,
-  `redeemersExact`), `native_decide` golden theorems in `WSC/Goldens/Audit.lean`, one
-  new `axiom` (`LR_REDEEMER_COVERAGE`) and audit-table prose. None of those is a
-  `blaster` invocation. Verified by differencing the per-file marker table.
-* **C1** (`48689b4`): **+11 modules, +18 verdicts** (9 Valid + 9 Expected Falsified) —
-  `P1ShapedR` 5 + 5, `P5ShapedR` 2 + 2, `P6ShapedR` 2 + 2. Its six new `#prep_uplc`
-  modules and `GlobalRealizability` contribute no verdict (`native_decide` and
-  ordinary Lean only).
-* **C2** (`e7329ed`): **+12 modules, +38 verdicts** (25 Valid + 13 Expected
-  Falsified) — `P4ShapedR` 4 + 2, `P4ShapedRIdx` 3 + 2, `P4LocalShapedR` 6 + 2,
-  `P4DelegateShapedR` 7 + 4, `P2ShapedR` 5 + 3. `WSC/Realizability.lean` and
-  `RealizableShapes` contribute none.
-* **C4** (this task): **+1 module, +1 verdict** — `RealizableLeaves.bridge_T1R`,
-  1 `✅ Valid`. `exec_T1R` is `rfl`; everything else in the module is ordinary Lean
-  plus two `native_decide`s inherited from C1's witness.
+`158 → 159` is `+1`, and it is accounted for:
 
-`66 + 9 + 25 + 1 = 101` ✅ Valid and `35 + 9 + 13 + 0 = 57` ✅ Expected Falsified.
+* **E1** (`ad0e2e9`): **+1 module, +1 verdict** — `bridge_S1R`, 1 `✅ Valid` at
+  `RealizableLeavesS1R.lean:166`. Everything else E1 added in both modules is
+  ordinary Lean, `rfl`, or `native_decide`. Verified by differencing the per-file
+  marker table: `RealizableLeaves.lean` still contributes exactly 1.
+* **E4** (`4919968`, `8163803`): **+1 module, +0 verdicts** — `WSC/Coverage.lean`
+  runs no solver at all. Verified: it appears nowhere in the marker table.
+* **E2**: **+0 / +0** — it produced nothing (§7.2).
+* **E5** (this task): **+0 / +0** — documentation and the substrate artifact only.
+
+`101 + 1 = 102` ✅ Valid and `57 + 0 = 57` ✅ Expected Falsified.
 
 Per-file marker table, complete (regenerable from the log):
 
@@ -141,34 +150,36 @@ Per-file marker table, complete (regenerable from the log):
 |---|---|---|
 | `WSC/ShapeBridge.lean` | 19 | 6 |
 | `WSC/Props/Shaped/P4DelegateShaped.lean` | 7 | 4 |
-| **`WSC/Props/Shaped/P4DelegateShapedR.lean`** | **7** | **4** |
+| `WSC/Props/Shaped/P4DelegateShapedR.lean` | 7 | 4 |
 | `WSC/Props/Shaped/P4LocalShaped.lean` | 7 | 3 |
-| **`WSC/Props/Shaped/P4LocalShapedR.lean`** | **6** | **2** |
+| `WSC/Props/Shaped/P4LocalShapedR.lean` | 6 | 2 |
 | `WSC/Props/Shaped/P1Shaped.lean` | 5 | 5 |
-| **`WSC/Props/Shaped/P1ShapedR.lean`** | **5** | **5** |
+| `WSC/Props/Shaped/P1ShapedR.lean` | 5 | 5 |
 | `WSC/Props/Shaped/P2Shaped.lean` | 5 | 3 |
-| **`WSC/Props/Shaped/P2ShapedR.lean`** | **5** | **3** |
+| `WSC/Props/Shaped/P2ShapedR.lean` | 5 | 3 |
 | `WSC/Props/Shaped/P4Shaped.lean` | 4 | 2 |
-| **`WSC/Props/Shaped/P4ShapedR.lean`** | **4** | **2** |
+| `WSC/Props/Shaped/P4ShapedR.lean` | 4 | 2 |
 | `WSC/Props/Shaped/P4ShapedIdx.lean` | 3 | 2 |
-| **`WSC/Props/Shaped/P4ShapedRIdx.lean`** | **3** | **2** |
+| `WSC/Props/Shaped/P4ShapedRIdx.lean` | 3 | 2 |
 | `WSC/Props/P3_Base.lean` | 3 | 2 |
 | `WSC/Props/P3_BaseRun.lean` | 3 | 1 |
 | `WSC/Props/Shaped/P5Shaped.lean` | 2 | 2 |
-| **`WSC/Props/Shaped/P5ShapedR.lean`** | **2** | **2** |
+| `WSC/Props/Shaped/P5ShapedR.lean` | 2 | 2 |
 | `WSC/Props/Shaped/P6Shaped.lean` | 2 | 2 |
-| **`WSC/Props/Shaped/P6ShapedR.lean`** | **2** | **2** |
+| `WSC/Props/Shaped/P6ShapedR.lean` | 2 | 2 |
 | `WSC/Shaped/Calib/P3Shaped.lean` | 2 | 2 |
 | `WSC/Shaped/Calib/P3Unshaped.lean` | 1 | 1 |
 | `WSC/Goldens/Witnesses.lean` | 1 | — |
 | `WSC/Prep/Global.lean` | 1 (vacuity BY DESIGN) | — |
 | `WSC/Props/P4_Minting.lean` | 1 (vacuity BY DESIGN) | — |
-| **`WSC/Props/Shaped/RealizableLeaves.lean`** | **1** | — |
-| **total** | **101** | **57** |
+| `WSC/Props/Shaped/RealizableLeaves.lean` | 1 | — |
+| **`WSC/Props/Shaped/RealizableLeavesS1R.lean`** | **1** | — |
+| `WSC/Coverage.lean` | **0** | **0** |
+| **total** | **102** | **57** |
 
 ### 1.4 Source reconciliation — the check that rules out a skipped stanza
 
-Counted over the 90 built modules, with block comments and docstrings stripped first
+Counted over the 93 built modules, with block comments and docstrings stripped first
 (A3 did not strip them, which is why its tactic count needed a manual correction):
 
 * **57** active (column-0) `#blaster … (solve-result: 1)` stanzas = "expect
@@ -176,67 +187,72 @@ Counted over the 90 built modules, with block comments and docstrings stripped f
 * **2** active `#blaster … (solve-result: 0)` stanzas = "expect Valid, i.e. expect
   VACUOUS" (`WSC/Prep/Global.lean:83` `global_vacuity_probe_600`;
   `WSC/Props/P4_Minting.lean:386` `minting600_is_vacuous`) → **2 × `✅ Valid`**.
-* **99** `blaster` tactic invocations in theorem position → **99 × `✅ Valid`**.
-  (94 written `:= by blaster` on one line; **5** written `:= by` with `blaster`
+* **100** `blaster` tactic invocations in theorem position → **100 × `✅ Valid`**.
+  (95 written `:= by blaster` on one line; **5** written `:= by` with `blaster`
   indented on the next line — `P3_BaseRun.lean:93,112,141`,
   `Goldens/Witnesses.lean:152`, `P3_Base.lean:210`. A naive one-line grep misses
-  those five and lands on 96 instead of 101; recorded so the next auditor does not
+  those five and lands on 154 instead of 159; recorded so the next auditor does not
   chase the discrepancy.)
-* 57 + 2 + 99 = **158**, and the per-file split matches §1.2's table one-for-one.
+* 57 + 2 + 100 = **159**, and the per-file split matches §1.2's table one-for-one.
   **No stanza is unaccounted for and none is skipped.**
 
 ### 1.5 Slowest cold modules
 
 `WSC.Prep.Global1600` ≈ 42 s in-parallel, `WSC.ShapeBridge` ≈ 38 s,
 `WSC.Shaped.MintingLocalShapedIdx` ≈ 30 s, `WSC.Props.Shaped.P2Shaped` ≈ 25 s,
-`WSC.Props.Shaped.P2ShapedR` ≈ 24 s, `WSC.Composition` 5.4 s,
-`WSC.Props.Shaped.P1ShapedR` 3.1 s, `WSC.Props.Shaped.RealizableLeaves` 2.6 s,
-`WSC.Props.Shaped.P5ShapedR` 2.2 s. Everything else ≤ 7 s. **The re-cut cost
-essentially nothing**: the six new global `#prep_uplc` modules are 1.1–1.5 s each,
-and the predicted "enlarged redeemer map re-hits the solver wall" risk did not
-materialise — 19/19 new queries (18 from C1/C2, 1 from C4) returned a verdict.
+`WSC.Props.Shaped.P2ShapedR` ≈ 24 s, **`WSC.Props.Shaped.RealizableLeavesS1R` 20 s**
+(new; its `native_decide` seize witnesses dominate), `WSC.Composition` 5.4 s,
+`WSC.Props.Shaped.RealizableLeaves` 2.6 s, **`WSC.Coverage` 1.7–2.2 s**. Everything
+else ≤ 7 s.
 
 ---
 
 ## 2. SORRY / ADMIT CENSUS
 
-20 `declaration uses 'sorry'` warnings, classified:
+20 `declaration uses 'sorry'` warnings, classified — locations re-extracted from the
+log, not carried over:
 
 | class | count | detail |
 |---|---|---|
-| **(a)** blaster `admit` on a declaration that reported ✅ Valid | **19** | `WSC/ShapeBridge.lean:{844,857,873,889,909,930,951,970,992,1015,1037,1060,1088,1111,1134,1157,1360,1370,1446}` |
+| **(a)** blaster `admit` on a declaration that reported ✅ Valid | **19** | all in `WSC/ShapeBridge.lean` |
 | **(b)** PCB pre-existing, not WSC code | **1** | `PlutusCore/UPLC/CekMachine.lean:299:4` — unchanged |
 | **(c)** anything else = DEFECT | **0** | — |
 
-**The warning count is NOT a census and must never be quoted as one (§8 F6).**
-`grep -rl 'set_option warn.sorry false' WSC/` returns **37 modules** (A3: 27; C1/C2/C4
-added 10), so the ~80 further `admit`-closed theorems in them emit no warning at all.
-The authoritative instrument is `#print axioms` → `sorryAx` (§3), and by that
-instrument **every one of the 99 `by blaster` theorems in the library is
-admit-closed.**
+**The warning count is NOT a census and must never be quoted as one (§8 F4).**
+`grep -rl 'set_option warn.sorry false' WSC/` returns **38** modules (C4: 37; E1's
+`RealizableLeavesS1R` is the +1 — `WSC/Coverage.lean` deliberately does **not**
+suppress and emits zero warnings), so the ~100 further `admit`-closed theorems in
+them emit no warning at all. The authoritative instrument is `#print axioms` →
+`sorryAx` (§3), and by that instrument **every one of the 100 `by blaster` theorems
+in the library is admit-closed.**
 
-Literal-source grep over `WSC/**/*.lean`:
+Literal-source grep over `WSC/**/*.lean`, comments stripped:
 
-* **no** literal `sorry`, `admit` or `stop` in tactic position anywhere. All 3
-  remaining textual hits are prose inside docstrings ("vacuously discharged", "too
-  tight to admit the transactions", "the two budgets whose prep DID complete").
-  Verified at this revision.
+* **no** literal `sorry`, `admit` or `stop` in tactic position anywhere. The
+  remaining textual hits are prose inside docstrings. Verified at this revision.
 * **51** `axiom` declarations: `WSC/Honest.lean` (**38**), `WSC/Composition.lean`
   (**10**), `WSC/Props/P1_Transfer.lean` (**2**), `WSC/Model/SeizeModel.lean` (**1**).
-  A3 published 50 with `Honest.lean` = 37; the +1 is C3's `LR_REDEEMER_COVERAGE`,
-  and it is the only axiom added in stage 9.
+  **Unchanged by stage 11** — E1 and E4 added none.
 * **Zero `axiom` declarations under `WSC/Prep/`, `WSC/Shaped/` or
   `WSC/Props/Shaped/`** — machine-verified at this revision, and this is the shaped
-  layer's central claim: it adds no assumption. **It survives C1, C2 and C4
-  intact**, including C4's new `RealizableLeaves.lean`, which lives under
-  `Props/Shaped/` and declares no axiom.
+  layer's central claim: it adds no assumption. **It survives E1 and E4 intact**,
+  including `RealizableLeavesS1R.lean`. (`WSC/Coverage.lean` is not under those
+  directories; it declares no axiom either — verified.)
 
 ---
 
 ## 3. AXIOM CENSUS
 
-The rebuild log carries **142** `#print axioms` lines (A3: 73); **27** of them
-contain `sorryAx`.
+The rebuild log carries **173** `#print axioms` results, all distinct names
+(C4: 142). Of these, **37** carry `sorryAx`, **72** use `native_decide`, and **124**
+carry **zero project axioms**.
+
+> **Parsing trap, recorded because it cost this audit time.** `#print axioms` output
+> **wraps across log lines**. A line-oriented `grep 'depends on axioms' | grep -c
+> sorryAx` returns **17**, not 37 — it only sees names whose axiom list happens to
+> fit on the first line. Parse for `'NAME' depends on axioms: [` … `]` across
+> newlines. C4's published "27 with `sorryAx`" was produced by the line-oriented
+> method and is **corrected here**.
 
 Legend: **(i)** Lean-standard `propext`/`Classical.choice`/`Quot.sound`;
 **(ii)** `native_decide` = `Lean.ofReduceBool` + `Lean.trustCompiler`;
@@ -244,23 +260,17 @@ Legend: **(i)** Lean-standard `propext`/`Classical.choice`/`Quot.sound`;
 
 ### 3.1 The number a reviewer needs
 
-There are now **two** strongest-available claims and they are not comparable, so
-both are quoted:
+There are now **three** strongest-available claims and they are not comparable, so
+all three are quoted:
 
 **(a) `Composition.containment_on_contained_class` — 26 project axioms.** Over the
 `ContainedTx` accounting class. Uses **no UPLC result**; its acceptance hypotheses
-are provably unused. The set is identical to `top_claim`'s, measured:
+are provably unused.
 
-```
-top_claim  ==  containment_on_contained_class      :  True
-top_claim  ==  no_escape_on_contained_class        :  True
-top_claim  ==  containment_on_inert_class_of_nopre :  True
-```
-
-**(b) `RealizableLeaves.containment_on_realizable_class_of_p2` — 28 project
-axioms, plus one open `p2` hypothesis.** Over a shape class that is **not empty**.
-Uses the production bytecode for `p1`, and **consumes the acceptance hypothesis**.
-The 28 are the same 26 **plus exactly two**:
+**(b) `RealizableLeaves.containment_on_realizable_class` — 28 project axioms, no
+leaf hypothesis.** Over `T1RShapeNS`, a non-empty shape class. Uses the production
+`programmableLogicGlobal` bytecode for `p1`, **consuming the acceptance
+hypothesis**. The 28 are the same 26 **plus exactly two**:
 
 * `WSC.LR_BUDGET_global` — the ledger↔meter bridge at `K_global = 4400`, whose
   non-vacuity hypothesis is *discharged*, not assumed
@@ -268,11 +278,32 @@ The 28 are the same 26 **plus exactly two**:
 * `WSC.TS3` — reached through `Composition.coveringIn_of_coveringRaw`, the
   raw↔ground-truth reconciliation of the directory exemption predicate.
 
-**That two-axiom delta is the price of making the bytecode load-bearing, and it is
-the single most informative number in this audit.** Result (a) is cheaper in axioms
-and says nothing about the validators. Result (b) costs two more axioms and says
-something about the validators, over a class with a machine-checked node-realizable
-inhabitant. Neither dominates; quote both or quote (b) with its `p2`.
+**(c) `RealizableLeaves.containment_on_seize_class` — 28 project axioms, no leaf
+hypothesis.** Over `S1RShape`. Uses the production `programmableSeize` bytecode for
+`p2`, **consuming the acceptance hypothesis**. Its 28 are the same 26 plus
+`WSC.LR_BUDGET_seize` and `WSC.nodeStepsSeize`. `TS3` disappears because `p1` no
+longer needs the raw↔ground-truth covering reconciliation.
+
+Measured set differences (from the parsed log, not from any report):
+
+```
+axioms(containment_on_realizable_class) Δ axioms(containment_on_realizable_class_of_p2)  =  ∅
+axioms(containment_on_realizable_class) ∖ axioms(containment_on_contained_class)
+      =  {WSC.LR_BUDGET_global, WSC.TS3}                       (∅ in the other direction)
+axioms(containment_on_seize_class)      ∖ axioms(containment_on_contained_class)
+      =  {WSC.LR_BUDGET_seize, WSC.nodeStepsSeize}             (∅ in the other direction)
+axioms(containment_on_seize_class)      Δ axioms(containment_on_realizable_class)
+      =  {LR_BUDGET_seize, nodeStepsSeize}  vs  {LR_BUDGET_global, TS3}
+```
+
+**Two facts a reviewer should take from this.** First, the two-axiom delta is the
+price of making the bytecode load-bearing, and it is the single most informative
+number in this audit: result (a) is cheaper in axioms and says nothing about the
+validators; results (b) and (c) each cost two more and each say something about one
+validator. Second — new in stage 11 — **closing `p2` cost nothing at all**: the
+axiom set of the hypothesis-free (b) is *set-equal* to that of the C4 result that
+assumed `p2`. The obligation was removed by a class restriction, not bought with a
+new assumption. That is the honest reading, and §3.4 gives the honest price.
 
 The 26 shared, by home file:
 
@@ -294,75 +325,116 @@ LR_BALANCE_SLOT  NONNEG_L  DIRWF_L
 ts_genesis  ts_minting_identity_L
 ```
 
-**Read 26/28 as a floor, not a ceiling.** The library declares 51; the 23 that no
-top-level theorem reaches — `LR1`–`LR7`, `LR_BUDGET_{minting,seize}`, `DIRWF`,
-`TS1`–`TS5` (less `TS3`), `TS_MINTING_IDENTITY`, `nodeStepsSeize`,
-`LR_REDEEMER_COVERAGE`, and the two `*_faithful` axioms — are what a *fuller*
-bytecode discharge of the leaves would add.
+**Read 26/28 as a floor, not a ceiling.** The library declares 51; the 21 that no
+top-level theorem reaches — `LR1`–`LR7`, `LR_BUDGET_minting`, `DIRWF`, `TS1`–`TS5`
+(less `TS3`), `TS_MINTING_IDENTITY`, `LR_REDEEMER_COVERAGE`, and the two `*_faithful`
+axioms — are what a *fuller* bytecode discharge of the leaves would add.
 
 ### 3.2 Per-theorem table (project-axiom count; flags)
 
 | theorem | (i) | (ii) | (iii) | (iv) |
 |---|---|---|---|---|
-| **`RealizableLeaves.containment_on_realizable_class_of_p2`** | ✓ | ✓ | ✓ | **28** (§3.1b) + one open `p2` hypothesis |
-| **`RealizableLeaves.no_tokens_outside_mini_ledger_on_realizable_class_of_p2`** | ✓ | ✓ | ✓ | **28** (identical set) + `p2` |
-| **`RealizableLeaves.realizableLeaves`** (the constructed `LeafSet`) | ✓ | ✓ | ✓ | **12** — `Deployed`, `LR_BUDGET_global`, `LR_CTX`, `NodeAccepts{Global,Minting,Seize}`, `OnChain`, `TS3`, `nodeSteps{Base,Global,Minting}`, `LedgerStep` |
-| **`RealizableLeaves.shapedGlobalContainment_T1R`** (the bytecode leaf) | ✓ | ✓ | ✓ | **7** — `LR_BUDGET_global`, `LR_CTX`, `NodeAcceptsGlobal`, `OnChain`, `nodeSteps{Base,Global,Minting}` |
-| `RealizableLeaves.p4_on_T1RShape` | ✓ | — | **—** | 6 (all from the field's own signature; **no bytecode**) |
-| `RealizableLeaves.nopre_on_T1RShape` | ✓ | — | **—** | 6 (likewise) |
-| **`RealizableLeaves.bridge_T1R`** | ✓ | — | ✓ | **0** |
-| **`RealizableLeaves.exec_T1R`** | ✓ | — | **—** | **0 — kernel-checked `rfl`** |
-| **`RealizableLeaves.realizable_inhabitant`** | ✓ | ✓ | **—** | **0 — the class is non-empty and node-realizable, on no assumption** |
-| `Composition.containment_on_contained_class` | ✓ | ✓ | ✓ | **26** (§3.1a) |
-| `Composition.no_escape_on_contained_class` | ✓ | ✓ | ✓ | **26** (identical set) |
-| `Composition.containment_on_inert_class_of_nopre` | ✓ | ✓ | ✓ | **26** + one open `nopre` hypothesis |
-| `Composition.top_claim` / `no_programmable_tokens_outside_mini_ledger` | ✓ | ✓ | ✓ | **26** + a `LeafSet` hypothesis |
-| `Composition.containedLeaves` | ✓ | **—** | **—** | **11**. **No `sorryAx`, no `native_decide`, no `blaster` verdict** — which is exactly how you can tell no bytecode result is used |
+| **`RealizableLeaves.containment_on_realizable_class`** | ✓ | ✓ | ✓ | **28** (§3.1b), **no leaf hypothesis** |
+| **`RealizableLeaves.no_tokens_outside_mini_ledger_on_realizable_class`** | ✓ | ✓ | ✓ | **28** (identical set) |
+| **`RealizableLeaves.containment_on_seize_class`** | ✓ | ✓ | ✓ | **28** (§3.1c), **no leaf hypothesis** |
+| **`RealizableLeaves.no_tokens_outside_mini_ledger_on_seize_class`** | ✓ | ✓ | ✓ | **28** (identical set) |
+| `RealizableLeaves.containment_on_realizable_class_of_p2` (C4, retained) | ✓ | ✓ | ✓ | 28 + one open `p2` |
+| **`RealizableLeaves.realizableLeavesNS`** | ✓ | ✓ | ✓ | **12** — `Deployed`, `LR_BUDGET_global`, `LR_CTX`, `NodeAccepts{Global,Minting,Seize}`, `OnChain`, `TS3`, `nodeSteps{Base,Global,Minting}`, `LedgerStep` |
+| **`RealizableLeaves.realizableLeavesS1R`** | ✓ | ✓ | ✓ | **13** — the above with `{LR_BUDGET_seize, NONNEG, nodeStepsSeize}` for `{LR_BUDGET_global, TS3}` |
+| **`RealizableLeaves.p2_of_noSeizeWdrl`** (closed leaf, transfer side) | ✓ | **—** | **—** | **7** — and **no `sorryAx`, no `native_decide`**: no bytecode result is reachable from it |
+| **`RealizableLeaves.p1_of_noGlobalWdrl`** (closed leaf, seize side) | ✓ | **—** | **—** | **7** — likewise |
+| **`RealizableLeaves.p2_on_S1RShape`** (bytecode leaf, seize side) | ✓ | ✓ | ✓ | **10** — `Deployed`, `LR_BUDGET_seize`, `LR_CTX`, `NONNEG`, `NodeAcceptsSeize`, `OnChain`, `nodeSteps{Base,Global,Minting,Seize}` |
+| **`RealizableLeaves.shapedGlobalContainment_T1RNS`** (bytecode leaf, transfer side) | ✓ | ✓ | ✓ | **7** — `LR_BUDGET_global`, `LR_CTX`, `NodeAcceptsGlobal`, `OnChain`, `nodeSteps{Base,Global,Minting}` |
+| `RealizableLeaves.p4_on_T1RShape` / `nopre_on_T1RShape` | ✓ | — | **—** | 6 each (field signature only; **no bytecode**) |
+| `RealizableLeaves.p4_on_S1RShape` / `nopre_on_S1RShape` | ✓ | — | **—** | 7 each (likewise) |
+| **`RealizableLeaves.exec_T1R`, `exec_S1R`** | ✓ | — | **—** | **0 — kernel-checked `rfl`** |
+| **`RealizableLeaves.bridge_T1R`, `bridge_S1R`** | ✓ | — | ✓ | **0** |
+| **`RealizableLeaves.realizable_inhabitant`, `_NS`, `_S1R`** | ✓ | ✓ | **—** | **0 — the classes are non-empty and node-realizable, on no assumption** |
+| **`RealizableLeaves.inhabitant_accepted_by_bytecode`** | ✓ | ✓ | **—** | **0** |
+| `RealizableLeaves.witness_noSeizeWdrl`, `t1RShapeNS_witness`, `s1RShape_witness` | ✓ | — | — | **"does not depend on any axioms"** |
+| **`Coverage.not_covers_at_T1R_size`, `_size'`, `_with_three_reference_inputs`** | ✓ | ✓ | **—** | **0 — no project axiom, no `sorryAx`** |
+| **`Coverage.missed_transactions_are_realizable_and_accepted`, `_cost_exactly_2603_steps`** | ✓ | ✓ | **—** | **0** |
+| `Coverage.family_invariants`, `ctxOk_in_family`, `wdrl_range_char`, `unshaped_covers` | ✓ | — | — | **0** |
+| `Coverage.skeletons_at_{T1R,M1R,minimal_transfer}_size` | — | ✓ | — | **0** |
+| `Coverage.p3_lives_over_a_covering_class` | ✓ | — | ✓ | 0 (inherits P3's blaster `admit` — expected, and stated in the module) |
+| `Composition.containment_on_contained_class` / `no_escape_on_contained_class` / `top_claim` | ✓ | ✓ | ✓ | **26** |
+| `Composition.containedLeaves` | ✓ | **—** | **—** | **11**. **No `sorryAx`, no `native_decide`, no `blaster` verdict** — exactly how you can tell no bytecode result is used |
 | `Composition.preservation` | ✓ | ✓ | ✓ | 22 |
-| `Composition.leafP1_of_shapedGlobalContainment` | ✓ | — | — | 7 |
-| `Composition.p4_disjuncts_of_custody` | ✓ | — | — | 1 — `OnChain` |
-| `P1R_T1` / `P1R_T2` / `P1R_T6` / `P1R_T7` (+ controls) | ✓ | — | ✓ | **0** |
-| `P5R_shaped_indexed` / `_exists` | ✓ | — | ✓ | **0** |
+| `P1R_T1/T2/T6/T7`, `P5R_shaped_indexed/_exists`, `P6R_*`, `P4*_R*`, `P2a_R_*`, `P2b_R_containment` | ✓ | — | ✓ | **0** |
 | `P5R_shaped_groundtruth` | ✓ | — | ✓ | 3 — `Deployed`, `OnChain`, `TS3` |
-| `P6R_shaped_member_adds_to_requirement`, `_mint_stays_at_base` | ✓ | — | ✓ | **0** |
-| `P6R_shaped_noBaseInputs` | ✓ | — | **—** | **0 — pure Lean** |
-| `P4a_R_*`, `P4_burn_only_R(Idx)`, `P4_burnonly_arm_R` | ✓ | — | ✓ | **0** |
-| `P4_local_*_R`, `P4_disjunction_at_L1R`, `P4_delegate*_R`, `P4_disjunction_at_{DT1R,DS1R}` | ✓ | — | ✓ | **0** |
-| `P2a_R_structure` / `P2b_R_containment` / `P2_R_gates_are_earned` (+ controls) | ✓ | — | ✓ | **0** |
-| **`{g1R,g6R,t1R,t2R,t6R,t7R}_class_coverage`**, **`{m1r,m2r,l1r,dt1r,ds1r,s1r}_class_coverage`** | ✓ | — | **—** | **0 — coverage holds at EVERY leaf assignment, in CLAB's own vocabulary** |
-| **`{g1R,g6R,t1R,t2R,t6R,t7R}_realizable`**, **`{m1r,m2r,l1r,dt1r,ds1r,s1r}_realizable`** | ✓ | ✓ | **—** | **0** |
-| `RealizableShapes.all_recut_witnesses_redeemersExact` | ✓ | ✓ | — | **0** |
-| `RealizableShapes.all_old_witnesses_fail_c3_coverage` | ✓ | ✓ | — | **0** |
+| the 12 `*_class_coverage` and 12 `*_realizable` theorems | ✓ | ✓/— | **—** | **0** |
 | `ShapeRealizability.t1_class_is_empty` | ✓ | — | **—** | **5** |
-| `ShapeRealizability.{g6,t2,t6,t7}_class_is_empty` | ✓ | — | — | 2–5, incl. `LR_REDEEMER_COVERAGE` for `g6` |
-| `ShapeRealizability.{l1,m1,g1,s1}_class_is_empty_under_coverage` | ✓ | — | — | 1 — `OnChain` (+ the `RedeemerCoverage` **hypothesis**, a `def … : Prop`, **not** an axiom) |
-| `NonVacuity.{minting@2500, global@1600/3300/4400, seize@3800}` | ✓ | ✓ | **—** | **0** |
-| `Composition.baseNonVacuous`, `mintingNonVacuous` | ✓ | ✓ | **—** | **0** |
-| all concrete CEK witnesses (`K_T1R_is_2603`, `K_is_784`, `K_is_1681`, `ctxDS_K_is_1466`, …) | ✓ | ✓ | **—** | **0** |
+| `NonVacuity.*`, all concrete CEK witnesses (`K_T1R_is_2603`, `K_is_784`, …) | ✓ | ✓ | **—** | **0** |
 
 ### 3.3 Four properties of the list a reviewer should notice
 
 1. **Every top-level theorem carries `sorryAx`.** All of them reach `p3_lifted`,
-   which reaches the blaster-closed run-form P3; the new one additionally reaches
-   `P1R_T1` and `bridge_T1R`. The kernel did **not** check them; their status is
-   "checked modulo a `✅ Valid` Z3 verdict recorded in the build log". The sentence
-   "the top theorem is `sorry`-free" is **false as stated** (§8 F4).
-2. **A P1 result now DOES appear in a top-level theorem's dependency graph.** This
-   is new and it is the point of stage 9. In `containment_on_contained_class` no
-   P1/P2/P4/P5/P6 result appears anywhere; in
-   `containment_on_realizable_class_of_p2`, `P1R_T1` and `bridge_T1R` are both
-   reached, which is why that theorem carries `sorryAx` **through a shaped leaf** and
-   why `NodeAcceptsGlobal` is not merely mentioned in a field type but consumed.
-3. **`LR_BUDGET_minting` and `LR_BUDGET_seize` are still applied by nothing.**
-   `grep` finds only docstring mentions. `LR_BUDGET_base` is applied at exactly one
-   instantiation (`p3_lifted`, `K := 600`), and — new in C4 — `LR_BUDGET_global` at
-   exactly one (`shapedGlobalContainment_T1R`, `K := 4400`). Two of A1's seven
-   published budgets are now exercised; five are not (§8 F15).
+   which reaches the blaster-closed run-form P3; the shaped ones additionally reach
+   `P1R_T1`/`bridge_T1R` or `P2b_R_containment`/`bridge_S1R`. The kernel did **not**
+   check them; their status is "checked modulo a `✅ Valid` Z3 verdict recorded in the
+   build log". The sentence "the top theorem is `sorry`-free" is **false as stated**.
+2. **A P1 result and now a P2 result both appear in top-level dependency graphs.**
+   In `containment_on_contained_class` no P1/P2/P4/P5/P6 result appears anywhere; in
+   `containment_on_realizable_class`, `P1R_T1` and `bridge_T1R` are reached; in
+   `containment_on_seize_class`, `P2b_R_containment` and `bridge_S1R` are. That is
+   why those two carry `sorryAx` **through a shaped leaf** and why
+   `NodeAcceptsGlobal` / `NodeAcceptsSeize` are not merely mentioned in a field type
+   but consumed.
+3. **Three of seven published budget instantiations are now exercised** —
+   `LR_BUDGET_base` at 600 (`p3_lifted`), `LR_BUDGET_global` at 4400
+   (`shapedGlobalContainment_T1R`), and — **new in stage 11** — `LR_BUDGET_seize` at
+   3800 (`p2_on_S1RShape`). `LR_BUDGET_minting` is still applied by nothing (§8 F15).
 4. **Lean's `unused variable` linter is still the honest instrument it was in A3.**
    Five warnings, all at `Composition.lean:2442-2446` — A2's inline `LeafSet` — and
-   **none** in `RealizableLeaves.lean`, because its `p1` field really does use its
-   acceptance hypothesis and its `p4`/`nopre` fields bind theirs as `_` deliberately
-   (§5.4).
+   **none** in `RealizableLeaves.lean`, `RealizableLeavesS1R.lean` or `Coverage.lean`,
+   because the bytecode leaves really do use their acceptance hypotheses and the
+   shape leaves bind theirs as `_` deliberately (§5.4).
+
+### 3.4 THE RATIO — the honest measure, and why "N = 0" must never be quoted alone
+
+C4 reported an **N = 1** obligation gap and asked whether closing it would make the
+bytecode do more work. **It does not, and the artifact says so itself.** Verified
+here by reading the proof terms and by the axiom flags in §3.2, not from any report:
+
+| composed result | class | `p1` | `p2` | `p4` | `nopre` | leaf hypotheses |
+|---|---|---|---|---|---|---|
+| `containment_on_realizable_class` | `T1RShapeNS` (transfer) | **BYTECODE** — `WSC.P1R_T1`, `programmableLogicGlobal` @ 4400, acceptance hyp. **used** | SHAPE + ledger rule | SHAPE | SHAPE | **0** |
+| `containment_on_seize_class` | `S1RShape` (seize) | SHAPE + ledger rule | **BYTECODE** — `WSC.P2b_R_containment`, `programmableSeize` @ 3800, acceptance hyp. **used** | SHAPE | SHAPE | **0** |
+
+**One of four leaves is the bytecode on each side; three of four are the shape.**
+
+The mechanism on the shape side is a real ledger argument, not hand-waving, and it is
+the only genuinely new proof technique in stage 11:
+`NoSeizeWdrl hp ctx := credentialInWithdrawals hp.seizeLogicCred …txInfoWdrl = false`
+makes the `p2` leaf's *hypotheses contradictory* via `validScriptInfo`'s
+`RewardingScript` clause (`CardanoLedgerApi/V3/Contexts.lean:1014`, transcribing
+Conway rewarding `scriptsNeeded`, `Alonzo/UTxO.hs:375-384`): a rewarding script runs
+only for a credential the transaction actually withdraws at. `WSC.NodeAcceptsSeize`
+is bound as `_hacc`, and `p2_of_noSeizeWdrl` carries **no `sorryAx` and no
+`native_decide`** — machine-checkable evidence that no seize-validator result is
+reachable from it. The seize side is the mirror image with `NoGlobalWdrl`.
+
+**What this means, stated so it cannot be softened.** Removing the last leaf
+hypothesis did **not** make the composition say more about the validators. It made
+explicit that in a pure-transfer class three of the four obligations are about things
+the class does not do, and that on the seize side the load-bearing leaf is the other
+one. **Quote the ratio, never just "N = 0".** Both module docstrings say this, and so
+does `WSC.lean`'s stanza — checked.
+
+**Two further restrictions, recorded because E1 flagged them and this audit confirms
+them.** (i) The `T1R` class is now strictly *smaller*: `containment_on_realizable_class`
+excludes transfers whose second script withdrawal *is* the seize script. That
+exclusion is the entire content of "discharged by the shape" — a class restriction,
+not a proof about `programmableSeize`. (ii) `S1RShape` carries conjuncts
+`T1RShapeNS` does not: `SeizeWithinBudget`, which is `Composition.WithinBudget`'s
+deliberately-absent seize clause and is about the **opaque** `WSC.nodeStepsSeize`, so
+unlike every other conjunct it **cannot be checked at the witness**; and
+`mlCS = key` / `mCS = key`, which restrict to the **seized** policy because
+`P2b_R_containment` is about that policy alone while `LeafSet.p2` demands containment
+for *every* policy. Without those, on seize acceptance alone `p2` is **false** for a
+positive mint of a *non-seized* policy sent off-base — nothing the seize validator
+checks constrains another policy's mint; that is `p4`'s job. The S1R module states
+all of this at §2, §3.3 and §5 rather than asserting inhabitation of the full class.
 
 ---
 
@@ -376,126 +448,85 @@ revealed the class was accept-**UNSAT** — the theorem was empty. Preserved as
 ### 4.1 The pairing census, run mechanically over the whole built set
 
 For every module in the built set, every prep/run term appearing in a theorem's
-hypothesis was collected and matched against every term appearing in a
-`*vacuity*`/`*vacuous*` stanza. Result: **20 prep/run terms carry accept-hypothesis
-theorems, and every one of the 20 has at least one probe at that same term.**
+hypothesis was collected by identifier extraction and matched against every term
+appearing in a `*vacuity*`/`*vacuous*` stanza. Result: **20 prep/run terms carry
+accept-hypothesis theorems, and every one of the 20 has at least one probe at that
+same term.** Unchanged by stage 11 — and that is the correct outcome, because:
 
-Five terms appear with theorems but no probe; each was inspected and **none is an
-accept-hypothesis theorem**:
+* **E1 added no accept-hypothesis theorem over a prep term.** `bridge_S1R` is an iff
+  between two executions and `exec_S1R` an equality (both over
+  `appliedSeizeRShaped3800`, which already carries `P2_R_vacuity_probe`);
+  `p2_on_S1RShape` hypothesises `WSC.NodeAcceptsSeize`, an abstract axiom, not a prep
+  term. The correct vacuity question for the `RealizableLeaves*` modules is **class
+  inhabitation**, and §4c answers it for both classes.
+* **E4 added no accept-hypothesis theorem at all.** `WSC/Coverage.lean`'s acceptance
+  results are *positive witnesses* (`Runs.globalRun 4400` accepts three named
+  contexts), which need no probe — a probe certifies that an accept class is
+  non-empty, and a witness *is* that certificate.
 
-| term | where it appears | why no probe is needed |
-|---|---|---|
-| `appliedGlobalShapedIdx1600` | `ShapeBridge.{inputs,exec,bridge}_GIdx`; `Probe/G2Probe` (imported nowhere) | bridges are equalities/iffs, not accept-hypothesis theorems |
-| `appliedGlobalShapedNIdx1600` | `ShapeBridge.*_GNIdx`; `Probe/G3Probe` | same |
-| `appliedMinting800` | `.exec` acceptance witnesses in `P4_Minting`, `P4Shaped` | a positive witness, not a hypothesis |
-| `appliedMinting1300` | `#prep_uplc` declaration + `Imports.lean` prose | never used in a theorem |
-| `appliedSeize` | `#prep_uplc` declaration + docstrings | never used in a theorem |
+Five terms appear with theorems but no probe; each was re-inspected and **none is an
+accept-hypothesis theorem**: `appliedGlobalShapedIdx1600`,
+`appliedGlobalShapedNIdx1600` (bridges — equalities/iffs), `appliedMinting800` (a
+positive witness), `appliedMinting1300`, `appliedSeize` (never used in a theorem).
 
-### 4.2 The re-cut groups — task C4's specific mandate
+### 4.2 The re-cut groups
 
-**Every one of the 11 re-cut shapes has a vacuity probe stated at ITS OWN new prep
-term AND ITS OWN new shape builder**, verified by extracting the `applied*` and
-`*Ctx` identifiers from each theorem and each probe and comparing them mechanically
-rather than by reading docstrings:
+**Every one of the 12 re-cut shapes has a vacuity probe stated at ITS OWN prep term
+AND ITS OWN shape builder**, verified by extracting the `applied*` and `*Ctx`
+identifiers from each theorem and each probe and comparing them mechanically rather
+than by reading docstrings. All 12 rows (T1R, T2R, T6R, T7R, G1R, G6R, M1R, M2R, L1R,
+DT1R, DS1R, S1R) report **Falsified** in this rebuild, unchanged from C4. **A probe
+at the OLD term would have certified nothing about the new one.**
 
-| shape | prep term | shape builder | probe | result |
-|---|---|---|---|---|
-| T1R | `appliedGlobalShapedT1R` | `p1RShapedCtx` | `P1R_T1_vacuity_probe` | **Falsified** |
-| T2R | `appliedGlobalShapedT2R` | `p1RShapedMintCtx` | `P1R_T2_vacuity_probe` | **Falsified** |
-| T6R | `appliedGlobalShapedT6R` | `p1ROutCtx` | `P1R_T6_vacuity_probe` | **Falsified** |
-| T7R | `appliedGlobalShapedT7R` | `p1ROutMintCtx` | `P1R_T7_vacuity_probe` | **Falsified** |
-| G1R | `appliedGlobalShapedG1R` | `globalRShapedCtx` | `P5R_shaped_vacuity_probe` | **Falsified** |
-| G6R | `appliedGlobalMemberShapedG6R` | `memberRShapedCtx` | `P6R_shaped_vacuity_probe` | **Falsified** |
-| M1R | `appliedMintRShaped900` | `mintRCtx` | `P4_R_vacuity_probe` | **Falsified** |
-| M2R | `appliedMintRShapedIdx900` | `mintRCtxIdx` | `P4_RIdx_vacuity_probe` | **Falsified** |
-| L1R | `appliedMintLocalRShaped2500` | `localRCtx` | `P4_local_R_vacuity_probe` | **Falsified** |
-| DT1R | `appliedMintDTRShaped2500` | `dtRCtx` | `P4_delegateTransfer_R_vacuity_probe` | **Falsified** |
-| DS1R | `appliedMintDSRShaped2500` | `dsRCtx` | `P4_delegateSeize_R_vacuity_probe` | **Falsified** |
-| S1R | `appliedSeizeRShaped3800` | `seizeRCtx` | `P2_R_vacuity_probe` | **Falsified** |
+### 4b. THE RE-CUT ITSELF — unchanged from C4, re-verified
 
-**A probe at the OLD term would have certified nothing about the new one.** Each
-re-cut module did the right thing; this audit confirms it by identifier comparison,
-not by trust. The 14 pre-existing groups' probes (A3 §4.1) all still report
-Falsified in this rebuild and are unchanged.
+The Conway rule (`hasExactSetOfRedeemers`,
+`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:239-262`, cardano-ledger
+`cd8b7fab8`) computes `redeemersNeeded` from `scriptsNeeded` filtered to scripts that
+are **provided** and **not native**, then requires the redeemer-map key set to equal
+it exactly. C3's CLAB transcription is an **over-approximation** (it omits both
+filters, because `TxInfo` records neither a script's language nor the witness set) —
+this is finding **F18**, restated in §8 with stage 11's disposition.
 
-**C4 added no accept-hypothesis theorem over a prep term.** `bridge_T1R` is an
-iff between two executions, `exec_T1R` an equality; `shapedGlobalContainment_T1R`
-hypothesises `WSC.NodeAcceptsGlobal` — an abstract axiom, not a prep term — and
-`P1R_T1`'s own probe is what certifies the class it lands in. The correct vacuity
-question for `RealizableLeaves` is *class inhabitation*, and §4c answers it.
+The rule reproduces the real node on **13/13** goldens
+(`#redeemers = #script-inputs + #mint-policies + #script-withdrawals` exactly, with
+the purpose multiset matching), all 13 satisfy `redeemerCoverage`, all 9 accepting
+goldens satisfy `redeemersExact`, and `all_old_witnesses_fail_c3_coverage` proves
+`redeemerCoverage = false` at all 5 pre-C2 witnesses. **The flip is machine-checked
+in both directions.**
 
-### 4b. THE RE-CUT ITSELF, AUDITED — is the coverage claim real, and is it honest?
-
-This is the new section, and it carries the audit's largest verdict change.
-
-**The rule.** Conway UTXOW's `hasExactSetOfRedeemers`
-(`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:239-262`, cardano-ledger
-`cd8b7fab8`) computes `redeemersNeeded` from `scriptsNeeded` filtered to scripts
-that are **provided** and **not native**, then requires the redeemer-map key set to
-equal it exactly — `MissingRedeemers` in one direction, `ExtraRedeemers` in the
-other, both via `extSymmetricDifference`. I read the Haskell at that revision
-myself; C3's audit row S quotes it correctly, including the spec comment at `:237`.
-
-**Is C3's CLAB transcription over-strong?** *Yes, in one specific and documented
-way, and it does not damage anything.* `Contexts.redeemerCoverage` omits the
-`not (isNativeScript script)` filter and the `Map.lookup sh scriptsProvided` filter,
-because `TxInfo` records neither a script's language nor the witness set. So it is an
-**over-approximation**: it demands a redeemer entry for a script-credential
-withdrawal even when that script is a native timelock, for which the ledger requires
-none and the `ExtraRedeemers` half forbids one. C3's own section header and the
-`redeemerCoverage` docstring state this explicitly ("Exact when no needed script is
-native; otherwise strictly stronger than the ledger rule"). Three checks that the
-over-approximation is harmless here:
-
-1. **It is not a conjunct of `validScriptContext`.** C3 deliberately kept it out, for
-   exactly this reason. So no ledger-validity claim in the library was strengthened.
-2. **Where it is used POSITIVELY — the 12 `*_class_coverage` and 12 `*_realizable`
-   theorems — proving the stronger predicate is conservative.** Those say the re-cut
-   shapes carry the entries; if anything they carry more than the ledger insists on,
-   which is the safe direction for a realizability claim.
-3. **Where it is used as an ASSUMPTION — `LR_REDEEMER_COVERAGE` and the
-   `RedeemerCoverage` hypotheses — it only weakens NEGATIVE results.** It is reached
-   by nothing except the emptiness proofs of the RETIRED shapes. So the residual
-   caveat is: *"the old shapes are empty" is proved under an all-Plutus reading; an
-   old shape could in principle be realizable if one of its script withdrawals were a
-   native timelock.* That caveat makes the library's self-criticism weaker, never its
-   claims stronger. **Recorded as §8 F18 rather than waved away.**
-
-**Is the rule the real one? Measured, not assumed.** Decoding all 13 goldens'
-`ScriptContext`s gives `#redeemers = #script-inputs + #mint-policies +
-#script-withdrawals` **exactly, 13/13**, with the purpose multiset matching
-(`mint-burnonly` = `[Spending, Minting, Rewarding, Rewarding, Rewarding]`;
-`seize-1-input` = `[Spending, Rewarding, Rewarding]`). All 13 satisfy
-`redeemerCoverage`; all 9 accepting goldens satisfy the full `redeemersExact`
-(`Goldens/Audit.lean`). So the predicate reproduces the real node's output on every
-vector this campaign measured — and, in the other direction,
-`all_old_witnesses_fail_c3_coverage` proves `redeemerCoverage = false` at all 5
-pre-C2 witnesses. **The flip is machine-checked in both directions.** That is the
-strongest form this evidence could take short of running a node.
-
-### 4c. IS THE NEW CLASS REALLY NON-EMPTY? — the question that decides C4's worth
+### 4c. ARE THE CLASSES REALLY NON-EMPTY?
 
 A3's §9 warned: *"Do not believe that instantiating the `Shape` parameter with a
 shaped context class would fix that. It produces a true theorem about an EMPTY
 class."* That warning was correct then and is why this section exists.
 
 * `ShapeRealizability.t1_class_is_empty` proves the PRE-re-cut SHAPE T1 class empty
-  **unconditionally**, and `t1_no_honest_step` proves no `Reachable.step` can fire,
-  so `t1_top_claim_is_vacuous` is `ts_genesis` with extra syntax. Both retained.
-* `RealizableLeaves.realizable_inhabitant` proves, with **0 project axioms and no
-  `sorryAx`**, that `P1RShapedWitness.ctxOk` is (i) a member of `T1RShape
-  witnessParams`, (ii) `validRewardingContext`, and (iii) `redeemersExact` — both
-  halves of the Conway rule. The real compiled bytecode accepts it in 2,603 steps.
+  **unconditionally**, and `t1_no_honest_step` proves no `Reachable.step` can fire.
+  Both retained, as the picture of what failure looks like.
+* **Transfer side.** `realizable_inhabitant_NS` proves, with **0 project axioms and
+  no `sorryAx`**, that `P1RShapedWitness.ctxOk` is (i) a member of `T1RShapeNS
+  witnessParams`, (ii) `validRewardingContext`, (iii) `redeemersExact`. The
+  refinement did **not** empty the class: `witnessParams.seizeLogicCred = SEIZE ∉
+  {GLOBAL, TLS}`, by `rfl`, no axioms (`witness_noSeizeWdrl`). The real compiled
+  bytecode accepts it in **2,603** steps.
+* **Seize side.** `s1RShape_witness` proves `P2RWitness.ctxAccept` satisfies
+  `S1RCore ∧ NoGlobalWdrl` by `rfl` with **no axioms**; `realizable_inhabitant_S1R`
+  adds `validRewardingContext` and Conway `redeemersExact`; and
+  `inhabitant_accepted_by_bytecode` shows the restrictions do not empty the *accept*
+  class — `isSuccessful (Runs.seizeRun 3800 ppCS ctxAccept)`, exact K = **3,004**,
+  pinned two-sided by `K_is_3004_and_3328`. **0 project axioms, no `sorryAx`.**
 
-**The honest limit, stated precisely.** This does NOT prove that a `Reachable` trace
-in the new class can take a step, and it cannot: `HonestTx` also requires
-`WSC.OnChain ctx`, and `OnChain` is an opaque axiom, so **no term in this library can
-prove any concrete context on-chain**. That is true of every witness in the campaign,
-not a defect of C4's. What changed is the *direction of the available proof*: for
-SHAPE T1 the emptiness is a **theorem**; for SHAPE T1R there is no emptiness proof
-and the one obstruction that made its predecessor empty is machine-checked to be
-absent. "Not provably empty, with the known obstruction removed" is weaker than
-"provably inhabited on-chain", and this audit will not let the two be confused.
+**The honest limit, stated precisely, and it now has one extra clause.** None of this
+proves that a `Reachable` trace in the new classes can take a step, and it cannot:
+`HonestTx` also requires `WSC.OnChain ctx`, an opaque axiom, so **no term in this
+library can prove any concrete context on-chain**. That is true of every witness in
+the campaign. **Additionally, the seize class's third conjunct `SeizeWithinBudget`
+is about the opaque `WSC.nodeStepsSeize` and therefore cannot be checked at the
+witness at all** — so `S1RShape`'s inhabitation is certified for two of its three
+conjuncts, and the module says so instead of quietly claiming the third. "Not
+provably empty, with the known obstruction removed" is weaker than "provably
+inhabited on-chain", and this audit will not let the two be confused.
 
 ---
 
@@ -507,9 +538,8 @@ revision.
 
 ### 5.1 P1 containment at the realizable cut — `WSC.P1R_T1`
 
-Postcondition, verbatim from `P1R_T1_stmt`:
-`Model.outSum (.ScriptCredential plc) cs tn …txInfoOutputs ≥ Model.inSum … …txInfoInputs + Model.mintSigned cs tn …txInfoMint`
-— **identical to `P1_T1`'s**, over the re-cut shape.
+Postcondition, verbatim: `Model.outSum (.ScriptCredential plc) cs tn …txInfoOutputs ≥
+Model.inSum … …txInfoInputs + Model.mintSigned cs tn …txInfoMint`.
 
 * `Model.outSum` / `inSum` (`WSC/Model/Ground.lean:43-56`) are independent structural
   recursions over the context's own output/input lists, guarded by
@@ -517,14 +547,11 @@ Postcondition, verbatim from `P1R_T1_stmt`:
   appears in the postcondition** — the validator appears only in the hypothesis.
 * `plc` is not a free choice: it is the same variable the shape puts in the
   params-UTxO datum the validator reads.
-* The escape route is REAL at the re-cut, and is proved so:
-  `P1RShapedWitness.ctxEscape_quantities` gives `outSum = 3 < inSum = 5`, and
-  `exec_rejects_escape` shows the real CEK **rejects** that context with 4,400 steps
-  available (so it is a genuine rejection, not budget exhaustion).
-* The accepting witness is pinned two-sided: `K_T1R_is_2603` proves the machine halts
-  at 2,603 and budget-errors at 2,602.
-* `mintPos_form_REFUTED` re-refutes ARCHITECTURE §3-P1's unsigned form at the
-  realizable cut too.
+* The escape route is REAL and proved so: `P1RShapedWitness.ctxEscape_quantities`
+  gives `outSum = 3 < inSum = 5`, and `exec_rejects_escape` shows the real CEK
+  **rejects** that context with 4,400 steps available (a genuine rejection, not budget
+  exhaustion).
+* The accepting witness is pinned two-sided: `K_T1R_is_2603`.
 
 **Verdict: ground truth. Not true by construction.**
 
@@ -534,371 +561,342 @@ Postcondition is `P2.sumOutAtBase … ≥ P2.sumInAtBase … + WSC.mintOf …`, 
 quantified over `tn`, in independent recursions; nothing from the seize validator's
 `valueDelta` / `ptokenPairsContain` machinery appears.
 
-**Doubt, recorded, and it is still the sharpest one in the library:** this conjunct
-is FALSE-in-general on the source model — obligation B1 has two machine-checked
+**Doubt, recorded, and it is now MORE important than it was, because this theorem is
+load-bearing in a composed result for the first time.** This conjunct is
+FALSE-in-general on the source model — obligation B1 has two machine-checked
 counterexamples (`ptokenPairsContain` is unsound with duplicate token names or
 unsorted maps) — and it closes here *because* SHAPE S1R gives every value exactly one
-policy and one token name. C2's header names the two shape facts it consumes and
-records that S1R re-uses S1's value terms **by name**, so the re-cut preserved them
-verbatim. **The re-cut removed the realizability defect; it did NOT remove the
-shape-dependence.** That is why F2's coverage half is still CRITICAL.
+policy and one token name. **`containment_on_seize_class` therefore inherits that
+shape-dependence directly.** The re-cut removed the realizability defect; it did NOT
+remove the shape-dependence, and stage 11 did not either. This is the sharpest doubt
+in the library and it is why §8 F2-coverage remains CRITICAL.
 
 ### 5.3 P4-Local no-escape — `WSC.P4_local_noEscape_R`
 
 Postcondition `noEscape (.ScriptCredential plc) ownCS (localRCtx …outputs) = true`,
-where `noEscape` is `∀ o. payCred o == progLogicCred || ¬ hasCurrencySymbol cs
-o.txOutValue`, scanning the transaction's own output list. Both disjuncts are live
+where `noEscape` scans the transaction's own output list. Both disjuncts are live
 (distinct free variables). `L1RWitness.exec_rejects_escaping_output` is the
-excluded-case witness through the real CEK — and, new since A3, **over a
-redeemer-covered context**, i.e. a transaction an attacker could really build.
+excluded-case witness through the real CEK over a redeemer-covered context.
 
 **Verdict: ground truth. Not true by construction.**
 
-### 5.4 The same check applied to the two `LeafSet` terms
+### 5.4 The same check applied to the three `LeafSet` terms, and to the new leaves
 
-| | `Composition.containedLeaves` (A2) | `RealizableLeaves.realizableLeaves` (C4) |
-|---|---|---|
-| class | `ContainedTx` — "no output carries a non-ada policy off-base, and none is a directory node" | `T1RShape` — "this tx is an instance of the re-cut SHAPE T1R at this deployment's credentials" |
-| class provably empty? | no | no — **and it has a certified node-realizable inhabitant** (§4c) |
-| `p1` discharged by | `contain_of_inertOffBase` — `LR_BALANCE_SLOT` + `NONNEG` + the class | **`WSC.P1R_T1` — the production bytecode**, via `bridge_T1R` + `LR_BUDGET_global` |
-| `p1` uses its acceptance hypothesis? | **NO** — Lean's `unused variable` linter says so, 5 warnings | **YES** — and `#print axioms` shows `NodeAcceptsGlobal` + `sorryAx` reached through the shaped leaf |
-| `p4` discharged by | the class | the SHAPE (T1R's mint is `[]`) — **acceptance hypothesis unused, bound as `_` on purpose** |
-| `p2` | the class | **NOT discharged — carried as a hypothesis** |
-| `nopre` | the class | the SHAPE (T1R's outputs carry `NoOutputDatum`) — no acceptance hypothesis exists in the signature |
-| project axioms | 26 at the top | 28 at the top |
-
-So `containment_on_realizable_class_of_p2` is **not** a tautology and, unlike its
-predecessor, **is partly a statement about the validators**. But three of its four
-leaves are still not: two are discharged by the shape and one is assumed. Quote it as
-"one of four leaves is bytecode", never as "the leaves are proved".
-
-### 5.5 What this audit did NOT check
-
-* The `#prep_uplc`-produced `.prop` terms themselves. Every shaped leaf theorem's
-  hypothesis is `isSuccessful (appliedXShaped.prop …)`; every witness and every K
-  measurement runs `.exec`. `prop = exec` is unproved (§8 F8) and **the re-cut did
-  not touch it** — `RealizableLeaves` inherits it through `bridge_T1R`, whose
-  right-hand side is `Runs.globalRun` but whose left-hand side is the `.prop` term.
-* `Optimize.main`'s faithfulness, for the same reason.
-* Whether the goldens' `ScriptContext`s are what a *node* would build. They are
-  harness-built and ledger-evaluated (§6.2).
-* Whether a node would accept the re-cut shapes' transactions **in full** — fees
-  against a real protocol-parameter set, agreement between a withdrawal credential
-  and the script actually supplied in the witness set, and the UTxO set the inputs
-  are drawn from are all still unmodelled. `Realizability.Realizable`'s docstring
-  enumerates exactly this. **Realizability is NECESSARY, not SUFFICIENT.**
-
----
-
-## 6. PROVENANCE — RE-VERIFIED END TO END
-
-### 6.1 The bytecode is the production artefact at the recorded commit
-
-`WSC/flats/PROVENANCE.md` records extraction from wsc-poc worktree at commit
-`7ae0024b185cf16f17e38c20c9ee97ae1410c51f`, with a sha256 per `.flat`. Both halves
-re-derived independently (A3; unchanged at this revision — no `.flat` file was
-touched by C1/C2/C3/C4, verified by `sha256sum`):
-
-| flat | sha256 of the file | = PROVENANCE.md table | = `cborHex` at commit `7ae0024b…` |
+| | `Composition.containedLeaves` (A2) | `realizableLeavesNS` (E1) | `realizableLeavesS1R` (E1) |
 |---|---|---|---|
-| `programmableLogicBase.flat` | `1881821b…25faf3` | ✅ | ✅ |
-| `programmableTokenMinting.flat` | `7274240514…feb048` | ✅ | ✅ |
-| `programmableSeize.flat` | `289e9e8d…1c41a1` | ✅ | ✅ |
-| `programmableLogicGlobal.flat` | `ddd6f7df…b433a2` | ✅ | ✅ |
+| class non-empty? | yes | **yes, certified** | **yes, 2 of 3 conjuncts certified** |
+| bytecode used? | **no** | **yes — `p1`** | **yes — `p2`** |
+| acceptance hyps consumed? | **none** (5 linter warnings) | **1 of 4** | **1 of 4** |
+| project axioms | 11 | 12 | 13 |
 
-**All four match on both counts.** "Proved against production bytecode" is
-machine-verified, not asserted, and "unapplied" is confirmed — every deployment
-parameter is still a lambda and is supplied Lean-side.
+**The new closed leaves are not tautologies, and the check is mechanical.**
+`p2_of_noSeizeWdrl` and `p1_of_noGlobalWdrl` carry **no `sorryAx` and no
+`native_decide`**, so no bytecode result is reachable from them; they are `exfalso`
+arguments from CLAB's `validScriptInfo` and nothing else. The added conjuncts are
+decidable facts about the **withdrawal map alone** — they say nothing about value
+flow, outputs, or what any validator computes, so they cannot be used to prove
+containment of anything. That is the difference between "discharged by the shape" and
+"assumed".
 
-### 6.2 Goldens
+### 5.5 The coverage refutation (new)
 
-13 golden vectors, **4 rejecting / 9 accepting**, each verified at extraction by
-re-running the compiled script at PV11 through the Haskell ledger evaluator
-(`PlutusLedgerApi.V3.evaluateScriptCounting`), requiring `Right budget` for every
-accepting vector and `Left CekError` for every rejecting one — the rejecting controls
-double as an **arity proof**. All 9 accepting goldens satisfy their matching
-`validXContext` **verbatim**, and (C3) all 13 satisfy `redeemerCoverage` while all 9
-accepting satisfy `redeemersExact` (§4b).
+`Coverage.not_covers_of_invariant` is the whole argument and it is three lines: a
+context that satisfies `Valid` and `Bound` but violates `ShapeInvariants` cannot be
+in any family member, because `family_invariants` proves every member implies
+`ShapeInvariants`. The risk is a **mis-transcribed** family — a `rangeXYZ` that is
+not really the shape's range would make `¬ Covers` trivially true. E4 anticipated
+this: `ctxOk_in_family` puts the certified inhabitant *inside* `rangeT1R`
+(`[propext]`), so the family is demonstrably non-trivial. **This audit regards that
+as the correct control and confirms it is present.**
 
----
-
-## 7. HONESTY-REGRESSION CHECKS ON THE STAGE-9 WORK
-
-The specific risk: a *re-cut* can silently weaken a theorem, and a *new class* can
-silently empty one.
-
-### 7.1 Did the re-cut weaken any headline?
-
-**No, and this was checked statement by statement rather than by reading reports.**
-For each of the 11 re-cut shapes the `*_stmt` of the R theorem was diffed against the
-pre-re-cut theorem's statement. The postconditions are identical; the hypothesis
-`isSuccessful (applied…R.prop …)` names the new prep, and the shape builder named in
-`validXContext` and in the ground-truth sums is the new one. Two consequences worth
-stating:
-
-* **Same budgets.** T*R at 4400, G1R at 1600, G6R at 3300, M1R/M2R at 900, L1R/DT1R/
-  DS1R at 2500, S1R at 3800 — no budget was raised to make a re-cut proof go through.
-* **Same witness K, to the step.** 2603 / 3572 / 3150 / 3572 / 1541 / 2837 / 784 /
-  1681 / 1257 / 1466 / 3004+3328. That is *evidence about the validators*, not
-  bookkeeping: it says the transfer, minting and seize validators never dereference
-  `txInfoRedeemers`, so enlarging the map costs zero CEK steps. Only `DelegateSeize`
-  walks the map, and DS1R's 1466 was independently re-measured.
-
-### 7.2 Does C4's `LeafSet` overclaim?
-
-Checked against measurements rather than prose:
-
-| claim in `RealizableLeaves`'s header | verified how | verdict |
-|---|---|---|
-| "`p1` uses the acceptance hypothesis" | `#print axioms shapedGlobalContainment_T1R` lists `NodeAcceptsGlobal`, `LR_BUDGET_global`, `sorryAx`; and **no** `unused variable` warning is emitted for the module | ✅ |
-| "`p4`/`nopre` do NOT use it" | both are `sorryAx`-free and `native_decide`-free; their axioms come only from the field signatures | ✅ |
-| "N = 1" | `realizableLeaves` takes exactly one hypothesis, whose type is `LeafSet.p2`'s statement verbatim (it type-checks as that field) | ✅ |
-| "the class is not empty" | `realizable_inhabitant`, 0 project axioms | ✅ with the §4c caveat about `OnChain` |
-| "two extra axioms vs `containedLeaves`" | set difference of the two `#print axioms` outputs = `{LR_BUDGET_global, TS3}` | ✅ |
-
-**One overclaim was found and corrected before commit**, and it is recorded because
-the process matters: an earlier draft of the module header said "the top claim is now
-proved over a realizable class". It is not — it is proved *assuming `p2`* over a
-class that is *not provably empty*. The header now says both.
-
-### 7.3 Is the four-point bar met for every re-proved property?
-
-The bar this audit was asked to apply: (a) the theorem exists and its marker is
-`✅ Valid`; (b) it has a vacuity probe at ITS OWN term and shape reporting
-`✅ Expected Falsified`; (c) it has a concrete accepting CEK witness; (d) its shape
-has a realizability theorem. Measured per group:
-
-| property group | shape | (a) | (b) | (c) | (d) | verdict |
-|---|---|---|---|---|---|---|
-| P1 base transfer (`P1R_T1`) | T1R | ✅ | ✅ | ✅ K=2603 | ✅ `t1R_realizable` | **4/4** |
-| P1 signed mint/burn (`P1R_T2`) | T2R | ✅ | ✅ | ✅ K=3572 | ✅ `t2R_realizable` | **4/4** |
-| P1 output aggregation (`P1R_T6`) | T6R | ✅ | ✅ | ✅ K=3150 | ✅ `t6R_realizable` | **4/4** |
-| P1 aggregation + mint (`P1R_T7`) | T7R | ✅ | ✅ | ✅ K=3572 | ✅ `t7R_realizable` | **4/4** |
-| P5 non-member (`P5R_shaped_indexed`, `_exists`, `_groundtruth`) | G1R | ✅ | ✅ | ✅ K=1541 | ✅ `g1R_realizable` | **4/4** |
-| P6 member (`P6R_shaped_member_adds_to_requirement`, `_mint_stays_at_base`) | G6R | ✅ | ✅ | ✅ K=2837 | ✅ `g6R_realizable` | **4/4** |
-| P4a + BurnOnly (`P4a_R_*`, `P4_burn_only_R`, `P4_burnonly_arm_R`) | M1R | ✅ | ✅ | ✅ K=784 | ✅ `m1r_realizable` | **4/4** |
-| P4a + BurnOnly, free wdrl index (`P4a_RIdx_*`, `P4_burn_only_RIdx`) | M2R | ✅ | ✅ | **✗** | ✅ `m2r_realizable` | **3/4 — see F17** |
-| P4 Local (`P4_local_*_R`, `P4_disjunction_at_L1R`) | L1R | ✅ | ✅ | ✅ K=1681 | ✅ `l1r_realizable` | **4/4** |
-| P4 DelegateTransfer (`P4_delegateTransfer_*_R`, `P4_disjunction_at_DT1R`) | DT1R | ✅ | ✅ | ✅ K=1257 | ✅ `dt1r_realizable` | **4/4** |
-| P4 DelegateSeize (`P4_delegateSeize_arm_R`, `P4_disjunction_at_DS1R`) | DS1R | ✅ | ✅ | ✅ K=1466 | ✅ `ds1r_realizable` | **4/4** |
-| P2 both conjuncts (`P2a_R_structure`, `P2b_R_containment`, `P2_R_gates_are_earned`) | S1R | ✅ | ✅ | ✅ K=3004/3328 | ✅ `s1r_realizable` | **4/4** |
-| **P4 Local, free registration index (`P4_local_noEscape_shapedIdx`)** | **L2 — NOT re-cut** | ✅ | ✅ (at L2) | ✗ | **✗ — class PROVED EMPTY** | **NOT re-cut (F19)** |
-
-**11 of 12 re-cut shapes meet the bar in full; M2R misses (c); SHAPE L2 was not
-re-cut at all and its theorem still holds over an unrealizable class.**
+The 12 `inv_*` proofs are `simp only [rangeXYZ, forall_exists_index]; intros;
+subst_vars; exact ⟨…⟩` — computation at every leaf assignment, **no solver**. The
+three counterexamples each change **exactly one** `Data`-skeleton feature of `ctxOk`
+(signatory list length; reference-input list length; validity-interval constructor
+tag), leaving every leaf scalar untouched. **None is repairable by adding a shape
+parameter — two are list lengths and one is a constructor tag.**
 
 ---
 
-## 8. FINDINGS, ranked by severity
+## 6. PROVENANCE AND REPRODUCIBILITY
 
-### F1 — CRITICAL, NARROWED. The top claim is proved where the code does one quarter of the work.
+### 6.1 The bytecode chain — re-verified 4/4, independently
 
-A3's F1 said the top claim was discharged only where "the class, not the code, does
-the work". That is now literally false of one field and still true of three.
+The four `.flat` files are byte-identical to the `cborHex` of the named unapplied
+production scripts at wsc-poc commit `7ae0024b185cf16f17e38c20c9ee97ae1410c51f`.
+Re-run by this audit against the wsc-poc worktree, not carried over:
 
-`RealizableLeaves.containment_on_realizable_class_of_p2` is the top claim over
-`T1RShape` with `p1` closed by `WSC.P1R_T1` — real bytecode, acceptance hypothesis
-consumed, `#print axioms` showing it. But: `p4` and `nopre` are discharged **by the
-shape** (a pure-transfer transaction mints nothing and registers nothing — true, and
-honest, and not about the validators); `p2` is **assumed**; the class is one shape
-class; and the whole thing is bounded by a 4,400-step CEK budget and a fixed `Data`
-skeleton. For the **general** class the four leaf obligations stand as before:
-ingredients proved for two with an unproved residue, `p2` needs an unwritten
-"structure preserved ⟹ contained" lemma, `nopre` (`L-mint-needs-reg`) is untouched.
-**Nothing in this repository proves the top-level claim for the general class of
-transactions that put a programmable token at an off-base output.** Every external
-quotation must say so. The correct one-line summary is: *"one of four leaf
-obligations is now discharged from the production bytecode, over one non-empty shape
-class, assuming a second."*
+```
+1881821b7a2c0a59668203c900aa53f5b2bca83d9226d3f83318fbe02525faf3  programmableLogicBase
+ddd6f7df42789239d8a52a41404268c3b1316e59aee308dec54e201bdeb433a2  programmableLogicGlobal
+289e9e8d18b865aba35d8fcab8fc84d6b1ad2f6092988113a0558df40b1c41a1  programmableSeize
+7274240514ff3acdfd867abcd0e29e60f92f8f1a96f2f35bc6bfe59316feb048  programmableTokenMinting
+```
 
-### F2 — CRITICAL for coverage; **REPAIRED for realizability** (11 of 12 shapes).
+**4/4 MATCH on both sides.** This is the campaign's strongest single fact and it is
+now verified at four separate audits.
 
-Two independent bounds on every bytecode result. **One is now lifted; the other is
-not.**
+### 6.2 D5 — the substrate pin, materially repaired
 
-*Realizability — REPAIRED, and machine-checked in both directions.* A3 reported every
-shape empty as a class of ledger transactions, because a tractable `#prep_uplc`
-forced a **one-entry** redeemer map alongside a **two-entry, both-script** withdrawal
-map, and Conway UTXOW requires one entry per script witness. Tasks C1/C2 re-cut 11
-shapes to carry exactly the entries the rule demands — several shrinking the
-withdrawal map to the one script the validator actually dereferences — and proved,
-per shape: class-level coverage in CLAB's own vocabulary at **every** leaf assignment,
-and point-level `Realizable`/`RealizableExact` at a concrete witness. `t1_class_is_empty`
-and its siblings are retained as the proof that the old classes really were empty.
-**Every witness K is unchanged** (§7.1), the six new global preps cost 1.1–1.5 s each,
-and the predicted solver wall did not appear. Residue: **SHAPE L2 was not re-cut**
-(F19) and **M2R has no CEK witness** (F17).
+The `PlutusCore` (PlutusCoreBlaster, "PCB") dependency is required from an absolute
+local path on an **unpushed** branch. C4 recorded this as *"nothing here is currently
+reproducible off this machine"* — the highest operational risk in the repository.
 
-*Coverage — UNCHANGED, and still the binding constraint.* There is still no argument
-that the shapes exhaust the transactions the claim is about. `SHAPE-BRIDGE.md` §10
-enumerates three routes and offers none; `ShapeBridge.M1Covers` is recorded **false as
-stated**. §5.2 shows this is not pedantry: P2b is provable at SHAPE S1R precisely
-because S1R's one-policy / one-token-name values evade the two counterexamples that
-defeat the general statement on the source model — and the re-cut preserved those
-value terms **by name**, so it did not weaken that dependence at all.
+Stage 11's E3 unit built the repair but **left it uncommitted in a scratch
+directory** (§7.3). This audit verified it and landed it. What now exists:
 
-**Honest framing of the shaped layer, revised.** It was: *"exhaustive symbolic
-checking of the real compiled code over named bounded families of `Data` skeletons
-whose intersection with node-buildable transaction contexts is currently EMPTY."*
-It is now: **"exhaustive symbolic checking of the real compiled code over named
-bounded families of `Data` skeletons that are node-realizable — each certified by an
-inhabitant satisfying CLAB's ledger predicate and both halves of Conway's
-redeemer rule — but with no argument that the families cover the transactions the
-claim is about."** The first framing said the results constrained the program's
-behaviour on *no* realizable transaction. That is no longer true. They now constrain
-it on a named, inhabited, node-realizable family — and on nothing outside it.
+| record | where |
+|---|---|
+| revision `9f9ca8c76baf3b5efdb63c33ca0091efa606b474`, branch, base, clean-tree status, and the shallow-clone caveat | `lakefile.lean` comment block |
+| `"rev"` / `"inputRev"` on the PlutusCore entry | `lake-manifest.json` |
+| the two branch commits as an **incremental git bundle** + `git am` patches | `WSC/substrate/` |
+| apply/verify recipe and what it does *not* fix | `WSC/substrate/README.md` |
+| full third-party build recipe | `WSC/REPRODUCE.md` |
 
-### F3 — HIGH, PARTLY CLOSED. The shape bridge is proved; one instance is now consumed.
+**Verified here, not asserted.** The bundle was applied from a clone of the public
+base into a scratch directory and byte-compared against the build machine's checkout:
 
-All 25 `ShapeBridge` verdicts re-verified, including the 16 kernel-checked `exec`-level
-`rfl` bridges. A3's finding was that **no** `bridge_<S>` was applied to anything,
-because no `LeafSet` field was discharged from a shaped theorem. **That is now false
-for exactly one shape:** C4's `bridge_T1R` (a new instance of the same pattern, in
-`RealizableLeaves.lean` rather than `ShapeBridge.lean`, to avoid re-elaborating a
-38 s module) is applied in `shapedGlobalContainment_T1R`. The 16 bridges in
-`ShapeBridge.lean` itself are still consumed by nothing, and the 11 other re-cut
-shapes have **no** `ShapeBridge` entry at all. Writing them is mechanical
-(`exec_<S>R` by `rfl`, `bridge_<S>R` by `blaster`, ~1 s each on the evidence of
-`bridge_T1R`); consuming them needs the `p2`/`p4` vocabulary work F1 describes.
+```
+bundle sha256   3d34a23d5e25ac09beddcdf6032ecb3d13c47d064239b09be8040842d1a82789  (39,068 bytes)
+git bundle verify … → "is okay"; requires a04042c…; contains refs/heads/cip153-value-builtins
+HEAD after apply : 9f9ca8c76baf3b5efdb63c33ca0091efa606b474   (canonical: identical)
+tree after apply : e75862b26b5055e8cc36ea8cf393054e2417ca62   (canonical: identical)
+diff -r -x .git -x .lake <canonical PCB> <reconstructed>  →  CLEAN
+```
 
-### F4 — MEDIUM. "`sorry`-free" is false, including for every top-level theorem.
+And the manifest claim was tested rather than believed: `lake build` **preserves** the
+`"rev"` / `"inputRev"` keys on a `"type": "path"` entry across a full clean-room
+rebuild (sha256 of `lake-manifest.json` unchanged after run 3).
 
-99 theorem-position results are closed by `blaster`'s `admit`. All top-level theorems
-inherit `sorryAx` — the older ones through `p3_lifted` → the blaster-closed run-form
-P3, the new one through that **and** through `P1R_T1`/`bridge_T1R`. Nothing about the
-mathematics changes — every verdict is ✅ Valid — but a reviewer who greps for
-`sorryAx` must not be surprised. Do not use the build log's `sorry` warning count as a
-census: 37 modules suppress it.
+**What is still open.** The branch is **not published**, so the bundle's custody is
+the trust anchor; the `require` is still an absolute path, so building elsewhere is a
+mandatory two-file manual edit; and lake does not *verify* the recorded rev for a path
+dependency (`lake update` would drop it). **D5 is downgraded from HIGH/OPEN to
+MEDIUM/PARTIALLY REPAIRED, not closed.** The one-line fix that retires it is to push
+the branch and restore a git pin.
 
-### F5 — MEDIUM, CLOSED by measurement. `K-MEASUREMENTS.md` §5.1's prep table was ~47× pessimistic.
+---
 
-Re-measured cold and isolated with `lake build`: `WSC.Prep.Base` 1.63 s (published
-"≈11 s class"), `WSC.Prep.Minting900` 1.46 s (published 27.6 s),
-`WSC.Prep.Global1600` **45.5 s** (published **2,143 s** — 47×). §5.1 is marked
-SUPERSEDED with the cause (`lake env lean` without `--load-dynlib`, so Blaster/PCB run
-interpreted). **Always time with `lake build`, never `lake env lean`.** Corroborated
-again in stage 9: the twelve new shaped preps cost 1.1–1.5 s each.
+## 7. VERIFICATION OF THE FOUR STAGE-11 UNITS
 
-### F6 — MEDIUM, count UPDATED. `warn.sorry false` makes the build-log census incomplete, in 37 modules.
+This section is the point of task E5. Each unit's central claim is checked against
+its artifact, and every gap is reported.
 
-A3 measured 27; this revision measures **37** (C1/C2/C4 added 10). Any "expected
-`sorry` whitelist = N" claim is a count of *unsuppressed* warnings only. The correct
-instrument is `#print axioms` → `sorryAx`.
+### 7.1 E1 — discharge `p2`, close F1 → **CLAIMS HOLD, with one labelling error**
 
-### F7 — CLOSED. Every non-vacuity obligation is discharged.
+| E1 claim | verdict |
+|---|---|
+| `p2` is NOT vacuously dischargeable over `T1RShape`; SHAPE T1R's second withdrawal `w1` is free and `Deployed` is opaque | **CONFIRMED** — `GlobalShapedP1.lean:225-226` and `RealizableLeaves.lean:140` read as described |
+| `p2_of_noSeizeWdrl` discharges the leaf by the ledger rule, acceptance hypothesis bound as `_` | **CONFIRMED** — proof read line by line; `_hacc`; no `sorryAx`, no `native_decide` |
+| axiom set of `containment_on_realizable_class` Δ `…_of_p2` = ∅ | **CONFIRMED by measurement** (§3.1) |
+| 28 = 26 + `LR_BUDGET_global` + `TS3`; seize side 28 = 26 + `LR_BUDGET_seize` + `nodeStepsSeize` | **CONFIRMED by measurement** |
+| `LR_BUDGET_seize` applied for the first time; F15 goes 2/7 → 3/7 | **CONFIRMED** |
+| +1 job, +1 verdict (`bridge_S1R`), marker delta exactly +1 Valid | **CONFIRMED** — per-file table §1.2 |
+| zero `unused variable` warnings in either module | **CONFIRMED** — all 5 are `Composition.lean:2442-2446` |
+| **the ratio is 1 bytecode / 3 shape on each side** | **CONFIRMED, and this audit adopts it as the headline measure** (§3.4) |
 
-`WSC/Props/Shaped/NonVacuity.lean` discharges `MintingNonVacuous` at 2500,
-`GlobalNonVacuous` at 1600 / 3300 / 4400 and `SeizeNonVacuous` at 3800; with
-`Composition`'s base-600 / minting-900 pair the set is complete. All five
-`native_decide` on the real CEK: **0 project axioms, no `sorryAx`.** New in C4:
-`globalNonVacuous_at_4400` is no longer decorative — it is the hypothesis that makes
-`LR_BUDGET_global` usable in `shapedGlobalContainment_T1R`.
+**The one gap: a namespace labelling error in E1's report.** Its S1R axiom table
+names `WSC.RealizableLeavesS1R.*`. That namespace **does not exist**: the module
+`WSC/Props/Shaped/RealizableLeavesS1R.lean` declares everything in
+`WSC.RealizableLeaves`. Every identifier in this audit uses the real name. The
+theorems themselves are exactly as reported; only the report's prefix was wrong.
+Cosmetic, but it would waste a reviewer's `#print axioms`.
 
-### F8 — LOW but structural, UNCHANGED. `prop` vs `exec` (`PropExecFaithful`).
+**Answer to the question E5 was told to ask.** *Is the leaf load-bearing, or is it
+discharged by the shape's narrowness?* **The latter, and E1 says so itself.** Counted
+both ways: leaf hypotheses 1 → 0; bytecode-discharged leaves 1 → 1. The composition
+does not say more about the validators than it did at C4. What changed is that the
+gap is now visible as a *class restriction* rather than as an *assumption* — a real
+improvement in honesty, not in strength.
 
-Every *shaped* leaf theorem hypothesises `isSuccessful (appliedXShaped.prop …)`; every
-K measurement, every concrete accepting instance and every `native_decide` witness
-runs `.exec`. `#prep_uplc` emits the two as separate terms and equality is **not**
-definitional (`rfl` fails — `BridgeProbe2FAILS.lean`, kept as evidence). Deliberately
-**not** axiomatized. **The re-cut did not narrow this and C4 inherits it**: the 12
-re-cut groups are on `.prop`, and `bridge_T1R` — the very lemma that carries `P1R_T1`
-into the composition — has `.prop` on its left-hand side. Mitigation in place: every
-probe is stated on `.prop`, so the accept classes are certified non-empty on the term
-the theorems use. Closing this campaign-wide means restating all 12 groups on
-`Runs.XRun K` with 12 fresh, re-measured vacuity probes, and real risk of one coming
-back `Valid` (i.e. vacuous), as happened to P6 at 2500.
+### 7.2 E2 — F17 / F18 / F19 → **NOTHING WAS DELIVERED. New finding F20.**
 
-### F9, F10, F11 — CLOSED (U3/A3). Stale `LeafSet` docstrings; `WSC.ShapeBridge` outside the default target; `P5_Witness1600` citability.
+`git log` shows no E2 commit. Its scratch workspace sits at `300f9e0` with a
+**completely clean working tree**: no modified file, no untracked file, no log.
+**The unit produced no artifact of any kind.**
 
-All fixed and re-verified. `WSC.lean` now carries **77** imports, including
-`RealizableLeaves`.
+Consequently **F17, F18 and F19 were all still open**, exactly as C4 left them, and
+none of the four bar items E5 was asked to check for an "L2R" exists — there is no
+L2R, and SHAPE L2 was never re-cut. This audit therefore did the cheapest of the
+three itself, by measurement rather than by adding a theorem (§7.5).
 
-### F12 / D5 / D6 — Carried forward, unchanged.
+### 7.3 E3 — reproducibility → **WORK IS CORRECT AND VERIFIED, BUT WAS NEVER LANDED**
 
-* **Blaster defect D6** — `#prep_uplc` emits kernel-ill-typed `Blaster.dite'` terms
-  when a CIP-153 `Value` builtin result stays symbolic. Reproductions
-  `WSC/Shaped/Probe/{T3PrepFAILS,T4PrepFAILS}.lean`, imported nowhere. **Blocks
-  SHAPES T3/T4, hence P1's containment dispatch Paths B/C and input-side aggregation
-  over ≥ 2 mini-ledger inputs at UPLC.** Needs an upstream fix. Unaffected by the
-  re-cut.
-* **`WSC.LR5` does not entail `seizeCred ∈ txInfoWdrl`** from `seizeScopedToNodeOf`.
-  Isolated as `Composition.SeizeWdrlOfScoped`. **Note the C3 connection:** the same
-  missing rule, in the other direction, IS the redeemer-coverage rule — and
-  `WSC/Honest.lean`'s LR-CTX table now HAS a row for it (row S,
-  `LR_REDEEMER_COVERAGE`). Discharging `SeizeWdrlOfScoped` from row S is now a
-  short, well-posed piece of work that did not exist before stage 9.
-* **`ValueAlgebra` + `LedgerCanon` uninstantiated**, so `LR_BALANCE_SLOT` is still an
-  axiom although `LR_BALANCE_SLOT_of_valueAlgebra` proves its exact statement from
-  `LR7` plus those residues. `valueOf` is **not** additive over `merge` without
-  canonicity (`merge_not_additive_without_canonicity`, a `native_decide`
-  counterexample); budget it as a ~330-line development.
-* **D5 — the highest operational risk in the repository.** `lakefile.lean` requires
-  PlutusCoreBlaster from the **absolute local path** `/home/gumbo/iohk/PlutusCoreBlaster`
-  (branch `cip153-value-builtins`, unpushed), and `lake-manifest.json` records
-  `"type": "path"` with **no revision at all**. Without those CIP-153 `Value` builtins
-  `programmableLogicGlobal.flat` does not decode, so **every** P1/P5/P6 claim — now
-  including the composed C4 result — inherits this. (For contrast, `Blaster` *is*
-  pinned: `59db213ca6396269d2606b7dd9ac2bc26ae7c4ce`.)
+E3 produced no report and made no commit. Its scratch workspace held modified
+`lakefile.lean` + `lake-manifest.json` and an untracked `WSC/substrate/`.
 
-### F13, F14 — CLOSED by C3. Stale seize ExBudget rows; the false PROVENANCE note.
+**Did the reproduction rehearsal actually run end to end, and do its numbers match?**
+This audit re-ran it from scratch. **Yes on both counts** — bundle size, sha256, HEAD,
+tree and a full `diff -r` all match E3's documented values exactly (§6.2). The
+shallow-clone caveat E3 documented is real and correctly diagnosed. **E3's technical
+work is sound.**
 
-A3 found the golden cost tables stale for the two accepting seize vectors, and
-`PROVENANCE.md`'s closing note factually false (it claimed
-`programmableLogicGlobal.flat` does not decode and its `#import_uplc` is commented —
-U5 had landed and it is live at `Prep/Global.lean:46`). C3 corrected both against
-fresh measurements. Re-verified here: the seize rows now carry 60,231,630 / 163,820
-and 105,501,594 / 274,735, and `PROVENANCE.md` no longer contains the false note.
+**Two gaps, one of them serious:**
 
-### F15 — LOW, PARTLY EXERCISED. A1's `K`-widening.
+1. **It was not landed.** Left in a scratch directory, it repaired nothing — the
+   canonical repository still had D5 wide open at `8163803`. E5 has landed it.
+2. **Two dangling cross-references.** E3's new `lakefile.lean` comment block directs
+   the reader to `WSC/REPRODUCE.md` ("Full third-party recipe") and
+   `WSC/substrate/README.md` ("bundle verify/apply"). **Neither file existed.** A
+   reproducibility fix whose own instructions point at missing files is not a fix.
+   E5 authored both, from its own re-measurement.
 
-The four budget bridges assert the ledger↔meter equivalence at seven proved budgets
-rather than two. A3 recorded all seven instantiations as unexercised except
-`LR_BUDGET_base` at 600. **C4 exercises a second: `LR_BUDGET_global` at 4400.** Five
-of seven remain consumed by nothing.
+Also recorded: E3's `lakefile.lean` block claims the base `a04042c` is `refs/heads/main`
+of the **public** `input-output-hk/PlutusCoreBlaster`. This audit confirmed `a04042c`
+is the base of the local branch and is reachable as `main` in the local clone, but
+**could not verify the public remote from this environment**. Treat "it is on the
+public remote" as E3's claim, not as measured here; `WSC/substrate/README.md` §3 tells
+the reader to check it with one `git rev-parse`.
 
-### F16 — INFORMATIONAL, CLOSED in spirit by C4. Inhabitation as implication vs closed `∃`.
+### 7.4 E4 — shape coverage → **CLAIMS HOLD; IT IS A LEAN ARTIFACT, NOT PROSE**
 
-A3 noted `containedTx_witness` is an implication over the output list rather than a
-closed `∃ ctx, ContainedTx hp ctx`. C4's `t1RShape_witness` **is** a closed statement
-about a named concrete `ScriptContext` (`P1RShapedWitness.ctxOk`), so the pattern A3
-asked for now exists in the library for the class that matters.
+| E4 claim | verdict |
+|---|---|
+| coverage is *stated in Lean* and refuted, not argued in prose | **CONFIRMED** — `WSC/Coverage.lean`, 840 lines; `Covers`, `SizeBound`, 12 `range*` defs, `not_covers_*` |
+| the three refutations carry **no project axiom and no `sorryAx`** | **CONFIRMED by measurement** — `[propext, ofReduceBool, trustCompiler, Quot.sound]` |
+| witnesses are ledger-valid + Conway-redeemer-exact, accepted at 4400, at exactly 2603 steps | **CONFIRMED** — theorems present and building |
+| the transcription control `ctxOk_in_family` exists | **CONFIRMED** (§5.5) |
+| `WSC/Coverage.lean` adds **zero** solver verdicts and zero warnings | **CONFIRMED** — absent from the marker table; not among the 38 `warn.sorry` suppressors |
+| `p3_lives_over_a_covering_class` inherits `sorryAx` from P3 | **CONFIRMED, and E4 stated it** |
+| skeleton arithmetic | **RE-CHECKED**: 995,328 × 3.3 s ≈ 38 CPU-days; 9,269,489,664 × 3.3 s ≈ 970 CPU-years; 3.05×10¹⁴ × 3.3 s ≈ 3.2×10⁷ CPU-years. E4's figures are right. |
 
-### F17 — MEDIUM, NEW. SHAPE M2R has no CEK acceptance witness.
+**No gap found between claim and artifact.** E4's own limits are accurate and this
+audit adopts them: "coverage is false" ≠ "coverage is impossible" (the impossibility
+argument is **arithmetic only** and is not a theorem); realizability of the
+counterexamples is **necessary, not sufficient**; and `SizeBound`'s choice of five
+dimensions is a modelling decision, which is exactly where an overclaim would hide.
 
-`appliedMintRShapedIdx900.exec` is executed **nowhere** in the library — verified by
-grep. `M2RWitness.ctx` carries `Realizable` (ledger-level, `native_decide`) but there
-is no `exec_accepts` and no measured K for the shape. So the M2R group meets three of
-the four bars in §7.3: its vacuity probe returns `Falsified`, which does certify the
-accept class non-empty **on the `.prop` term**, but there is no solver-free
-`native_decide` corroboration on `.exec` as there is for every other re-cut shape.
-Carried over rather than introduced — A3's §4.1 recorded the pre-C2 M2 row as "shares
-M1's witness", which was already an informal discharge. **Fix is cheap** (one
-`native_decide` at the M1R leaves, which `M2RWitness.ctx` already uses) and is the
-single cheapest item on the open list.
+One process note: E4 appended an `import` stanza to `WSC.lean`, which it did not own,
+and said so. That is the right disposition — without it the module would be outside
+`lake build WSC` and invisible to this audit.
 
-### F18 — LOW, NEW. C3's coverage predicate is strictly stronger than the ledger rule, and one direction of use inherits that.
+### 7.5 F17, measured here rather than left open
 
-`Contexts.redeemerCoverage` omits `hasExactSetOfRedeemers`'s `not (isNativeScript …)`
-and `Map.lookup sh scriptsProvided` filters, because `TxInfo` expresses neither.
-C3 documents this and deliberately keeps the predicate out of `validScriptContext`.
-Consequence, stated so it cannot be forgotten: the **positive** uses (the 12
-realizability theorems) are conservative and unaffected, but the **negative** uses —
-`LR_REDEEMER_COVERAGE` and the `RedeemerCoverage` hypotheses that prove the RETIRED
-shapes empty — assume the all-Plutus reading. A retired shape could in principle be
-realizable if one of its script withdrawals were a **native timelock**, which needs no
-redeemer entry. This weakens the library's self-criticism, never its claims. No action
-required; recorded because "unconditional" appears in several emptiness docstrings and
-means "no `RedeemerCoverage` hypothesis", not "no assumption".
+C4 called F17 "the cheapest open item" and E2 did not do it. This audit **measured
+the answer** in a scratch module (deliberately not committed — E5 owns documents, not
+Lean sources):
 
-### F19 — LOW, NEW. SHAPE L2 was not re-cut and its theorem is still over an empty class.
+```lean
+theorem m2r_exec_accepts_at_900 :
+    isSuccessful (appliedMintRShapedIdx900.exec M1RWitness.ppCS M1RWitness.mlh
+      "OWNCS" "TOK" (-3) "OWNER" 100 5 "DEST" 60 2 "MINTLOGIC" 0 "MLRED" 40 "" 0 0 1 "" 0) :=
+  M1RWitness.isHaltB_sound _ (by native_decide)
+```
 
-`P4_local_noEscape_shapedIdx` (the free-registration-index rung of P4-Local) still
-ranges over SHAPE L2, whose class is proved empty under `RedeemerCoverage`. C2 marked
-it as such in `P4LocalShapedR.lean` and in `RealizableShapes.lean` rather than passing
-over it, which is the right disposition. Its value was the index-dependence
-measurement, which the withdrawal map does not affect — so the loss is small, but the
-library does contain one headline-adjacent theorem over a class known to be empty, and
-that must not be quoted.
+* **It builds, and the real compiled `programmableTokenMinting` bytecode ACCEPTS the
+  SHAPE-M2R witness on `.exec`.**
+* `#print axioms` → `[propext, Classical.choice, Lean.ofReduceBool,
+  Lean.trustCompiler, Quot.sound]` — **0 project axioms, no `sorryAx`**, the same
+  shape as M1R's `exec_accepts_at_900`.
+* **Exact K = 784**, measured by search over `isHaltB` at
+  `mintingPolicyInputs900 … M2RWitness.ctx` — **byte-identical to SHAPE M1R's
+  `K_is_784`**, as the "the re-cut cost zero CEK steps" result predicts (the
+  withdrawal index lives in the redeemer *payload*, not in the map's keys).
+
+**F17 is therefore answered but not landed.** Landing it is a two-theorem paste into
+`WSC/Props/Shaped/P4ShapedRIdx.lean`'s `M2RWitness` namespace, after which M2R meets
+4/4 bars and STATUS §2's only "3/4" row disappears. This audit leaves the paste to
+whoever owns that file, with the measurement done.
+
+---
+
+## 8. FINDINGS, RANKED
+
+### F2-coverage — CRITICAL, and now SHARPER: coverage is not merely absent, it is FALSE
+
+No argument exists that the shapes exhaust the transactions the claim is about, and
+stage 11 replaced that absence with a **machine-checked refutation**: at
+`SizeBound 2 2 2 2 0` — SHAPE T1R's own size — three node-realizable transactions
+that the production bytecode accepts in exactly 2,603 steps lie outside all twelve
+re-cut shapes (`Coverage.not_covers_at_T1R_size`). Two differ from the certified
+inhabitant by a **list length**, one by a **constructor tag**; none is repairable by
+adding a shape parameter.
+
+The arithmetic says the gap cannot be closed by enumeration: the smallest bound
+admitting a real transfer (1 input, **2** reference inputs — the global validator
+cannot run without its params reference input plus the directory node its redeemer
+indexes — 1 output) already contains ≈9.27×10⁹ `Data` skeletons ≈ **971 CPU-years**
+for one property at the measured 3.3 s/shape. **This is now the binding constraint on
+the entire deliverable**, and `WSC/COVERAGE.md` recommends against a coverage
+programme on exactly these numbers.
+
+### F1 — CRITICAL → **NARROWED TO A RATIO, NOT CLOSED**
+
+C4's N = 1 obligation gap is gone; two composed results now have complete `LeafSet`s.
+But **one of four leaves is the bytecode on each side and three are the shape**
+(§3.4), so the composition does not say more about the validators than it did. For
+the general class nothing is proved. **The correct citation is the ratio; "N = 0" on
+its own is misleading and this audit treats quoting it alone as an overclaim.**
+
+### D6 — HIGH, OPEN. Blaster emits kernel-ill-typed `dite'` on symbolic CIP-153 `Value` results
+
+Blocks SHAPES T3/T4, hence P1's containment dispatch Paths B/C and input-side
+aggregation, which are unreachable at any shape. Needs an upstream fix. Unchanged by
+stage 11.
+
+### F8 — MEDIUM, OPEN, and now BINDING ON BOTH COMPOSED RESULTS
+
+`PropExecFaithful` (`X.prop = X.exec`) is still unproved and deliberately not
+axiomatized. Theorems are on `.prop`, witnesses and all measured K on `.exec`. It
+binds all 12 re-cut groups and — since stage 11 — **both** composed results, through
+`bridge_T1R` and `bridge_S1R`.
+
+### F4 — MEDIUM, OPEN BY NATURE. "`sorry`-free" is false
+
+**100** theorem-position results are closed by `blaster`'s `admit`; every top-level
+theorem inherits `sorryAx`. And the build log's `sorry` warning count is **not** a
+census — 38 modules suppress it.
+
+### D5 — was HIGH → **MEDIUM, PARTIALLY REPAIRED** (§6.2)
+
+Revision recorded in three places; offline bundle present and independently verified
+to reconstruct the exact tree. Still: branch unpublished, path absolute, rev not
+enforced by lake.
+
+### F20 — MEDIUM, NEW. A stage-11 unit delivered nothing, and a second did not land its work
+
+E2 produced no artifact at all (§7.2). E3 produced correct work and left it in a
+scratch directory with two dangling cross-references (§7.3). **Process finding, but a
+real one:** at `8163803`, the canonical repository's most damning practical caveat was
+still fully open despite a unit having been assigned to it and having *solved* it.
+E5 landed E3's work and wrote the two missing documents. **A campaign that measures
+its own claims must also check that its units' claims reached the repository** — the
+verdict counts, the axiom census and the marker table would all have looked perfectly
+healthy while D5 stayed open, because none of them can see work that was never
+committed.
+
+### F17 — was MEDIUM → **ANSWERED BY MEASUREMENT, NOT YET LANDED** (§7.5)
+
+SHAPE M2R's witness **is** accepted by the real bytecode, at exactly **K = 784**, with
+0 project axioms. Two theorems remain to be pasted into `P4ShapedRIdx.lean`.
+
+### F18 — LOW, OPEN, NEITHER RESOLVED NOR RELABELLED
+
+E2 did not touch it, so it stands exactly as C4 recorded it. `Contexts.redeemerCoverage`
+omits `hasExactSetOfRedeemers`'s `not (isNativeScript …)` and `scriptsProvided`
+filters, because `TxInfo` expresses neither. **Positive** uses (the 12 realizability
+theorems, and E4's three counterexample-realizability results) are conservative and
+fine. **Negative** uses — `LR_REDEEMER_COVERAGE` and the `RedeemerCoverage`
+hypotheses that prove the RETIRED shapes empty — assume an all-Plutus reading; a
+retired shape could in principle be realizable if one of its script withdrawals were
+a native timelock. **This weakens the library's self-criticism, never its claims.**
+"Unconditional" in those docstrings means "no `RedeemerCoverage` hypothesis", not "no
+assumption".
+
+### F19 — LOW, OPEN. SHAPE L2 was never re-cut
+
+`P4_local_noEscape_shapedIdx` still ranges over SHAPE L2, whose class is **proved
+empty** under `RedeemerCoverage`. C2 marked it as such rather than passing over it.
+Its value was the index-dependence measurement, which the withdrawal map does not
+affect — so the loss is small, but the library contains one headline-adjacent theorem
+over a class known to be empty, and **it must not be quoted.**
+
+### F15 — INFORMATIONAL. Budget instantiations: 3 of 7 exercised
+
+`LR_BUDGET_base` @600, `LR_BUDGET_global` @4400, and now `LR_BUDGET_seize` @3800.
+`LR_BUDGET_minting` is applied by nothing.
+
+### F5, F7, F13, F14, F16 — CLOSED, unchanged since C4.
 
 ---
 
@@ -907,98 +905,98 @@ that must not be quoted.
 1. **Do not believe "the WSC containment property is proved."** It is (a)
    machine-checked as a *reduction* to four leaf obligations plus 26–28 project
    axioms, (b) discharged outright over one inert accounting class, and (c)
-   discharged three-quarters of the way over one **node-realizable shape class**,
-   with the fourth quarter assumed. None of the three is the claim.
-2. **Do not believe the shapes are still unrealizable — and do not believe they are
-   node-buildable either.** A3's blanket "every shape is empty" is **obsolete** for 11
-   of 12 shapes. What replaced it is narrower than it sounds: each re-cut shape has a
-   concrete inhabitant satisfying CLAB's ledger predicate **and** both halves of the
-   Conway redeemer rule, and `OnChain` remains an opaque axiom, so no term in this
-   library proves any context is genuinely on-chain. "The one defect audit F2 named is
-   gone" is the exact claim. Fees, witness-set agreement and the UTxO set are still
+   discharged **completely** over two **node-realizable shape classes** — in each of
+   which **the code does one quarter of the work and the shape does three quarters**.
+   None of the three is the claim.
+2. **Do not quote "N = 0" without the ratio.** Closing the last leaf hypothesis cost
+   zero axioms and added zero bytecode content (§3.4). It is a statement about
+   bookkeeping honesty, not about the validators.
+3. **Do not believe the shapes cover anything.** Coverage is now **proved false** for
+   this family at the smallest bound the family itself covers, with witnesses the real
+   CEK accepts in the same number of steps as the certified inhabitant (§8
+   F2-coverage). Every result is "over this layout".
+4. **Do not believe the shapes are unrealizable — and do not believe they are
+   node-buildable either.** A3's blanket "every shape is empty" is obsolete for 11 of
+   12. What replaced it is narrower than it sounds: each re-cut shape has a concrete
+   inhabitant satisfying CLAB's ledger predicate **and** both halves of the Conway
+   redeemer rule, while `OnChain` remains an opaque axiom, so no term here proves any
+   context genuinely on-chain. Fees, witness-set agreement and the UTxO set are still
    unmodelled.
-3. **Do not believe any UPLC result is universally quantified over transactions.**
-   Every one is bounded by a CEK step budget AND by a fixed `Data` skeleton. Quote
-   both bounds or quote neither. There is no coverage theorem; §5.2 exhibits a theorem
-   that provably does not generalise.
-4. **Do not believe "`sorry`-free".** 99 theorem-position results are closed by
-   `blaster`'s `admit`; every top-level theorem inherits `sorryAx`. And do not use the
-   build log's `sorry` warning count as a census — 37 modules suppress it.
-5. **Do not believe the witnesses and the theorems are always about the same term.**
-   For the shaped layer — including all 12 re-cut groups — theorems are on `.prop`,
-   witnesses and all measured K on `.exec`, equality unproved. **No longer true** for
-   the base/keystone path, every `*NonVacuous` obligation and every published K
-   constant. Name the layer when quoting this.
-6. **Do not believe the source-model and shaped routes are the same strength.** The
+5. **Do not believe any UPLC result is universally quantified over transactions.**
+   Every one is bounded by a CEK step budget AND a fixed `Data` skeleton. Quote both
+   bounds or quote neither. §5.2 exhibits a theorem that provably does not generalise
+   — and it is now load-bearing in a composed result.
+6. **Do not believe "`sorry`-free".** 100 theorem-position results are `admit`-closed;
+   every top-level theorem inherits `sorryAx`. And do not use the build log's `sorry`
+   warning count as a census — 38 modules suppress it.
+7. **Do not believe the witnesses and the theorems are always about the same term.**
+   For the shaped layer — including both composed results, via `bridge_T1R` and
+   `bridge_S1R` — theorems are on `.prop`, witnesses and all measured K on `.exec`,
+   equality unproved (F8). Name the layer when quoting this.
+8. **Do not believe the source-model and shaped routes are the same strength.** The
    model route quantifies over all contexts and all step counts but trusts a hand
    transcription; the shaped route trusts no transcription but is doubly bounded.
    Neither dominates.
-7. **Do not believe the prep-cost figures in `K-MEASUREMENTS.md` §5.1** (F5). Measure
-   before concluding anything is unaffordable, and always with `lake build`.
-8. **Do not believe this builds anywhere else.** The substrate pin is an absolute
-   local path to an unpushed branch, with **no revision recorded in the manifest**
-   (D5).
-9. **Do not quote SHAPE L2's theorem or SHAPE M2R's as fully controlled** (F19, F17).
-10. **Do believe, because it is now machine-verified:** the four `.flat` files are
-    byte-identical to the `cborHex` of the named unapplied production scripts at the
-    recorded wsc-poc commit (§6.1); the redeemer-coverage rule reproduces the real
-    node's output on 13/13 goldens (§4b); and the re-cut cost zero CEK steps (§7.1).
+9. **Do not believe the prep-cost figures in `K-MEASUREMENTS.md` §5.1** (F5). Measure
+   with `lake build`, never `lake env lean`.
+10. **Do not quote SHAPE L2's theorem** (F19 — the class is proved empty).
+11. **Do not believe this builds elsewhere without work.** It now *can* (§6.2,
+    `WSC/REPRODUCE.md`), but only after reconstructing the substrate from the bundle
+    and editing two files. The branch is still unpublished.
+12. **Do believe, because it is machine-verified:** the four `.flat` files are
+    byte-identical to the `cborHex` of the named unapplied production scripts at
+    wsc-poc `7ae0024` (§6.1, 4/4, re-verified here); the redeemer-coverage rule
+    reproduces the real node's output on 13/13 goldens (§4b); the re-cut cost zero CEK
+    steps; and the substrate bundle reconstructs the pinned tree byte-identically
+    (§6.2).
 
 ---
 
 ## 10. REPRODUCTION
 
+Full third-party recipe, including substrate reconstruction: **`WSC/REPRODUCE.md`**.
+The short form:
+
 ```bash
-# 1. clean-room rebuild of everything
-#    expect: 429 jobs, 90-105 s, 158 ✅ markers (101 Valid + 57 Expected Falsified),
-#            0 errors, 0 ⚠️/❌, 20 expected `sorry` warnings, 90 WSC modules,
-#            5 `unused variable` warnings (all Composition.lean:2442-2446)
+# 1. clean-room rebuild
+#    expect: 431 jobs, 1:39-1:57, 159 ✅ markers (102 Valid + 57 Expected Falsified),
+#            0 errors, 0 ⚠️/❌, 20 expected `sorry` warnings, 93 WSC modules,
+#            5 `unused variable` warnings (all Composition.lean:2442-2446), RSS 1.50 GB
 cp -a <CLAB> <SCRATCH>/clab-audit && cd <SCRATCH>/clab-audit
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
 /usr/bin/time -v lake build WSC WSC.ShapeBridge 2>&1 | tee build.log
 
-# 2. marker / sorry / error census from that log
-grep -o '✅ [A-Za-z ]*' build.log | sort | uniq -c   # 101 Valid, 57 Exp. Falsified
-grep -cE '⚠️|❌' build.log                            # 0
-grep -c 'error:' build.log                            # 0
-grep -c "declaration uses 'sorry'" build.log          # 20  (NOT a census — §2)
-grep -c 'unused variable' build.log                   # 5   (all in Composition.lean)
+# 2. marker / sorry / error census
+grep -o '✅ [A-Za-z ]*' build.log | sort | uniq -c   # 102 Valid, 57 Exp. Falsified
+grep -cE '⚠️|❌' build.log; grep -c 'error:' build.log             # 0  0
+grep -c "declaration uses 'sorry'" build.log                       # 20  (NOT a census — §2)
+grep -c 'unused variable' build.log                                # 5
 
-# 3. source reconciliation (57 + 2 + 99 = 158) over the BUILT modules only.
-#    STRIP BLOCK COMMENTS FIRST, and count `by`-newline-`blaster` as well as
-#    one-line `by blaster` — there are 5 of the former (§1.4).
+# 3. source reconciliation (57 + 2 + 100 = 159) over the BUILT modules only.
+#    STRIP BLOCK COMMENTS FIRST, and count `by`-newline-`blaster` too (5 of them, §1.4).
 
-# 4. axiom census
-grep -E 'depends on axioms|does not depend' build.log   # 142 lines, 27 with sorryAx
-#    the delta that matters:
-#      Composition.containment_on_contained_class          -> 26 project axioms
-#      RealizableLeaves.containment_on_realizable_class_of_p2 -> 28 (= 26 + LR_BUDGET_global + TS3)
-#      RealizableLeaves.realizable_inhabitant              -> 0
+# 4. axiom census — PARSE ACROSS NEWLINES (§3); a line grep undercounts sorryAx 17 vs 37
+#      Composition.containment_on_contained_class        -> 26
+#      RealizableLeaves.containment_on_realizable_class   -> 28 (= 26 + LR_BUDGET_global + TS3)
+#      RealizableLeaves.containment_on_seize_class        -> 28 (= 26 + LR_BUDGET_seize + nodeStepsSeize)
+#      RealizableLeaves.realizable_inhabitant{,_NS,_S1R}  -> 0, no sorryAx
+#      Coverage.not_covers_at_T1R_size                    -> 0, no sorryAx
 
 # 5. axiom-declaration census
 grep -rn '^axiom ' --include='*.lean' WSC/ | wc -l                                  # 51
 grep -rn '^axiom ' --include='*.lean' WSC/Prep WSC/Shaped WSC/Props/Shaped | wc -l  # 0
-grep -rl 'set_option warn.sorry false' --include='*.lean' WSC/ | wc -l              # 37
+grep -rl 'set_option warn.sorry false' --include='*.lean' WSC/ | wc -l              # 38
 
 # 6. the re-cut, checked in both directions
-#    every re-cut witness is redeemer-exact; every retired witness is not:
 #      RealizableShapes.all_recut_witnesses_redeemersExact
 #      RealizableShapes.all_old_witnesses_fail_c3_coverage
-#    and the rule reproduces the node on all 13 goldens:
-#      Goldens.Audit.every_golden_is_redeemer_covered
-#      Goldens.Audit.every_accepting_golden_has_exact_redeemers
+#      Goldens.Audit.every_golden_is_redeemer_covered            # 13/13
 
-# 7. PROVENANCE re-verification (§6.1)
+# 7. PROVENANCE re-verification (§6.1) — 4/4
 sha256sum WSC/flats/*.flat
-git -C <wsc-poc worktree> show \
-  7ae0024b185cf16f17e38c20c9ee97ae1410c51f:generated/scripts/unapplied/prod/<name>.json \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['cborHex'])" | sha256sum
 
-# 8. prep-cost re-measurement (the F5 repair) — always `lake build`
-for m in Base Minting900 Global1600; do
-  rm -f .lake/build/lib/lean/WSC/Prep/$m.{olean,ilean,trace}
-  /usr/bin/time -f "$m %e s" lake build WSC.Prep.$m > /dev/null
-done                       # expect ~ 1.6 / 1.5 / 36-46 s
+# 8. SUBSTRATE re-verification (§6.2) — see WSC/substrate/README.md §3
+git bundle verify WSC/substrate/pcb-cip153-value-builtins.bundle
 ```
 
 **Always time with `lake build`, never `lake env lean`** — the latter omits

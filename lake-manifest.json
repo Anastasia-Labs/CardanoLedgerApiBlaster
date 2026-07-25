@@ -1,7 +1,9 @@
-{"version": "1.1.0",
+{
+ "version": "1.1.0",
  "packagesDir": ".lake/packages",
- "packages":
- [{"url": "https://github.com/input-output-hk/Lean-blaster",
+ "packages": [
+  {
+   "url": "https://github.com/input-output-hk/Lean-blaster",
    "type": "git",
    "subDir": null,
    "scope": "",
@@ -10,13 +12,20 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "beta-lambda-cache-optimization",
    "inherited": false,
-   "configFile": "lakefile.lean"},
-  {"type": "path",
+   "configFile": "lakefile.lean"
+  },
+  {
+   "type": "path",
    "scope": "",
    "name": "PlutusCore",
    "manifestFile": "lake-manifest.json",
    "inherited": false,
    "dir": "/home/gumbo/iohk/PlutusCoreBlaster",
-   "configFile": "lakefile.lean"}],
+   "configFile": "lakefile.lean",
+   "rev": "9f9ca8c76baf3b5efdb63c33ca0091efa606b474",
+   "inputRev": "cip153-value-builtins"
+  }
+ ],
  "name": "CardanoLedgerApi",
- "lakeDir": ".lake"}
+ "lakeDir": ".lake"
+}

@@ -1,0 +1,2132 @@
+From 9f9ca8c76baf3b5efdb63c33ca0091efa606b474 Mon Sep 17 00:00:00 2001
+From: Philip DiSarro <philipdisarro@gmail.com>
+Date: Sat, 25 Jul 2026 00:28:48 -0500
+Subject: [PATCH 2/2] Value: blaster-friendly denotation restatement + algebra
+ lemmas
+
+Restate every Value denotation walk as an explicit first-order pattern-match
+recursion (no List.all/any/find?/foldl-with-lambda, no projection lambdas):
+Blaster's SMT translation cannot digest the stdlib combinators (3 of 4
+containment lemmas Undetermined, one hard translate error), while hand-rolled
+recursions close in seconds. Public names, signatures and semantics are
+unchanged; *_eq_* lemmas in Basic.lean prove each restatement equal to the
+original stdlib-combinator formulation, and all unit tests, the decode gate
+and the CEK dispatch tests still pass.
+
+New PlutusCore/Value/Algebra.lean: the four builtin-algebra lemma groups
+(plain Lean proofs, sorry-free, reusable via have-feeding):
+- lookupCoin_insertCoin_hit/_miss (incl. the amt=0 delete arm)
+- lookupCoin_unionValue + unionValue_none (overflow side) + unionValue_sorted
+- valueContains_iff + valueContains_none_iff (both negative-error arms)
+- unValueData_normalized / valueData_unValueData / unValueData_valueData /
+  unValueData_lookup (+ lookupData first-order Data walk), with
+  valueSorted/valueNormalized well-formedness predicates and
+  valueNormalized_sorted bridging decode results into the other groups.
+
+Blaster smoke on the restated forms: induction <;> blaster closes the
+previously-Undetermined lemma shapes in ~2s.
+---
+ PlutusCore/Value.lean         |    1 +
+ PlutusCore/Value/Algebra.lean | 1400 +++++++++++++++++++++++++++++++++
+ PlutusCore/Value/Basic.lean   |  569 ++++++++++++--
+ 3 files changed, 1900 insertions(+), 70 deletions(-)
+ create mode 100644 PlutusCore/Value/Algebra.lean
+
+diff --git a/PlutusCore/Value.lean b/PlutusCore/Value.lean
+index b8f7dba..231aebc 100644
+--- a/PlutusCore/Value.lean
++++ b/PlutusCore/Value.lean
+@@ -1,3 +1,4 @@
+ import PlutusCore.Value.Basic
++import PlutusCore.Value.Algebra
+ 
+ /-! ## Header file regrouping the PlutusCore builtin Value formalization. -/
+diff --git a/PlutusCore/Value/Algebra.lean b/PlutusCore/Value/Algebra.lean
+new file mode 100644
+index 0000000..3bf0eab
+--- /dev/null
++++ b/PlutusCore/Value/Algebra.lean
+@@ -0,0 +1,1400 @@
++import PlutusCore.Value.Basic
++
++/-! ## Builtin-algebra lemmas for the CIP-153 `Value` denotations.
++
++The four lemma groups needed by algebra-assisted UPLC proofs about programs
++that use the CIP-153 builtins (`lookupCoin` after `insertCoin`, `lookupCoin`
++distributing over `unionValue`, the pointwise characterization of
++`valueContains`, and the `valueData`/`unValueData` round trip): they let a
++consumer characterize every builtin call by its per-key `lookupCoin` algebra,
++so downstream SMT reasoning happens over integer `(+, ≤)` instead of symbolic
++map merges.
++
++All proofs are plain Lean (`induction`/`simp`/`omega`) — no `blaster`, no
++`sorry`/`admit` — so every theorem here can be fed to Blaster goals via
++`have`-threading without audit noise.
++
++Well-formedness: builtin `Value`s are normalized by construction (strictly
++ascending keys on both levels; the decoder, `packValue` and all operations
++preserve this), but the raw `ValueRep` type does not enforce it, so the
++lemmas that depend on key uniqueness take explicit `valueSorted`/
++`valueNormalized` hypotheses. `unValueData_normalized` discharges them for
++any value obtained by decoding, `unionValue_sorted` for any value obtained
++by union. -/
++
++namespace PlutusCore.Value
++
++open PlutusCore.ByteString (ByteString)
++open PlutusCore.ByteString
++open PlutusCore.Integer (Integer)
++open PlutusCore.Data (Data)
++
++/-! ### ByteString strict-order toolkit -/
++
++theorem bs_lt_trans {a b c : ByteString} (h₁ : a < b) (h₂ : b < c) : a < c :=
++  String.lt_trans (a := a.data) h₁ h₂
++
++theorem bs_lt_asymm {a b : ByteString} (h : a < b) : ¬ b < a :=
++  String.lt_asymm (a := a.data) h
++
++/-- Connexity: two mutually-incomparable byte strings are equal. -/
++theorem bs_connex {a b : ByteString} (h₁ : ¬ a < b) (h₂ : ¬ b < a) : a = b := by
++  cases a with | mk da => cases b with | mk db =>
++  have : da = db := String.le_antisymm (String.not_lt.mp h₂) (String.not_lt.mp h₁)
++  simp [this]
++
++theorem bs_lt_ne {a b : ByteString} (h : a < b) : a ≠ b := by
++  intro he
++  subst he
++  exact ByteString.lt_irrefl a h
++
++theorem bs_beq_symm_false {a b : ByteString} (h : (a == b) = false) :
++    (b == a) = false :=
++  beq_false_of_ne (ne_of_beq_false h).symm
++
++theorem bs_beq_symm_true {a b : ByteString} (h : (a == b) = true) :
++    (b == a) = true := by
++  have : a = b := by simpa using h
++  simp [this]
++
++/-! ### Well-formedness predicates (first-order Bool recursions) -/
++
++/-- Token keys strictly ascending, starting strictly above an optional bound. -/
++def innerSortedFrom : Option ByteString → List (ByteString × Integer) → Bool
++  | _, [] => true
++  | prev, (t, _) :: rest => ascendingFrom prev t && innerSortedFrom (some t) rest
++
++/-- Currency keys strictly ascending above an optional bound, every inner list
++    sorted. -/
++def outerSortedFrom : Option ByteString → ValueRep → Bool
++  | _, [] => true
++  | prev, (c, inner) :: rest =>
++      ascendingFrom prev c && innerSortedFrom none inner &&
++        outerSortedFrom (some c) rest
++
++/-- Keys strictly ascending at both levels (key uniqueness; what the lookup
++    lemmas need). -/
++def valueSorted (v : ValueRep) : Bool := outerSortedFrom none v
++
++/-- Inner-level full normalization: sorted, valid keys, no zero quantity,
++    quantities within the signed 128-bit bounds (exactly the `unValueData`
++    inner-decoder checks). -/
++def innerNormFrom : Option ByteString → List (ByteString × Integer) → Bool
++  | _, [] => true
++  | prev, (t, q) :: rest =>
++      validKey t && ascendingFrom prev t && !(q == 0) && validQuantity q &&
++        innerNormFrom (some t) rest
++
++/-- Outer-level full normalization: sorted, valid keys, no empty inner list,
++    every inner list fully normalized (exactly the `unValueData`
++    outer-decoder checks). -/
++def outerNormFrom : Option ByteString → ValueRep → Bool
++  | _, [] => true
++  | _, (_, []) :: _ => false
++  | prev, (c, i₀ :: is) :: rest =>
++      validKey c && ascendingFrom prev c && innerNormFrom none (i₀ :: is) &&
++        outerNormFrom (some c) rest
++
++/-- The invariant of the Haskell `Value` type (`Value.hs` "Invariants"): what
++    `unValueData` accepts and what `valueData` needs for the round trip. -/
++def valueNormalized (v : ValueRep) : Bool := outerNormFrom none v
++
++@[simp] theorem ascendingFrom_none (t : ByteString) :
++    ascendingFrom none t = true := rfl
++
++@[simp] theorem ascendingFrom_some_iff {p t : ByteString} :
++    ascendingFrom (some p) t = true ↔ p < t := by
++  simp [ascendingFrom]
++
++theorem ascendingFrom_of_lt {lb : Option ByteString} {a b : ByteString}
++    (hab : ascendingFrom (some a) b = true) (h : ascendingFrom lb a = true) :
++    ascendingFrom lb b = true := by
++  cases lb with
++  | none => rfl
++  | some p =>
++      simp only [ascendingFrom_some_iff] at *
++      exact bs_lt_trans h hab
++
++/-- Weakening: a list sorted strictly above `t` is sorted above any bound that
++    `t` itself clears. -/
++theorem innerSortedFrom_weaken {lb : Option ByteString} {t : ByteString}
++    {l : List (ByteString × Integer)}
++    (hb : ascendingFrom lb t = true) (h : innerSortedFrom (some t) l = true) :
++    innerSortedFrom lb l = true := by
++  cases l with
++  | nil => rfl
++  | cons hd tl =>
++      obtain ⟨t', q'⟩ := hd
++      simp only [innerSortedFrom, Bool.and_eq_true] at h ⊢
++      exact ⟨ascendingFrom_of_lt h.1 hb, h.2⟩
++
++theorem outerSortedFrom_weaken {lb : Option ByteString} {c : ByteString}
++    {v : ValueRep}
++    (hb : ascendingFrom lb c = true) (h : outerSortedFrom (some c) v = true) :
++    outerSortedFrom lb v = true := by
++  cases v with
++  | nil => rfl
++  | cons hd tl =>
++      obtain ⟨c', i'⟩ := hd
++      simp only [outerSortedFrom, Bool.and_eq_true] at h ⊢
++      exact ⟨⟨ascendingFrom_of_lt h.1.1 hb, h.1.2⟩, h.2⟩
++
++/-! ### Lookup basics -/
++
++/-- A list sorted strictly above `lb` has no key at or below `lb`. -/
++theorem lookupInner_zero_of_bound {t lb : ByteString}
++    {l : List (ByteString × Integer)}
++    (hs : innerSortedFrom (some lb) l = true) (hlt : ¬ lb < t) :
++    lookupInner t l = 0 := by
++  induction l generalizing lb with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t₀, q₀⟩ := hd
++      simp only [innerSortedFrom, Bool.and_eq_true, ascendingFrom_some_iff] at hs
++      rw [lookupInner]
++      cases hbe : t₀ == t with
++      | true =>
++          have : t₀ = t := by simpa using hbe
++          exact absurd (this ▸ hs.1) hlt
++      | false =>
++          simp only [Bool.false_eq_true, if_neg]
++          exact ih hs.2 (fun hlt' => hlt (bs_lt_trans hs.1 hlt'))
++
++theorem lookupCoin_zero_of_bound {c t lb : ByteString} {v : ValueRep}
++    (hs : outerSortedFrom (some lb) v = true) (hlt : ¬ lb < c) :
++    lookupCoin c t v = 0 := by
++  induction v generalizing lb with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c₀, i₀⟩ := hd
++      simp only [outerSortedFrom, Bool.and_eq_true, ascendingFrom_some_iff] at hs
++      rw [lookupCoin]
++      cases hbe : c₀ == c with
++      | true =>
++          have : c₀ = c := by simpa using hbe
++          exact absurd (this ▸ hs.1.1) hlt
++      | false =>
++          simp only [Bool.false_eq_true, if_neg]
++          exact ih hs.2 (fun hlt' => hlt (bs_lt_trans hs.1.1 hlt'))
++
++/-- Without negative amounts every lookup is non-negative (inner level). -/
++theorem lookupInner_nonneg {t : ByteString} {l : List (ByteString × Integer)}
++    (h : innerHasNegative l = false) : 0 ≤ lookupInner t l := by
++  induction l with
++  | nil => simp [lookupInner]
++  | cons hd tl ih =>
++      obtain ⟨t₀, q₀⟩ := hd
++      simp only [innerHasNegative, Bool.or_eq_false_iff, decide_eq_false_iff_not,
++        Int.not_lt] at h
++      rw [lookupInner]
++      cases hbe : t₀ == t with
++      | true => simpa using h.1
++      | false => simpa using ih h.2
++
++/-- Without negative amounts every lookup is non-negative. -/
++theorem lookupCoin_nonneg {c t : ByteString} {v : ValueRep}
++    (h : hasNegativeAmount v = false) : 0 ≤ lookupCoin c t v := by
++  induction v with
++  | nil => simp [lookupCoin]
++  | cons hd tl ih =>
++      obtain ⟨c₀, i₀⟩ := hd
++      simp only [hasNegativeAmount, Bool.or_eq_false_iff] at h
++      rw [lookupCoin]
++      cases hbe : c₀ == c with
++      | true => simpa using lookupInner_nonneg (t := t) h.1
++      | false => simpa using ih h.2
++
++/-! ### Lemma group 1 — `lookupCoin` after `insertCoin` (hit and miss)
++
++`insertCoin` has two arms: quantity 0 deletes via `deleteCoin`, anything else
++inserts via `insertUnsafe`; the lemmas cover both. -/
++
++theorem lookupInner_innerDelete_self (tok : ByteString)
++    (l : List (ByteString × Integer)) :
++    lookupInner tok (innerDelete tok l) = 0 := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      rw [innerDelete]
++      cases hbe : t == tok with
++      | true => simpa using ih
++      | false => rw [if_neg (by simp [hbe]), lookupInner, if_neg (by simp [hbe])]; exact ih
++
++theorem lookupInner_innerDelete_other {tok t' : ByteString}
++    (h : t' ≠ tok) (l : List (ByteString × Integer)) :
++    lookupInner t' (innerDelete tok l) = lookupInner t' l := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      rw [innerDelete]
++      cases hbe : t == tok with
++      | true =>
++          have ht : t = tok := by simpa using hbe
++          have h2 : (t == t') = false := by
++            rw [ht]; exact beq_false_of_ne fun he => h he.symm
++          simp [hbe, lookupInner, h2, ih]
++      | false =>
++          simp only [hbe, Bool.false_eq_true, if_false, lookupInner]
++          cases hbe' : t == t' <;> simp [hbe', ih]
++
++/-- If deleting `tok` empties an inner list, the list held nothing else. -/
++theorem lookupInner_zero_of_innerDelete_nil {tok t' : ByteString}
++    {l : List (ByteString × Integer)}
++    (hne : t' ≠ tok) (h : innerDelete tok l = []) : lookupInner t' l = 0 := by
++  have := lookupInner_innerDelete_other (l := l) hne
++  rw [h] at this
++  exact this.symm.trans rfl
++
++theorem lookupCoin_deleteCoin_self {cur tok : ByteString} {v : ValueRep}
++    {lb : Option ByteString} (hs : outerSortedFrom lb v = true) :
++    lookupCoin cur tok (deleteCoin cur tok v) = 0 := by
++  induction v generalizing lb with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp only [outerSortedFrom, Bool.and_eq_true] at hs
++      rw [deleteCoin]
++      cases hbe : c == cur with
++      | true =>
++          have hc : c = cur := by simpa using hbe
++          rw [if_pos (by simp [hbe])]
++          cases hd : innerDelete tok inner with
++          | nil =>
++              exact lookupCoin_zero_of_bound (lb := c) hs.2
++                (hc ▸ ByteString.lt_irrefl c)
++          | cons a l' =>
++              rw [lookupCoin, if_pos (by simp [hbe]), ← hd,
++                lookupInner_innerDelete_self]
++      | false =>
++          rw [if_neg (by simp [hbe]), lookupCoin, if_neg (by simp [hbe])]
++          exact ih hs.2
++
++theorem lookupCoin_deleteCoin_other {cur tok c' t' : ByteString} {v : ValueRep}
++    {lb : Option ByteString} (hs : outerSortedFrom lb v = true)
++    (hne : c' ≠ cur ∨ t' ≠ tok) :
++    lookupCoin c' t' (deleteCoin cur tok v) = lookupCoin c' t' v := by
++  induction v generalizing lb with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp only [outerSortedFrom, Bool.and_eq_true] at hs
++      rw [deleteCoin]
++      cases hbe : c == cur with
++      | true =>
++          have hc : c = cur := by simpa using hbe
++          rw [if_pos (by simp [hbe])]
++          cases hd : innerDelete tok inner with
++          | nil =>
++              rw [lookupCoin]
++              cases hbe' : c == c' with
++              | true =>
++                  have hcc : c = c' := by simpa using hbe'
++                  have ht : t' ≠ tok := by
++                    rcases hne with h | h
++                    · exact absurd (hcc.symm.trans hc) h
++                    · exact h
++                  rw [if_pos (by simp [hbe']),
++                    lookupInner_zero_of_innerDelete_nil ht hd,
++                    lookupCoin_zero_of_bound (lb := c) hs.2
++                      (hcc ▸ ByteString.lt_irrefl c)]
++              | false => rw [if_neg (by simp [hbe'])]
++          | cons a l' =>
++              rw [lookupCoin, lookupCoin]
++              cases hbe' : c == c' with
++              | true =>
++                  have hcc : c = c' := by simpa using hbe'
++                  have ht : t' ≠ tok := by
++                    rcases hne with h | h
++                    · exact absurd (hcc.symm.trans hc) h
++                    · exact h
++                  rw [if_pos (by simp [hbe']), if_pos (by simp [hbe']), ← hd,
++                    lookupInner_innerDelete_other ht]
++              | false =>
++                  rw [if_neg (by simp [hbe']), if_neg (by simp [hbe'])]
++      | false =>
++          rw [if_neg (by simp [hbe]), lookupCoin, lookupCoin]
++          cases hbe' : c == c' with
++          | true => rw [if_pos (by simp [hbe']), if_pos (by simp [hbe'])]
++          | false =>
++              rw [if_neg (by simp [hbe']), if_neg (by simp [hbe'])]
++              exact ih hs.2
++
++theorem lookupInner_innerInsert_self (tok : ByteString) (a : Integer)
++    (l : List (ByteString × Integer)) :
++    lookupInner tok (innerInsert tok a l) = a := by
++  induction l with
++  | nil => simp [innerInsert, lookupInner]
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      rw [innerInsert]
++      by_cases hlt : tok < t
++      · simp [hlt, lookupInner]
++      · cases hbe : tok == t with
++        | true => simp [hlt, hbe, lookupInner]
++        | false =>
++            have h2 : (t == tok) = false := bs_beq_symm_false hbe
++            simp [hlt, hbe, lookupInner, h2, ih]
++
++theorem lookupInner_innerInsert_other {tok t' : ByteString} (a : Integer)
++    (hne : t' ≠ tok) (l : List (ByteString × Integer)) :
++    lookupInner t' (innerInsert tok a l) = lookupInner t' l := by
++  have hne' : (tok == t') = false := beq_false_of_ne fun he => hne he.symm
++  induction l with
++  | nil => simp [innerInsert, lookupInner, hne']
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      rw [innerInsert]
++      by_cases hlt : tok < t
++      · simp [hlt, lookupInner, hne']
++      · cases hbe : tok == t with
++        | true =>
++            have ht : tok = t := by simpa using hbe
++            have h2 : (t == t') = false := by rw [← ht]; exact hne'
++            simp [hlt, hbe, lookupInner, hne', h2]
++        | false =>
++            simp only [hlt, hbe, Bool.false_eq_true, if_false, lookupInner]
++            cases hbe' : t == t' <;> simp [hbe', ih]
++
++theorem lookupCoin_insertUnsafe_self (cur tok : ByteString) (a : Integer)
++    (v : ValueRep) :
++    lookupCoin cur tok (insertUnsafe cur tok a v) = a := by
++  induction v with
++  | nil => simp [insertUnsafe, lookupCoin, lookupInner]
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      rw [insertUnsafe]
++      by_cases hlt : cur < c
++      · simp [hlt, lookupCoin, lookupInner]
++      · cases hbe : cur == c with
++        | true =>
++            have h2 : (c == cur) = true := bs_beq_symm_true hbe
++            simp [hlt, hbe, lookupCoin, h2, lookupInner_innerInsert_self]
++        | false =>
++            have h2 : (c == cur) = false := bs_beq_symm_false hbe
++            simp [hlt, hbe, lookupCoin, h2, ih]
++
++theorem lookupCoin_insertUnsafe_other {cur tok c' t' : ByteString} (a : Integer)
++    {v : ValueRep} {lb : Option ByteString}
++    (hs : outerSortedFrom lb v = true) (hne : c' ≠ cur ∨ t' ≠ tok) :
++    lookupCoin c' t' (insertUnsafe cur tok a v) = lookupCoin c' t' v := by
++  induction v generalizing lb with
++  | nil =>
++      cases hbe : cur == c' with
++      | true =>
++          have hc : cur = c' := by simpa using hbe
++          have ht : t' ≠ tok := by
++            rcases hne with h | h
++            · exact absurd hc.symm h
++            · exact h
++          have h2 : (tok == t') = false := beq_false_of_ne fun he => ht he.symm
++          simp [insertUnsafe, lookupCoin, lookupInner, hbe, h2]
++      | false => simp [insertUnsafe, lookupCoin, hbe]
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp only [outerSortedFrom, Bool.and_eq_true] at hs
++      rw [insertUnsafe]
++      by_cases hlt : cur < c
++      · -- new head (cur, [(tok, a)]) prepended before (c, inner) :: tl
++        cases hbe : cur == c' with
++        | true =>
++            have hc : cur = c' := by simpa using hbe
++            have ht : t' ≠ tok := by
++              rcases hne with h | h
++              · exact absurd hc.symm h
++              · exact h
++            have h2 : (tok == t') = false := beq_false_of_ne fun he => ht he.symm
++            have hz : lookupCoin c' t' ((c, inner) :: tl) = 0 :=
++              lookupCoin_zero_of_bound (lb := cur)
++                (by simp only [outerSortedFrom, Bool.and_eq_true]
++                    exact ⟨⟨by simpa using hlt, hs.1.2⟩, hs.2⟩)
++                (hc ▸ ByteString.lt_irrefl cur)
++            rw [if_pos hlt, lookupCoin, if_pos hbe, hz]
++            simp [lookupInner, h2]
++        | false => simp [hlt, lookupCoin, hbe]
++      · cases hbe : cur == c with
++        | true =>
++            have hc : cur = c := by simpa using hbe
++            cases hbe' : c == c' with
++            | true =>
++                have hcc : c = c' := by simpa using hbe'
++                have ht : t' ≠ tok := by
++                  rcases hne with h | h
++                  · exact absurd (hc.trans hcc).symm h
++                  · exact h
++                simp [hlt, hbe, hbe', lookupCoin,
++                  lookupInner_innerInsert_other a ht]
++            | false => simp [hlt, hbe, hbe', lookupCoin]
++        | false =>
++            cases hbe' : c == c' with
++            | true => simp [hlt, hbe, hbe', lookupCoin]
++            | false => simp [hlt, hbe, hbe', lookupCoin, ih hs.2]
++
++/-- **Lemma group 1 (hit)**: after a successful `insertCoin cur tok amt`,
++    looking up `(cur, tok)` returns `amt` — including the `amt = 0` delete arm,
++    where the lookup returns 0. -/
++theorem lookupCoin_insertCoin_hit {cur tok : ByteString} {amt : Integer}
++    {v v' : ValueRep} (hs : valueSorted v = true)
++    (h : insertCoin cur tok amt v = some v') :
++    lookupCoin cur tok v' = amt := by
++  rw [insertCoin] at h
++  by_cases h0 : amt == 0
++  · rw [if_pos h0] at h
++    obtain rfl : deleteCoin cur tok v = v' := by simpa using h
++    have : amt = 0 := by simpa using h0
++    rw [this, lookupCoin_deleteCoin_self (lb := none) hs]
++  · rw [if_neg h0] at h
++    by_cases h1 : validKey cur
++    · rw [if_pos h1] at h
++      by_cases h2 : validKey tok
++      · rw [if_pos h2] at h
++        by_cases h3 : validQuantity amt
++        · rw [if_pos h3] at h
++          obtain rfl : insertUnsafe cur tok amt v = v' := by simpa using h
++          exact lookupCoin_insertUnsafe_self cur tok amt v
++        · rw [if_neg h3] at h; exact absurd h (by simp)
++      · rw [if_neg h2] at h; exact absurd h (by simp)
++    · rw [if_neg h1] at h; exact absurd h (by simp)
++
++/-- **Lemma group 1 (miss)**: a successful `insertCoin cur tok amt` leaves
++    every other `(c', t')` slot unchanged. -/
++theorem lookupCoin_insertCoin_miss {cur tok c' t' : ByteString} {amt : Integer}
++    {v v' : ValueRep} (hs : valueSorted v = true)
++    (h : insertCoin cur tok amt v = some v') (hne : c' ≠ cur ∨ t' ≠ tok) :
++    lookupCoin c' t' v' = lookupCoin c' t' v := by
++  rw [insertCoin] at h
++  by_cases h0 : amt == 0
++  · rw [if_pos h0] at h
++    obtain rfl : deleteCoin cur tok v = v' := by simpa using h
++    exact lookupCoin_deleteCoin_other (lb := none) hs hne
++  · rw [if_neg h0] at h
++    by_cases h1 : validKey cur
++    · rw [if_pos h1] at h
++      by_cases h2 : validKey tok
++      · rw [if_pos h2] at h
++        by_cases h3 : validQuantity amt
++        · rw [if_pos h3] at h
++          obtain rfl : insertUnsafe cur tok amt v = v' := by simpa using h
++          exact lookupCoin_insertUnsafe_other (lb := none) amt hs hne
++        · rw [if_neg h3] at h; exact absurd h (by simp)
++      · rw [if_neg h2] at h; exact absurd h (by simp)
++    · rw [if_neg h1] at h; exact absurd h (by simp)
++
++/-! ### Lemma group 2 — `lookupCoin` distributes over `unionValue`
++
++`unionValue` is a two-level sorted merge; on the success branch every slot of
++the result is the integer sum of the two argument slots, and on the failure
++branch some slot sum leaves the 128-bit `Quantity` bounds. -/
++
++set_option maxRecDepth 20000 in
++theorem validQuantity_zero : validQuantity 0 = true := by decide
++
++theorem unionInner_sortedFrom (i₁ i₂ : List (ByteString × Integer)) :
++    ∀ (lb : Option ByteString) (r : List (ByteString × Integer)),
++      innerSortedFrom lb i₁ = true → innerSortedFrom lb i₂ = true →
++      unionInner i₁ i₂ = some r → innerSortedFrom lb r = true := by
++  induction i₁, i₂ using unionInner.induct with
++  | case1 ys =>
++      intro lb r h₁ h₂ h
++      simp only [unionInner, Option.some.injEq] at h
++      exact h ▸ h₂
++  | case2 x xs =>
++      intro lb r h₁ h₂ h
++      simp only [unionInner, Option.some.injEq] at h
++      exact h ▸ h₁
++  | case3 t₁ q₁ xs t₂ q₂ ys hlt hnone ih =>
++      intro lb r h₁ h₂ h
++      rw [unionInner_lt_eq _ _ _ _ _ _ hlt, hnone] at h
++      simp at h
++  | case4 t₁ q₁ xs t₂ q₂ ys hlt rest hsome ih =>
++      intro lb r h₁ h₂ h
++      rw [unionInner_lt_eq _ _ _ _ _ _ hlt, hsome] at h
++      simp only [Option.map_some, Option.some.injEq] at h
++      subst h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂ ⊢
++      refine ⟨h₁.1, ?_⟩
++      exact ih (some t₁) rest h₁.2
++        (by simp only [innerSortedFrom, Bool.and_eq_true]
++            exact ⟨by simpa using hlt, h₂.2⟩) hsome
++  | case5 t₁ q₁ xs t₂ q₂ ys hnlt hgt hnone ih =>
++      intro lb r h₁ h₂ h
++      rw [unionInner_gt_eq _ _ _ _ _ _ hnlt hgt, hnone] at h
++      simp at h
++  | case6 t₁ q₁ xs t₂ q₂ ys hnlt hgt rest hsome ih =>
++      intro lb r h₁ h₂ h
++      rw [unionInner_gt_eq _ _ _ _ _ _ hnlt hgt, hsome] at h
++      simp only [Option.map_some, Option.some.injEq] at h
++      subst h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂ ⊢
++      refine ⟨h₂.1, ?_⟩
++      exact ih (some t₂) rest
++        (by simp only [innerSortedFrom, Bool.and_eq_true]
++            exact ⟨by simpa using hgt, h₁.2⟩) h₂.2 hsome
++  | case7 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv hnone ih =>
++      intro lb r h₁ h₂ h
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_pos hv, hnone] at h
++      simp at h
++  | case8 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv rest hsome ih =>
++      intro lb r h₁ h₂ h
++      have heq : t₁ = t₂ := bs_connex hnlt hngt
++      subst heq
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_pos hv, hsome] at h
++      simp only [Option.map_some, Option.some.injEq] at h
++      subst h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have hrest : innerSortedFrom (some t₁) rest = true :=
++        ih (some t₁) rest h₁.2 h₂.2 hsome
++      cases hz : q₁ + q₂ == 0 with
++      | true =>
++          simp only [hz, if_true, ite_true]
++          exact innerSortedFrom_weaken h₁.1 hrest
++      | false =>
++          simp only [hz, Bool.false_eq_true, if_false, ite_false,
++            innerSortedFrom, Bool.and_eq_true]
++          exact ⟨h₁.1, hrest⟩
++  | case9 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv =>
++      intro lb r h₁ h₂ h
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_neg hv] at h
++      simp at h
++
++theorem unionInner_lookup (i₁ i₂ : List (ByteString × Integer)) :
++    ∀ (lb : Option ByteString) (r : List (ByteString × Integer)) (t : ByteString),
++      innerSortedFrom lb i₁ = true → innerSortedFrom lb i₂ = true →
++      unionInner i₁ i₂ = some r →
++      lookupInner t r = lookupInner t i₁ + lookupInner t i₂ := by
++  induction i₁, i₂ using unionInner.induct with
++  | case1 ys =>
++      intro lb r t h₁ h₂ h
++      simp only [unionInner, Option.some.injEq] at h
++      subst h
++      simp [lookupInner]
++  | case2 x xs =>
++      intro lb r t h₁ h₂ h
++      simp only [unionInner, Option.some.injEq] at h
++      subst h
++      simp [lookupInner]
++  | case3 t₁ q₁ xs t₂ q₂ ys hlt hnone ih =>
++      intro lb r t h₁ h₂ h
++      rw [unionInner_lt_eq _ _ _ _ _ _ hlt, hnone] at h
++      simp at h
++  | case4 t₁ q₁ xs t₂ q₂ ys hlt rest hsome ih =>
++      intro lb r t h₁ h₂ h
++      rw [unionInner_lt_eq _ _ _ _ _ _ hlt, hsome] at h
++      simp only [Option.map_some, Option.some.injEq] at h
++      subst h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have ihs := ih (some t₁) rest t h₁.2
++        (by simp only [innerSortedFrom, Bool.and_eq_true]
++            exact ⟨by simpa using hlt, h₂.2⟩) hsome
++      cases hbe : t₁ == t with
++      | true =>
++          have ht : t₁ = t := by simpa using hbe
++          have hne : (t₂ == t) = false :=
++            beq_false_of_ne fun he => bs_lt_ne hlt (ht.trans he.symm)
++          have hyz : lookupInner t ys = 0 :=
++            lookupInner_zero_of_bound h₂.2
++              (fun hlt' => bs_lt_asymm hlt (by rwa [ht] : t₂ < t₁))
++          simp [lookupInner, hbe, hne, hyz]
++      | false =>
++          simp [lookupInner, hbe, ihs]
++  | case5 t₁ q₁ xs t₂ q₂ ys hnlt hgt hnone ih =>
++      intro lb r t h₁ h₂ h
++      rw [unionInner_gt_eq _ _ _ _ _ _ hnlt hgt, hnone] at h
++      simp at h
++  | case6 t₁ q₁ xs t₂ q₂ ys hnlt hgt rest hsome ih =>
++      intro lb r t h₁ h₂ h
++      rw [unionInner_gt_eq _ _ _ _ _ _ hnlt hgt, hsome] at h
++      simp only [Option.map_some, Option.some.injEq] at h
++      subst h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have ihs := ih (some t₂) rest t
++        (by simp only [innerSortedFrom, Bool.and_eq_true]
++            exact ⟨by simpa using hgt, h₁.2⟩) h₂.2 hsome
++      cases hbe : t₂ == t with
++      | true =>
++          have ht : t₂ = t := by simpa using hbe
++          have hne : (t₁ == t) = false :=
++            beq_false_of_ne fun he => bs_lt_ne hgt (ht.trans he.symm)
++          have hxz : lookupInner t xs = 0 :=
++            lookupInner_zero_of_bound h₁.2
++              (fun hlt' => hnlt (by rwa [ht] : t₁ < t₂))
++          simp [lookupInner, hbe, hne, hxz]
++      | false =>
++          simp [lookupInner, hbe, ihs]
++  | case7 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv hnone ih =>
++      intro lb r t h₁ h₂ h
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_pos hv, hnone] at h
++      simp at h
++  | case8 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv rest hsome ih =>
++      intro lb r t h₁ h₂ h
++      have heq : t₁ = t₂ := bs_connex hnlt hngt
++      subst heq
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_pos hv, hsome] at h
++      simp only [Option.map_some, Option.some.injEq] at h
++      subst h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have ihs := ih (some t₁) rest t h₁.2 h₂.2 hsome
++      cases hbe : t₁ == t with
++      | true =>
++          have ht : t₁ = t := by simpa using hbe
++          have hxz : lookupInner t xs = 0 :=
++            lookupInner_zero_of_bound h₁.2 (by rw [← ht]; exact ByteString.lt_irrefl t₁)
++          have hyz : lookupInner t ys = 0 :=
++            lookupInner_zero_of_bound h₂.2 (by rw [← ht]; exact ByteString.lt_irrefl t₁)
++          cases hz : q₁ + q₂ == 0 with
++          | true =>
++              have hq : q₁ + q₂ = 0 := by simpa using hz
++              simp [hz, lookupInner, hbe, ihs, hxz, hyz, hq]
++          | false =>
++              simp [hz, lookupInner, hbe]
++      | false =>
++          cases hz : q₁ + q₂ == 0 with
++          | true => simp [hz, lookupInner, hbe, ihs]
++          | false => simp [hz, lookupInner, hbe, ihs]
++  | case9 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv =>
++      intro lb r t h₁ h₂ h
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_neg hv] at h
++      simp at h
++
++theorem unionInner_none (i₁ i₂ : List (ByteString × Integer)) :
++    ∀ (lb : Option ByteString),
++      innerSortedFrom lb i₁ = true → innerSortedFrom lb i₂ = true →
++      unionInner i₁ i₂ = none →
++      ∃ t, validQuantity (lookupInner t i₁ + lookupInner t i₂) = false := by
++  induction i₁, i₂ using unionInner.induct with
++  | case1 ys => intro lb h₁ h₂ h; simp [unionInner] at h
++  | case2 x xs => intro lb h₁ h₂ h; simp [unionInner] at h
++  | case3 t₁ q₁ xs t₂ q₂ ys hlt hnone ih =>
++      intro lb h₁ h₂ h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have hys : innerSortedFrom (some t₁) ((t₂, q₂) :: ys) = true := by
++        simp only [innerSortedFrom, Bool.and_eq_true]
++        exact ⟨by simpa using hlt, h₂.2⟩
++      obtain ⟨t, hbad⟩ := ih (some t₁) h₁.2 hys hnone
++      refine ⟨t, ?_⟩
++      have hne : (t₁ == t) = false := by
++        cases hbe : t₁ == t with
++        | false => rfl
++        | true =>
++            have ht : t₁ = t := by simpa using hbe
++            have hxz : lookupInner t xs = 0 :=
++              lookupInner_zero_of_bound h₁.2 (by rw [← ht]; exact ByteString.lt_irrefl t₁)
++            have hyz : lookupInner t ((t₂, q₂) :: ys) = 0 :=
++              lookupInner_zero_of_bound hys (by rw [← ht]; exact ByteString.lt_irrefl t₁)
++            rw [hxz, hyz] at hbad
++            simp [validQuantity_zero] at hbad
++      simpa [lookupInner, hne] using hbad
++  | case4 t₁ q₁ xs t₂ q₂ ys hlt rest hsome ih =>
++      intro lb h₁ h₂ h
++      rw [unionInner_lt_eq _ _ _ _ _ _ hlt, hsome] at h
++      simp at h
++  | case5 t₁ q₁ xs t₂ q₂ ys hnlt hgt hnone ih =>
++      intro lb h₁ h₂ h
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have hxs : innerSortedFrom (some t₂) ((t₁, q₁) :: xs) = true := by
++        simp only [innerSortedFrom, Bool.and_eq_true]
++        exact ⟨by simpa using hgt, h₁.2⟩
++      obtain ⟨t, hbad⟩ := ih (some t₂) hxs h₂.2 hnone
++      refine ⟨t, ?_⟩
++      have hne : (t₂ == t) = false := by
++        cases hbe : t₂ == t with
++        | false => rfl
++        | true =>
++            have ht : t₂ = t := by simpa using hbe
++            have hxz : lookupInner t ((t₁, q₁) :: xs) = 0 :=
++              lookupInner_zero_of_bound hxs (by rw [← ht]; exact ByteString.lt_irrefl t₂)
++            have hyz : lookupInner t ys = 0 :=
++              lookupInner_zero_of_bound h₂.2 (by rw [← ht]; exact ByteString.lt_irrefl t₂)
++            rw [hxz, hyz] at hbad
++            simp [validQuantity_zero] at hbad
++      simpa [lookupInner, hne] using hbad
++  | case6 t₁ q₁ xs t₂ q₂ ys hnlt hgt rest hsome ih =>
++      intro lb h₁ h₂ h
++      rw [unionInner_gt_eq _ _ _ _ _ _ hnlt hgt, hsome] at h
++      simp at h
++  | case7 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv hnone ih =>
++      intro lb h₁ h₂ h
++      have heq : t₁ = t₂ := bs_connex hnlt hngt
++      subst heq
++      simp only [innerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      obtain ⟨t, hbad⟩ := ih (some t₁) h₁.2 h₂.2 hnone
++      refine ⟨t, ?_⟩
++      have hne : (t₁ == t) = false := by
++        cases hbe : t₁ == t with
++        | false => rfl
++        | true =>
++            have ht : t₁ = t := by simpa using hbe
++            have hxz : lookupInner t xs = 0 :=
++              lookupInner_zero_of_bound h₁.2 (by rw [← ht]; exact ByteString.lt_irrefl t₁)
++            have hyz : lookupInner t ys = 0 :=
++              lookupInner_zero_of_bound h₂.2 (by rw [← ht]; exact ByteString.lt_irrefl t₁)
++            rw [hxz, hyz] at hbad
++            simp [validQuantity_zero] at hbad
++      simpa [lookupInner, hne] using hbad
++  | case8 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv rest hsome ih =>
++      intro lb h₁ h₂ h
++      rw [unionInner_collision_eq _ _ _ _ _ _ hnlt hngt, if_pos hv, hsome] at h
++      simp at h
++  | case9 t₁ q₁ xs t₂ q₂ ys hnlt hngt hv =>
++      intro lb h₁ h₂ h
++      have heq : t₁ = t₂ := bs_connex hnlt hngt
++      subst heq
++      have hf : validQuantity (q₁ + q₂) = false := by simpa using hv
++      exact ⟨t₁, by simp [lookupInner, hf]⟩
++
++theorem unionOuter_sortedFrom (v₁ v₂ : ValueRep) :
++    ∀ (lb : Option ByteString) (r : ValueRep),
++      outerSortedFrom lb v₁ = true → outerSortedFrom lb v₂ = true →
++      unionOuter v₁ v₂ = some r → outerSortedFrom lb r = true := by
++  induction v₁, v₂ using unionOuter.induct with
++  | case1 ys =>
++      intro lb r h₁ h₂ h
++      simp only [unionOuter, Option.some.injEq] at h
++      exact h ▸ h₂
++  | case2 x xs =>
++      intro lb r h₁ h₂ h
++      simp only [unionOuter, Option.some.injEq] at h
++      exact h ▸ h₁
++  | case3 c₁ i₁ xs c₂ i₂ ys hlt hnone ih =>
++      intro lb r h₁ h₂ h
++      simp [unionOuter, hlt, hnone] at h
++  | case4 c₁ i₁ xs c₂ i₂ ys hlt rest hsome ih =>
++      intro lb r h₁ h₂ h
++      simp [unionOuter, hlt, hsome] at h
++      subst h
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂ ⊢
++      refine ⟨h₁.1, ?_⟩
++      exact ih (some c₁) rest h₁.2
++        (by simp only [outerSortedFrom, Bool.and_eq_true]
++            exact ⟨⟨by simpa using hlt, h₂.1.2⟩, h₂.2⟩) hsome
++  | case5 c₁ i₁ xs c₂ i₂ ys hnlt hgt hnone ih =>
++      intro lb r h₁ h₂ h
++      simp [unionOuter, hnlt, hgt, hnone] at h
++  | case6 c₁ i₁ xs c₂ i₂ ys hnlt hgt rest hsome ih =>
++      intro lb r h₁ h₂ h
++      simp [unionOuter, hnlt, hgt, hsome] at h
++      subst h
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂ ⊢
++      refine ⟨h₂.1, ?_⟩
++      exact ih (some c₂) rest
++        (by simp only [outerSortedFrom, Bool.and_eq_true]
++            exact ⟨⟨by simpa using hgt, h₁.1.2⟩, h₁.2⟩) h₂.2 hsome
++  | case7 c₁ i₁ xs c₂ i₂ ys hnlt hngt hnone =>
++      intro lb r h₁ h₂ h
++      simp [unionOuter, hnlt, hngt, hnone] at h
++  | case8 c₁ i₁ xs c₂ i₂ ys hnlt hngt inner hinner hnone ih =>
++      intro lb r h₁ h₂ h
++      simp [unionOuter, hnlt, hngt, hinner, hnone] at h
++  | case9 c₁ i₁ xs c₂ i₂ ys hnlt hngt inner hinner rest hrest ih =>
++      intro lb r h₁ h₂ h
++      have heq : c₁ = c₂ := bs_connex hnlt hngt
++      subst heq
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have hrests : outerSortedFrom (some c₁) rest = true :=
++        ih (some c₁) rest h₁.2 h₂.2 hrest
++      have hinns : innerSortedFrom none inner = true :=
++        unionInner_sortedFrom i₁ i₂ none inner h₁.1.2 h₂.1.2 hinner
++      cases inner with
++      | nil =>
++          simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++          subst h
++          exact outerSortedFrom_weaken h₁.1.1 hrests
++      | cons a as =>
++          simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++          subst h
++          simp only [outerSortedFrom, Bool.and_eq_true]
++          exact ⟨⟨h₁.1.1, hinns⟩, hrests⟩
++
++theorem unionOuter_lookup (v₁ v₂ : ValueRep) :
++    ∀ (lb : Option ByteString) (r : ValueRep) (c t : ByteString),
++      outerSortedFrom lb v₁ = true → outerSortedFrom lb v₂ = true →
++      unionOuter v₁ v₂ = some r →
++      lookupCoin c t r = lookupCoin c t v₁ + lookupCoin c t v₂ := by
++  induction v₁, v₂ using unionOuter.induct with
++  | case1 ys =>
++      intro lb r c t h₁ h₂ h
++      simp only [unionOuter, Option.some.injEq] at h
++      subst h
++      simp [lookupCoin]
++  | case2 x xs =>
++      intro lb r c t h₁ h₂ h
++      simp only [unionOuter, Option.some.injEq] at h
++      subst h
++      simp [lookupCoin]
++  | case3 c₁ i₁ xs c₂ i₂ ys hlt hnone ih =>
++      intro lb r c t h₁ h₂ h
++      simp [unionOuter, hlt, hnone] at h
++  | case4 c₁ i₁ xs c₂ i₂ ys hlt rest hsome ih =>
++      intro lb r c t h₁ h₂ h
++      simp [unionOuter, hlt, hsome] at h
++      subst h
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have ihs := ih (some c₁) rest c t h₁.2
++        (by simp only [outerSortedFrom, Bool.and_eq_true]
++            exact ⟨⟨by simpa using hlt, h₂.1.2⟩, h₂.2⟩) hsome
++      cases hbe : c₁ == c with
++      | true =>
++          have hc : c₁ = c := by simpa using hbe
++          have hne : (c₂ == c) = false :=
++            beq_false_of_ne fun he => bs_lt_ne hlt (hc.trans he.symm)
++          have hyz : lookupCoin c t ys = 0 :=
++            lookupCoin_zero_of_bound h₂.2
++              (fun hlt' => bs_lt_asymm hlt (by rwa [hc] : c₂ < c₁))
++          simp [lookupCoin, hbe, hne, hyz]
++      | false =>
++          simp [lookupCoin, hbe, ihs]
++  | case5 c₁ i₁ xs c₂ i₂ ys hnlt hgt hnone ih =>
++      intro lb r c t h₁ h₂ h
++      simp [unionOuter, hnlt, hgt, hnone] at h
++  | case6 c₁ i₁ xs c₂ i₂ ys hnlt hgt rest hsome ih =>
++      intro lb r c t h₁ h₂ h
++      simp [unionOuter, hnlt, hgt, hsome] at h
++      subst h
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have ihs := ih (some c₂) rest c t
++        (by simp only [outerSortedFrom, Bool.and_eq_true]
++            exact ⟨⟨by simpa using hgt, h₁.1.2⟩, h₁.2⟩) h₂.2 hsome
++      cases hbe : c₂ == c with
++      | true =>
++          have hc : c₂ = c := by simpa using hbe
++          have hne : (c₁ == c) = false :=
++            beq_false_of_ne fun he => bs_lt_ne hgt (hc.trans he.symm)
++          have hxz : lookupCoin c t xs = 0 :=
++            lookupCoin_zero_of_bound h₁.2
++              (fun hlt' => hnlt (by rwa [hc] : c₁ < c₂))
++          simp [lookupCoin, hbe, hne, hxz]
++      | false =>
++          simp [lookupCoin, hbe, ihs]
++  | case7 c₁ i₁ xs c₂ i₂ ys hnlt hngt hnone =>
++      intro lb r c t h₁ h₂ h
++      simp [unionOuter, hnlt, hngt, hnone] at h
++  | case8 c₁ i₁ xs c₂ i₂ ys hnlt hngt inner hinner hnone ih =>
++      intro lb r c t h₁ h₂ h
++      simp [unionOuter, hnlt, hngt, hinner, hnone] at h
++  | case9 c₁ i₁ xs c₂ i₂ ys hnlt hngt inner hinner rest hrest ih =>
++      intro lb r c t h₁ h₂ h
++      have heq : c₁ = c₂ := bs_connex hnlt hngt
++      subst heq
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have ihs := ih (some c₁) rest c t h₁.2 h₂.2 hrest
++      have hinn := unionInner_lookup i₁ i₂ none inner t h₁.1.2 h₂.1.2 hinner
++      cases hbe : c₁ == c with
++      | true =>
++          have hc : c₁ = c := by simpa using hbe
++          have hxz : lookupCoin c t xs = 0 :=
++            lookupCoin_zero_of_bound h₁.2 (by rw [← hc]; exact ByteString.lt_irrefl c₁)
++          have hyz : lookupCoin c t ys = 0 :=
++            lookupCoin_zero_of_bound h₂.2 (by rw [← hc]; exact ByteString.lt_irrefl c₁)
++          cases inner with
++          | nil =>
++              simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++              subst h
++              simp only [lookupInner] at hinn
++              simp [lookupCoin, hbe, ihs, hxz, hyz, ← hinn]
++          | cons a as =>
++              simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++              subst h
++              simp [lookupCoin, hbe, hinn]
++      | false =>
++          cases inner with
++          | nil =>
++              simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++              subst h
++              simp [lookupCoin, hbe, ihs]
++          | cons a as =>
++              simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++              subst h
++              simp [lookupCoin, hbe, ihs]
++
++theorem unionOuter_none (v₁ v₂ : ValueRep) :
++    ∀ (lb : Option ByteString),
++      outerSortedFrom lb v₁ = true → outerSortedFrom lb v₂ = true →
++      unionOuter v₁ v₂ = none →
++      ∃ c t, validQuantity (lookupCoin c t v₁ + lookupCoin c t v₂) = false := by
++  induction v₁, v₂ using unionOuter.induct with
++  | case1 ys => intro lb h₁ h₂ h; simp [unionOuter] at h
++  | case2 x xs => intro lb h₁ h₂ h; simp [unionOuter] at h
++  | case3 c₁ i₁ xs c₂ i₂ ys hlt hnone ih =>
++      intro lb h₁ h₂ h
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have hys : outerSortedFrom (some c₁) ((c₂, i₂) :: ys) = true := by
++        simp only [outerSortedFrom, Bool.and_eq_true]
++        exact ⟨⟨by simpa using hlt, h₂.1.2⟩, h₂.2⟩
++      obtain ⟨c, t, hbad⟩ := ih (some c₁) h₁.2 hys hnone
++      refine ⟨c, t, ?_⟩
++      have hne : (c₁ == c) = false := by
++        cases hbe : c₁ == c with
++        | false => rfl
++        | true =>
++            have hc : c₁ = c := by simpa using hbe
++            have hxz : lookupCoin c t xs = 0 :=
++              lookupCoin_zero_of_bound h₁.2 (by rw [← hc]; exact ByteString.lt_irrefl c₁)
++            have hyz : lookupCoin c t ((c₂, i₂) :: ys) = 0 :=
++              lookupCoin_zero_of_bound hys (by rw [← hc]; exact ByteString.lt_irrefl c₁)
++            rw [hxz, hyz] at hbad
++            simp [validQuantity_zero] at hbad
++      simpa [lookupCoin, hne] using hbad
++  | case4 c₁ i₁ xs c₂ i₂ ys hlt rest hsome ih =>
++      intro lb h₁ h₂ h
++      simp [unionOuter, hlt, hsome] at h
++  | case5 c₁ i₁ xs c₂ i₂ ys hnlt hgt hnone ih =>
++      intro lb h₁ h₂ h
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      have hxs : outerSortedFrom (some c₂) ((c₁, i₁) :: xs) = true := by
++        simp only [outerSortedFrom, Bool.and_eq_true]
++        exact ⟨⟨by simpa using hgt, h₁.1.2⟩, h₁.2⟩
++      obtain ⟨c, t, hbad⟩ := ih (some c₂) hxs h₂.2 hnone
++      refine ⟨c, t, ?_⟩
++      have hne : (c₂ == c) = false := by
++        cases hbe : c₂ == c with
++        | false => rfl
++        | true =>
++            have hc : c₂ = c := by simpa using hbe
++            have hxz : lookupCoin c t ((c₁, i₁) :: xs) = 0 :=
++              lookupCoin_zero_of_bound hxs (by rw [← hc]; exact ByteString.lt_irrefl c₂)
++            have hyz : lookupCoin c t ys = 0 :=
++              lookupCoin_zero_of_bound h₂.2 (by rw [← hc]; exact ByteString.lt_irrefl c₂)
++            rw [hxz, hyz] at hbad
++            simp [validQuantity_zero] at hbad
++      simpa [lookupCoin, hne] using hbad
++  | case6 c₁ i₁ xs c₂ i₂ ys hnlt hgt rest hsome ih =>
++      intro lb h₁ h₂ h
++      simp [unionOuter, hnlt, hgt, hsome] at h
++  | case7 c₁ i₁ xs c₂ i₂ ys hnlt hngt hnone =>
++      intro lb h₁ h₂ h
++      have heq : c₁ = c₂ := bs_connex hnlt hngt
++      subst heq
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      obtain ⟨t, hbad⟩ := unionInner_none i₁ i₂ none h₁.1.2 h₂.1.2 hnone
++      exact ⟨c₁, t, by simpa [lookupCoin] using hbad⟩
++  | case8 c₁ i₁ xs c₂ i₂ ys hnlt hngt inner hinner hnone ih =>
++      intro lb h₁ h₂ h
++      have heq : c₁ = c₂ := bs_connex hnlt hngt
++      subst heq
++      simp only [outerSortedFrom, Bool.and_eq_true] at h₁ h₂
++      obtain ⟨c, t, hbad⟩ := ih (some c₁) h₁.2 h₂.2 hnone
++      refine ⟨c, t, ?_⟩
++      have hne : (c₁ == c) = false := by
++        cases hbe : c₁ == c with
++        | false => rfl
++        | true =>
++            have hc : c₁ = c := by simpa using hbe
++            have hxz : lookupCoin c t xs = 0 :=
++              lookupCoin_zero_of_bound h₁.2 (by rw [← hc]; exact ByteString.lt_irrefl c₁)
++            have hyz : lookupCoin c t ys = 0 :=
++              lookupCoin_zero_of_bound h₂.2 (by rw [← hc]; exact ByteString.lt_irrefl c₁)
++            rw [hxz, hyz] at hbad
++            simp [validQuantity_zero] at hbad
++      simpa [lookupCoin, hne] using hbad
++  | case9 c₁ i₁ xs c₂ i₂ ys hnlt hngt inner hinner rest hrest ih =>
++      intro lb h₁ h₂ h
++      simp [unionOuter, hnlt, hngt, hinner, hrest] at h
++
++/-- **Lemma group 2 (success)**: on the no-overflow branch, `lookupCoin`
++    distributes over `unionValue` as integer addition, slot by slot. -/
++theorem lookupCoin_unionValue {v₁ v₂ v : ValueRep}
++    (h₁ : valueSorted v₁ = true) (h₂ : valueSorted v₂ = true)
++    (h : unionValue v₁ v₂ = some v) (c t : ByteString) :
++    lookupCoin c t v = lookupCoin c t v₁ + lookupCoin c t v₂ :=
++  unionOuter_lookup v₁ v₂ none v c t h₁ h₂ h
++
++/-- **Lemma group 2 (failure side)**: `unionValue` fails only when some slot
++    sum leaves the signed 128-bit `Quantity` bounds. -/
++theorem unionValue_none {v₁ v₂ : ValueRep}
++    (h₁ : valueSorted v₁ = true) (h₂ : valueSorted v₂ = true)
++    (h : unionValue v₁ v₂ = none) :
++    ∃ c t, validQuantity (lookupCoin c t v₁ + lookupCoin c t v₂) = false :=
++  unionOuter_none v₁ v₂ none h₁ h₂ h
++
++/-- `unionValue` preserves sortedness (lets `lookupCoin_unionValue` chain over
++    iterated unions). -/
++theorem unionValue_sorted {v₁ v₂ v : ValueRep}
++    (h₁ : valueSorted v₁ = true) (h₂ : valueSorted v₂ = true)
++    (h : unionValue v₁ v₂ = some v) : valueSorted v = true :=
++  unionOuter_sortedFrom v₁ v₂ none v h₁ h₂ h
++
++/-! ### Lemma group 3 — pointwise characterization of `valueContains` -/
++
++theorem containedInner_correct {v₁ : ValueRep} {c : ByteString}
++    {l : List (ByteString × Integer)}
++    (hneg : hasNegativeAmount v₁ = false)
++    (h : containedInner v₁ c l = true) (t : ByteString) :
++    lookupInner t l ≤ lookupCoin c t v₁ := by
++  induction l with
++  | nil => simpa [lookupInner] using lookupCoin_nonneg (c := c) (t := t) hneg
++  | cons hd tl ih =>
++      obtain ⟨t₀, q₀⟩ := hd
++      simp only [containedInner, Bool.and_eq_true, decide_eq_true_eq] at h
++      rw [lookupInner]
++      cases hbe : t₀ == t with
++      | true =>
++          have ht : t₀ = t := by simpa using hbe
++          simpa [hbe] using ht ▸ h.1
++      | false => simpa [hbe] using ih h.2
++
++theorem containedOuter_correct {v₁ v₂ : ValueRep}
++    (hneg : hasNegativeAmount v₁ = false)
++    (h : containedOuter v₁ v₂ = true) (c t : ByteString) :
++    lookupCoin c t v₂ ≤ lookupCoin c t v₁ := by
++  induction v₂ with
++  | nil => simpa [lookupCoin] using lookupCoin_nonneg (c := c) (t := t) hneg
++  | cons hd tl ih =>
++      obtain ⟨c₀, i₀⟩ := hd
++      simp only [containedOuter, Bool.and_eq_true] at h
++      rw [lookupCoin]
++      cases hbe : c₀ == c with
++      | true =>
++          have hc : c₀ = c := by simpa using hbe
++          simpa [hbe] using containedInner_correct hneg (hc ▸ h.1) t
++      | false => simpa [hbe] using ih h.2
++
++theorem containedInner_complete {v₁ : ValueRep} {c : ByteString}
++    {l : List (ByteString × Integer)} {lb : Option ByteString}
++    (hneg : hasNegativeAmount v₁ = false)
++    (hs : innerSortedFrom lb l = true)
++    (h : ∀ t, lookupInner t l ≤ lookupCoin c t v₁) :
++    containedInner v₁ c l = true := by
++  induction l generalizing lb with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t₀, q₀⟩ := hd
++      simp only [innerSortedFrom, Bool.and_eq_true] at hs
++      simp only [containedInner, Bool.and_eq_true, decide_eq_true_eq]
++      refine ⟨?_, ?_⟩
++      · have ht := h t₀
++        simpa [lookupInner] using ht
++      · apply ih (lb := some t₀) hs.2
++        intro t
++        have ht := h t
++        rw [lookupInner] at ht
++        cases hbe : t₀ == t with
++        | true =>
++            have heq : t₀ = t := by simpa using hbe
++            have hz : lookupInner t tl = 0 :=
++              lookupInner_zero_of_bound hs.2
++                (by rw [← heq]; exact ByteString.lt_irrefl t₀)
++            rw [hz]
++            exact lookupCoin_nonneg hneg
++        | false => simpa [hbe] using ht
++
++theorem containedOuter_complete {v₁ v₂ : ValueRep} {lb : Option ByteString}
++    (hneg : hasNegativeAmount v₁ = false)
++    (hs : outerSortedFrom lb v₂ = true)
++    (h : ∀ c t, lookupCoin c t v₂ ≤ lookupCoin c t v₁) :
++    containedOuter v₁ v₂ = true := by
++  induction v₂ generalizing lb with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c₀, i₀⟩ := hd
++      simp only [outerSortedFrom, Bool.and_eq_true] at hs
++      simp only [containedOuter, Bool.and_eq_true]
++      refine ⟨?_, ?_⟩
++      · apply containedInner_complete hneg hs.1.2
++        intro t
++        have hc := h c₀ t
++        simpa [lookupCoin] using hc
++      · apply ih (lb := some c₀) hs.2
++        intro c t
++        have hct := h c t
++        rw [lookupCoin] at hct
++        cases hbe : c₀ == c with
++        | true =>
++            have heq : c₀ = c := by simpa using hbe
++            have hz : lookupCoin c t tl = 0 :=
++              lookupCoin_zero_of_bound hs.2
++                (by rw [← heq]; exact ByteString.lt_irrefl c₀)
++            rw [hz]
++            exact lookupCoin_nonneg hneg
++        | false => simpa [hbe] using hct
++
++/-- **Lemma group 3**: `valueContains v₁ v₂ = some true` iff neither value has
++    a negative amount and containment holds pointwise on `lookupCoin`.
++    (`v₂` sorted = key uniqueness; every builtin-produced value satisfies it.) -/
++theorem valueContains_iff {v₁ v₂ : ValueRep} (hs : valueSorted v₂ = true) :
++    valueContains v₁ v₂ = some true ↔
++      hasNegativeAmount v₁ = false ∧ hasNegativeAmount v₂ = false ∧
++      ∀ c t, lookupCoin c t v₂ ≤ lookupCoin c t v₁ := by
++  constructor
++  · intro h
++    rw [valueContains] at h
++    by_cases h1 : hasNegativeAmount v₁
++    · simp [h1] at h
++    · by_cases h2 : hasNegativeAmount v₂
++      · simp [h1, h2] at h
++      · have hco : containedOuter v₁ v₂ = true := by simpa [h1, h2] using h
++        exact ⟨by simpa using h1, by simpa using h2,
++          containedOuter_correct (by simpa using h1) hco⟩
++  · rintro ⟨h1, h2, h3⟩
++    rw [valueContains, if_neg (by simp [h1]), if_neg (by simp [h2])]
++    have := containedOuter_complete (lb := none) h1 hs h3
++    simp [this]
++
++/-- **Lemma group 3 (failure side, both arms)**: `valueContains` errors exactly
++    when either argument carries a negative amount. -/
++theorem valueContains_none_iff (v₁ v₂ : ValueRep) :
++    valueContains v₁ v₂ = none ↔
++      hasNegativeAmount v₁ = true ∨ hasNegativeAmount v₂ = true := by
++  rw [valueContains]
++  by_cases h1 : hasNegativeAmount v₁ <;> by_cases h2 : hasNegativeAmount v₂ <;>
++    simp [h1, h2]
++
++/-! ### Lemma group 4 — `unValueData` / `valueData` round trip and lookups -/
++
++/-- Per-slot lookup directly on the inner list of a `Data` map encoding
++    (first-order recursion; skips malformed entries, which a successful
++    decode excludes anyway). -/
++def lookupDataInner (tok : ByteString) : List (Data × Data) → Integer
++  | [] => 0
++  | (Data.B t, Data.I q) :: rest =>
++      if t == tok then q else lookupDataInner tok rest
++  | _ :: rest => lookupDataInner tok rest
++
++/-- Per-slot lookup directly on the outer list of a `Data` map encoding. -/
++def lookupDataOuter (cur tok : ByteString) : List (Data × Data) → Integer
++  | [] => 0
++  | (Data.B c, Data.Map ts) :: rest =>
++      if c == cur then lookupDataInner tok ts else lookupDataOuter cur tok rest
++  | _ :: rest => lookupDataOuter cur tok rest
++
++/-- Per-slot lookup directly on a `Data` `Value` encoding. -/
++def lookupData (cur tok : ByteString) : Data → Integer
++  | Data.Map cs => lookupDataOuter cur tok cs
++  | _ => 0
++
++/-- Soundness of the inner decoder, three payloads at once: a successful
++    decode is fully normalized, `innerToData` inverts it, and its lookups
++    mirror the `Data`-level walk. -/
++theorem unValueDataTokens_sound :
++    ∀ (ts : List (Data × Data)) (prev : Option ByteString)
++      (l : List (ByteString × Integer)),
++      unValueDataTokens prev ts = some l →
++      innerNormFrom prev l = true ∧ innerToData l = ts ∧
++        ∀ t', lookupInner t' l = lookupDataInner t' ts := by
++  intro ts
++  induction ts with
++  | nil =>
++      intro prev l h
++      simp only [unValueDataTokens, Option.some.injEq] at h
++      subst h
++      exact ⟨rfl, rfl, fun _ => rfl⟩
++  | cons hd rest ih =>
++      intro prev l h
++      obtain ⟨tD, qD⟩ := hd
++      cases tD with
++      | B t =>
++          cases qD with
++          | I q =>
++              cases h1 : validKey t with
++              | false => simp [unValueDataTokens, h1] at h
++              | true =>
++                cases h2 : ascendingFrom prev t with
++                | false => simp [unValueDataTokens, h1, h2] at h
++                | true =>
++                  cases h3 : q == 0 with
++                  | true => simp [unValueDataTokens, h1, h2, h3] at h
++                  | false =>
++                    cases h4 : validQuantity q with
++                    | false => simp [unValueDataTokens, h1, h2, h3, h4] at h
++                    | true =>
++                      cases h5 : unValueDataTokens (some t) rest with
++                      | none => simp [unValueDataTokens, h1, h2, h3, h4, h5] at h
++                      | some l' =>
++                          simp [unValueDataTokens, h1, h2, h3, h4, h5] at h
++                          subst h
++                          obtain ⟨hn, he, hl⟩ := ih (some t) l' h5
++                          refine ⟨?_, ?_, ?_⟩
++                          · simp only [innerNormFrom, Bool.and_eq_true]
++                            exact ⟨⟨⟨⟨h1, h2⟩, by simp [h3]⟩, h4⟩, hn⟩
++                          · simp [innerToData, he]
++                          · intro t'
++                            simp [lookupInner, lookupDataInner, hl t']
++          | Constr i args => simp [unValueDataTokens] at h
++          | Map m => simp [unValueDataTokens] at h
++          | List xs => simp [unValueDataTokens] at h
++          | B b => simp [unValueDataTokens] at h
++      | Constr i args => simp [unValueDataTokens] at h
++      | Map m => simp [unValueDataTokens] at h
++      | List xs => simp [unValueDataTokens] at h
++      | I i => simp [unValueDataTokens] at h
++
++/-- Encoding direction of the inner round trip: a normalized inner list
++    decodes back from its `innerToData` image. -/
++theorem unValueDataTokens_innerToData :
++    ∀ (l : List (ByteString × Integer)) (prev : Option ByteString),
++      innerNormFrom prev l = true →
++      unValueDataTokens prev (innerToData l) = some l := by
++  intro l
++  induction l with
++  | nil => intro prev _; rfl
++  | cons hd tl ih =>
++      intro prev h
++      obtain ⟨t, q⟩ := hd
++      simp only [innerNormFrom, Bool.and_eq_true] at h
++      obtain ⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩ := h
++      have h3' : (q == 0) = false := by simpa using h3
++      simp [innerToData, unValueDataTokens, h1, h2, h3', h4, ih (some t) h5]
++
++/-- Soundness of the outer decoder (same three payloads). -/
++theorem unValueDataCurrencies_sound :
++    ∀ (cs : List (Data × Data)) (prev : Option ByteString) (v : ValueRep),
++      unValueDataCurrencies prev cs = some v →
++      outerNormFrom prev v = true ∧ outerToData v = cs ∧
++        ∀ c t, lookupCoin c t v = lookupDataOuter c t cs := by
++  intro cs
++  induction cs with
++  | nil =>
++      intro prev v h
++      simp only [unValueDataCurrencies, Option.some.injEq] at h
++      subst h
++      exact ⟨rfl, rfl, fun _ _ => rfl⟩
++  | cons hd rest ih =>
++      intro prev v h
++      obtain ⟨cD, tsD⟩ := hd
++      cases cD with
++      | B c =>
++          cases h1 : validKey c with
++          | false => simp [unValueDataCurrencies, h1] at h
++          | true =>
++            cases h2 : ascendingFrom prev c with
++            | false => simp [unValueDataCurrencies, h1, h2] at h
++            | true =>
++              cases tsD with
++              | Map ts =>
++                  cases ts with
++                  | nil => simp [unValueDataCurrencies, h1, h2] at h
++                  | cons t₀ ts' =>
++                      cases h3 : unValueDataTokens none (t₀ :: ts') with
++                      | none => simp [unValueDataCurrencies, h1, h2, h3] at h
++                      | some inner =>
++                        cases h4 : unValueDataCurrencies (some c) rest with
++                        | none => simp [unValueDataCurrencies, h1, h2, h3, h4] at h
++                        | some restV =>
++                            simp [unValueDataCurrencies, h1, h2, h3, h4] at h
++                            subst h
++                            obtain ⟨hn, he, hl⟩ :=
++                              unValueDataTokens_sound (t₀ :: ts') none inner h3
++                            obtain ⟨hno, heo, hlo⟩ := ih (some c) restV h4
++                            cases inner with
++                            | nil => simp [innerToData] at he
++                            | cons i₀ is =>
++                                refine ⟨?_, ?_, ?_⟩
++                                · simp only [outerNormFrom, Bool.and_eq_true]
++                                  exact ⟨⟨⟨h1, h2⟩, hn⟩, hno⟩
++                                · simp [outerToData, he, heo]
++                                · intro c' t
++                                  simp [lookupCoin, lookupDataOuter, hl t, hlo c' t]
++              | Constr i args => simp [unValueDataCurrencies, h1, h2] at h
++              | List xs => simp [unValueDataCurrencies, h1, h2] at h
++              | I i => simp [unValueDataCurrencies, h1, h2] at h
++              | B b => simp [unValueDataCurrencies, h1, h2] at h
++      | Constr i args => simp [unValueDataCurrencies] at h
++      | Map m => simp [unValueDataCurrencies] at h
++      | List xs => simp [unValueDataCurrencies] at h
++      | I i => simp [unValueDataCurrencies] at h
++
++/-- Encoding direction of the outer round trip. -/
++theorem unValueDataCurrencies_outerToData :
++    ∀ (v : ValueRep) (prev : Option ByteString),
++      outerNormFrom prev v = true →
++      unValueDataCurrencies prev (outerToData v) = some v := by
++  intro v
++  induction v with
++  | nil => intro prev _; rfl
++  | cons hd tl ih =>
++      intro prev h
++      obtain ⟨c, inner⟩ := hd
++      cases inner with
++      | nil => simp [outerNormFrom] at h
++      | cons i₀ is =>
++          simp only [outerNormFrom, Bool.and_eq_true] at h
++          obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := h
++          have htok := unValueDataTokens_innerToData (i₀ :: is) none h3
++          obtain ⟨t₀, q₀⟩ := i₀
++          have htok' : unValueDataTokens none
++              ((Data.B t₀, Data.I q₀) :: innerToData is) = some ((t₀, q₀) :: is) := by
++            simpa [innerToData] using htok
++          simp [outerToData, innerToData, unValueDataCurrencies, h1, h2,
++            htok', ih (some c) h4]
++
++/-- **Lemma group 4 (normalization)**: any successfully decoded value carries
++    the full `Value.hs` invariant — this discharges the `valueSorted`/
++    `valueNormalized` hypotheses of the other lemma groups. -/
++theorem unValueData_normalized {d : Data} {v : ValueRep}
++    (h : unValueData d = some v) : valueNormalized v = true := by
++  cases d with
++  | Map cs => exact (unValueDataCurrencies_sound cs none v h).1
++  | Constr i args => simp [unValueData] at h
++  | List xs => simp [unValueData] at h
++  | I i => simp [unValueData] at h
++  | B b => simp [unValueData] at h
++
++/-- **Lemma group 4 (round trip, decode-then-encode)**: `valueData` inverts a
++    successful `unValueData` exactly (the decoder accepts only canonical
++    encodings). -/
++theorem valueData_unValueData {d : Data} {v : ValueRep}
++    (h : unValueData d = some v) : valueData v = d := by
++  cases d with
++  | Map cs =>
++      have := (unValueDataCurrencies_sound cs none v h).2.1
++      simp [valueData, this]
++  | Constr i args => simp [unValueData] at h
++  | List xs => simp [unValueData] at h
++  | I i => simp [unValueData] at h
++  | B b => simp [unValueData] at h
++
++/-- **Lemma group 4 (round trip, encode-then-decode)**: on normalized values
++    `unValueData ∘ valueData = some`. -/
++theorem unValueData_valueData {v : ValueRep} (h : valueNormalized v = true) :
++    unValueData (valueData v) = some v :=
++  unValueDataCurrencies_outerToData v none h
++
++/-- **Lemma group 4 (lookup transport)**: after a successful decode, every
++    `lookupCoin` on the value equals the direct first-order walk of the
++    original `Data`. -/
++theorem unValueData_lookup {d : Data} {v : ValueRep}
++    (h : unValueData d = some v) (c t : ByteString) :
++    lookupCoin c t v = lookupData c t d := by
++  cases d with
++  | Map cs => exact (unValueDataCurrencies_sound cs none v h).2.2 c t
++  | Constr i args => simp [unValueData] at h
++  | List xs => simp [unValueData] at h
++  | I i => simp [unValueData] at h
++  | B b => simp [unValueData] at h
++
++/-- Full normalization implies sortedness (inner level). -/
++theorem innerNormFrom_sorted :
++    ∀ (l : List (ByteString × Integer)) (prev : Option ByteString),
++      innerNormFrom prev l = true → innerSortedFrom prev l = true := by
++  intro l
++  induction l with
++  | nil => intro prev _; rfl
++  | cons hd tl ih =>
++      intro prev h
++      obtain ⟨t, q⟩ := hd
++      simp only [innerNormFrom, innerSortedFrom, Bool.and_eq_true] at h ⊢
++      exact ⟨h.1.1.1.2, ih (some t) h.2⟩
++
++/-- Full normalization implies sortedness (outer level). -/
++theorem outerNormFrom_sorted :
++    ∀ (v : ValueRep) (prev : Option ByteString),
++      outerNormFrom prev v = true → outerSortedFrom prev v = true := by
++  intro v
++  induction v with
++  | nil => intro prev _; rfl
++  | cons hd tl ih =>
++      intro prev h
++      obtain ⟨c, inner⟩ := hd
++      cases inner with
++      | nil => simp [outerNormFrom] at h
++      | cons i₀ is =>
++          simp only [outerNormFrom, outerSortedFrom, Bool.and_eq_true] at h ⊢
++          exact ⟨⟨h.1.1.2, innerNormFrom_sorted _ none h.1.2⟩, ih (some c) h.2⟩
++
++/-- Full normalization implies sortedness — bridges `unValueData_normalized`
++    into the `valueSorted` hypotheses of lemma groups 1–3. -/
++theorem valueNormalized_sorted {v : ValueRep} (h : valueNormalized v = true) :
++    valueSorted v = true :=
++  outerNormFrom_sorted v none h
++
++end PlutusCore.Value
+diff --git a/PlutusCore/Value/Basic.lean b/PlutusCore/Value/Basic.lean
+index 0b1da38..490bdec 100644
+--- a/PlutusCore/Value/Basic.lean
++++ b/PlutusCore/Value/Basic.lean
+@@ -21,7 +21,15 @@ association list produced by `PlutusCore.Value.toList`:
+ with keys strictly ascending at both levels, no zero quantity and no empty
+ inner list. All operations below are line-by-line models of
+ `plutus/plutus-core/plutus-core/src/PlutusCore/Value.hs`; `Option.none`
+-models `BuiltinResult` failure (`fail`). -/
++models `BuiltinResult` failure (`fail`).
++
++NOTE (blaster-friendly restatement): every walk in this file is written as an
++explicit first-order pattern-match recursion — no `List.all`/`any`/`find?`/
++`foldl`-with-lambda and no projection lambdas — because Blaster's SMT
++translation cannot digest higher-order stdlib combinators (SPIKE-FINDINGS
++layer F). The `*_eq_*` equivalence lemmas at the bottom of this file prove
++each restated definition equal to its original stdlib-combinator formulation,
++so the semantics are unchanged. -/
+ 
+ /-- Association-list representation of a normalized builtin `Value`. -/
+ abbrev ValueRep := List (ByteString × List (ByteString × Integer))
+@@ -45,17 +53,25 @@ def validQuantity (i : Integer) : Bool :=
+ 
+ /-- Total size: number of distinct (currency, token) pairs
+     (`Value.hs` `totalSize`). -/
+-def totalSize (v : ValueRep) : Nat :=
+-  v.foldl (fun acc (_, inner) => acc + inner.length) 0
++def totalSize : ValueRep → Nat
++  | [] => 0
++  | (_, inner) :: rest => inner.length + totalSize rest
+ 
+ /-- Size of the largest inner map (`Value.hs` `maxInnerSize`). -/
+-def maxInnerSize (v : ValueRep) : Nat :=
+-  v.foldl (fun acc (_, inner) => max acc inner.length) 0
++def maxInnerSize : ValueRep → Nat
++  | [] => 0
++  | (_, inner) :: rest => max inner.length (maxInnerSize rest)
++
++/-- Whether an inner map has a negative quantity. -/
++def innerHasNegative : List (ByteString × Integer) → Bool
++  | [] => false
++  | (_, q) :: rest => decide (q < 0) || innerHasNegative rest
+ 
+ /-- Whether any quantity is negative (models `Value.hs` `negativeAmounts v > 0`;
+     the Haskell code caches the count, we recompute). -/
+-def hasNegativeAmount (v : ValueRep) : Bool :=
+-  v.any (fun (_, inner) => inner.any (fun (_, q) => q < 0))
++def hasNegativeAmount : ValueRep → Bool
++  | [] => false
++  | (_, inner) :: rest => innerHasNegative inner || hasNegativeAmount rest
+ 
+ /-- Ordered insert into an inner list, replacing the quantity when the token
+     already exists (models `Map.insertLookupWithKey (\_ _ _ -> qty)` in
+@@ -78,6 +94,14 @@ def outerInsertReplace (cur : ByteString) (inner : List (ByteString × Integer))
+       else if cur == c then (cur, inner) :: rest
+       else (c, i) :: outerInsertReplace cur inner rest
+ 
++/-- Remove every entry with the given token from an inner list
++    (first-order restatement of `List.filter (fun (t, _) => t != tok)`). -/
++def innerDelete (tok : ByteString) : List (ByteString × Integer) → List (ByteString × Integer)
++  | [] => []
++  | (t, q) :: rest =>
++      if t == tok then innerDelete tok rest
++      else (t, q) :: innerDelete tok rest
++
+ /-- `Value.hs` `deleteCoin`: remove the (currency, token) entry if present,
+     dropping the inner map when it becomes empty. NOTE: `deleteCoin` performs
+     no key-length validation (it uses the unchecked `UnsafeK`). -/
+@@ -85,10 +109,20 @@ def deleteCoin (cur tok : ByteString) : ValueRep → ValueRep
+   | [] => []
+   | (c, inner) :: rest =>
+       if c == cur then
+-        let inner' := inner.filter (fun (t, _) => t != tok)
+-        if inner'.isEmpty then rest else (c, inner') :: rest
++        match innerDelete tok inner with
++        | [] => rest
++        | inner' => (c, inner') :: rest
+       else (c, inner) :: deleteCoin cur tok rest
+ 
++/-- Ordered insert of a single coin into the outer list (inner insert on key
++    hit). Unvalidated worker of `insertCoin` (was `insertCoin.go`). -/
++def insertUnsafe (cur tok : ByteString) (amt : Integer) : ValueRep → ValueRep
++  | [] => [(cur, [(tok, amt)])]
++  | (c, inner) :: rest =>
++      if cur < c then (cur, [(tok, amt)]) :: (c, inner) :: rest
++      else if cur == c then (c, innerInsert tok amt inner) :: rest
++      else (c, inner) :: insertUnsafe cur tok amt rest
++
+ /-- `Value.hs` `insertCoin`:
+     * amount 0 deletes the entry (no validation of keys or amount);
+     * otherwise the currency and token must be ≤ 32 bytes and the amount
+@@ -97,27 +131,24 @@ def deleteCoin (cur tok : ByteString) : ValueRep → ValueRep
+ def insertCoin (cur tok : ByteString) (amt : Integer) (v : ValueRep) :
+     Option ValueRep :=
+   if amt == 0 then some (deleteCoin cur tok v)
+-  else if ¬ validKey cur then none
+-  else if ¬ validKey tok then none
+-  else if ¬ validQuantity amt then none
+-  else some (go v)
+-  where
+-    /-- ordered insert of a single coin (inner insert on key hit). -/
+-    go : ValueRep → ValueRep
+-      | [] => [(cur, [(tok, amt)])]
+-      | (c, inner) :: rest =>
+-          if cur < c then (cur, [(tok, amt)]) :: (c, inner) :: rest
+-          else if cur == c then (c, innerInsert tok amt inner) :: rest
+-          else (c, inner) :: go rest
++  else if validKey cur then
++    if validKey tok then
++      if validQuantity amt then some (insertUnsafe cur tok amt v)
++      else none
++    else none
++  else none
++
++/-- Lookup of a token in an inner list: 0 when absent (first-order restatement
++    of the inner `List.find?`). -/
++def lookupInner (tok : ByteString) : List (ByteString × Integer) → Integer
++  | [] => 0
++  | (t, q) :: rest => if t == tok then q else lookupInner tok rest
+ 
+ /-- `Value.hs` `lookupCoin`: 0 when absent; no key validation (`UnsafeK`). -/
+-def lookupCoin (cur tok : ByteString) (v : ValueRep) : Integer :=
+-  match v.find? (fun (c, _) => c == cur) with
+-  | none => 0
+-  | some (_, inner) =>
+-      match inner.find? (fun (t, _) => t == tok) with
+-      | none => 0
+-      | some (_, q) => q
++def lookupCoin (cur tok : ByteString) : ValueRep → Integer
++  | [] => 0
++  | (c, inner) :: rest =>
++      if c == cur then lookupInner tok inner else lookupCoin cur tok rest
+ 
+ /-- Merge two sorted inner lists, adding quantities on key collision.
+     Overflow of the signed 128-bit bounds is an error (`none`); an exact-zero
+@@ -130,14 +161,19 @@ def unionInner :
+   | x :: xs, [] => some (x :: xs)
+   | (t₁, q₁) :: xs, (t₂, q₂) :: ys =>
+       if t₁ < t₂ then
+-        (unionInner xs ((t₂, q₂) :: ys)).map ((t₁, q₁) :: ·)
++        match unionInner xs ((t₂, q₂) :: ys) with
++        | none => none
++        | some rest => some ((t₁, q₁) :: rest)
+       else if t₂ < t₁ then
+-        (unionInner ((t₁, q₁) :: xs) ys).map ((t₂, q₂) :: ·)
++        match unionInner ((t₁, q₁) :: xs) ys with
++        | none => none
++        | some rest => some ((t₂, q₂) :: rest)
+       else
+-        let s := q₁ + q₂
+-        if validQuantity s then
+-          (unionInner xs ys).map
+-            (fun rest => if s == 0 then rest else (t₁, s) :: rest)
++        if validQuantity (q₁ + q₂) then
++          match unionInner xs ys with
++          | none => none
++          | some rest =>
++              some (if q₁ + q₂ == 0 then rest else (t₁, q₁ + q₂) :: rest)
+         else none
+   termination_by xs ys => xs.length + ys.length
+ 
+@@ -149,13 +185,23 @@ def unionOuter : ValueRep → ValueRep → Option ValueRep
+   | x :: xs, [] => some (x :: xs)
+   | (c₁, i₁) :: xs, (c₂, i₂) :: ys =>
+       if c₁ < c₂ then
+-        (unionOuter xs ((c₂, i₂) :: ys)).map ((c₁, i₁) :: ·)
++        match unionOuter xs ((c₂, i₂) :: ys) with
++        | none => none
++        | some rest => some ((c₁, i₁) :: rest)
+       else if c₂ < c₁ then
+-        (unionOuter ((c₁, i₁) :: xs) ys).map ((c₂, i₂) :: ·)
+-      else do
+-        let inner ← unionInner i₁ i₂
+-        let rest ← unionOuter xs ys
+-        pure (if inner.isEmpty then rest else (c₁, inner) :: rest)
++        match unionOuter ((c₁, i₁) :: xs) ys with
++        | none => none
++        | some rest => some ((c₂, i₂) :: rest)
++      else
++        match unionInner i₁ i₂ with
++        | none => none
++        | some inner =>
++            match unionOuter xs ys with
++            | none => none
++            | some rest =>
++                some (match inner with
++                      | [] => rest
++                      | _ :: _ => (c₁, inner) :: rest)
+   termination_by xs ys => xs.length + ys.length
+ 
+ /-- `Value.hs` `unionValue`: pointwise addition; errors (`none`) if any sum
+@@ -165,6 +211,21 @@ def unionOuter : ValueRep → ValueRep → Option ValueRep
+     already returns the other argument unchanged against `[]`.) -/
+ def unionValue (v₁ v₂ : ValueRep) : Option ValueRep := unionOuter v₁ v₂
+ 
++/-- Containment walk over one inner map of the contained value: every quantity
++    is bounded by the corresponding `lookupCoin` in the container `v₁`
++    (first-order restatement of the inner `List.all`). -/
++def containedInner (v₁ : ValueRep) (c : ByteString) :
++    List (ByteString × Integer) → Bool
++  | [] => true
++  | (t, q) :: rest =>
++      decide (q ≤ lookupCoin c t v₁) && containedInner v₁ c rest
++
++/-- Containment walk over the outer map of the contained value
++    (first-order restatement of the outer `List.all`). -/
++def containedOuter (v₁ : ValueRep) : ValueRep → Bool
++  | [] => true
++  | (c, inner) :: rest => containedInner v₁ c inner && containedOuter v₁ rest
++
+ /-- `Value.hs` `valueContains`: errors (`none`) when either argument contains
+     a negative amount; otherwise `v₁` contains `v₂` iff every
+     (currency, token, quantity) of `v₂` satisfies
+@@ -175,18 +236,29 @@ def unionValue (v₁ v₂ : ValueRep) : Option ValueRep := unionOuter v₁ v₂
+ def valueContains (v₁ v₂ : ValueRep) : Option Bool :=
+   if hasNegativeAmount v₁ then none
+   else if hasNegativeAmount v₂ then none
+-  else some (v₂.all fun (c, inner) =>
+-    inner.all fun (t, q) => q ≤ lookupCoin c t v₁)
++  else some (containedOuter v₁ v₂)
++
++/-- Encode an inner map for `valueData`
++    (first-order restatement of the inner `List.map`). -/
++def innerToData : List (ByteString × Integer) → List (Data × Data)
++  | [] => []
++  | (t, q) :: rest => (.B t, .I q) :: innerToData rest
++
++/-- Encode the outer map for `valueData`
++    (first-order restatement of the outer `List.map`). -/
++def outerToData : ValueRep → List (Data × Data)
++  | [] => []
++  | (c, inner) :: rest => (.B c, .Map (innerToData inner)) :: outerToData rest
+ 
+ /-- `Value.hs` `valueData`: encode as `Map [(B cur, Map [(B tok, I q)])]` in
+     ascending key order (our representation is already the ascending
+     `Map.toList` order). -/
+-def valueData (v : ValueRep) : Data :=
+-  .Map (v.map fun (c, inner) =>
+-    (.B c, .Map (inner.map fun (t, q) => (.B t, .I q))))
++def valueData (v : ValueRep) : Data := .Map (outerToData v)
+ 
+-/-- Strictly-ascending check against an optional previous key. -/
+-private def ascendingFrom (prev : Option ByteString) (key : ByteString) : Bool :=
++/-- Strictly-ascending check against an optional previous key.
++    (Not `private`: `PlutusCore.Value.Algebra` reuses it in its well-formedness
++    predicates and recursion mirrors.) -/
++def ascendingFrom (prev : Option ByteString) (key : ByteString) : Bool :=
+   match prev with
+   | none => true
+   | some p => decide (p < key)
+@@ -200,11 +272,16 @@ def unValueDataTokens :
+   | prev, (tD, qD) :: rest =>
+       match tD, qD with
+       | .B t, .I q =>
+-          if ¬ validKey t then none
+-          else if ¬ ascendingFrom prev t then none
+-          else if q == 0 then none
+-          else if ¬ validQuantity q then none
+-          else ((t, q) :: ·) <$> unValueDataTokens (some t) rest
++          if validKey t then
++            if ascendingFrom prev t then
++              if q == 0 then none
++              else if validQuantity q then
++                match unValueDataTokens (some t) rest with
++                | none => none
++                | some l => some ((t, q) :: l)
++              else none
++            else none
++          else none
+       | _, _ => none
+ 
+ /-- Outer-map decoding for `unValueData` (`Value.hs` `goCurrencies`):
+@@ -216,17 +293,20 @@ def unValueDataCurrencies :
+   | prev, (cD, tsD) :: rest =>
+       match cD with
+       | .B c =>
+-          if ¬ validKey c then none
+-          else if ¬ ascendingFrom prev c then none
+-          else
+-            match tsD with
+-            | .Map ts =>
+-                if ts.isEmpty then none
+-                else do
+-                  let inner ← unValueDataTokens none ts
+-                  let restV ← unValueDataCurrencies (some c) rest
+-                  pure ((c, inner) :: restV)
+-            | _ => none
++          if validKey c then
++            if ascendingFrom prev c then
++              match tsD with
++              | .Map [] => none
++              | .Map (t₀ :: ts) =>
++                  match unValueDataTokens none (t₀ :: ts) with
++                  | none => none
++                  | some inner =>
++                      match unValueDataCurrencies (some c) rest with
++                      | none => none
++                      | some restV => some ((c, inner) :: restV)
++              | _ => none
++            else none
++          else none
+       | _ => none
+ 
+ /-- `Value.hs` `unValueData`: the argument must be a `Map`; contents validated
+@@ -238,6 +318,39 @@ def unValueData : Data → Option ValueRep
+   | .Map cs => unValueDataCurrencies none cs
+   | _ => none
+ 
++/-- Left fold of `innerInsert` over raw inner entries
++    (first-order restatement of the inner `List.foldl` in `packValue`). -/
++def packInnerLoop (acc : List (ByteString × Integer)) :
++    List (ByteString × Integer) → List (ByteString × Integer)
++  | [] => acc
++  | (t, q) :: rest => packInnerLoop (innerInsert t q acc) rest
++
++/-- Left fold of `outerInsertReplace` over raw outer entries
++    (first-order restatement of the outer `List.foldl` in `packValue`). -/
++def packOuterLoop (acc : ValueRep) :
++    List (ByteString × List (ByteString × Integer)) → ValueRep
++  | [] => acc
++  | (c, innerRaw) :: rest =>
++      packOuterLoop (outerInsertReplace c (packInnerLoop [] innerRaw) acc) rest
++
++/-- Drop zero quantities from an inner list
++    (first-order restatement of `List.filter (fun (_, q) => q != 0)`). -/
++def dropZeroQuantities : List (ByteString × Integer) → List (ByteString × Integer)
++  | [] => []
++  | (t, q) :: rest =>
++      if q == 0 then dropZeroQuantities rest
++      else (t, q) :: dropZeroQuantities rest
++
++/-- Drop zero quantities from every inner list, then drop entries whose inner
++    list became empty (first-order restatement of the `map`-then-`filter`
++    normalization tail of `packValue`). -/
++def normalizeEntries : ValueRep → ValueRep
++  | [] => []
++  | (c, inner) :: rest =>
++      match dropZeroQuantities inner with
++      | [] => normalizeEntries rest
++      | inner' => (c, inner') :: normalizeEntries rest
++
+ /-- Normalization used when constructing a `Value` from unordered/duplicated
+     input (models `Map.fromList` last-wins at both levels followed by
+     `Value.hs` `pack`'s `normalize`: drop zero quantities, then empty inner
+@@ -245,12 +358,328 @@ def unValueData : Data → Option ValueRep
+     `pack <$> decode` over the nested-map flat encoding, which is a list of
+     key/value pairs). -/
+ def packValue (raw : List (ByteString × List (ByteString × Integer))) : ValueRep :=
+-  let outer := raw.foldl
+-    (fun acc (c, innerRaw) =>
+-      let inner := innerRaw.foldl (fun iacc (t, q) => innerInsert t q iacc) []
+-      outerInsertReplace c inner acc)
+-    []
+-  (outer.map fun (c, inner) => (c, inner.filter (fun (_, q) => q != 0))).filter
+-    (fun (_, inner) => ¬ inner.isEmpty)
++  normalizeEntries (packOuterLoop [] raw)
++
++/-! ## Old-vs-new equivalence lemmas
++
++Each restated definition above is proved equal to the original
++stdlib-combinator formulation of commit 830819b, so the restatement is
++semantics-preserving by construction (the ~45 unit tests in
++`PlutusCore/Value/Tests.lean` guard the same fact computationally). -/
++
++theorem totalSize_eq_foldl (v : ValueRep) :
++    totalSize v = v.foldl (fun acc (_, inner) => acc + inner.length) 0 := by
++  suffices h : ∀ (v : ValueRep) (acc : Nat),
++      v.foldl (fun acc (_, inner) => acc + inner.length) acc = acc + totalSize v by
++    simpa using (h v 0).symm
++  intro v
++  induction v with
++  | nil => simp [totalSize]
++  | cons hd tl ih =>
++      intro acc
++      obtain ⟨c, inner⟩ := hd
++      simp [totalSize, List.foldl, ih]
++      omega
++
++theorem maxInnerSize_eq_foldl (v : ValueRep) :
++    maxInnerSize v = v.foldl (fun acc (_, inner) => max acc inner.length) 0 := by
++  suffices h : ∀ (v : ValueRep) (acc : Nat),
++      v.foldl (fun acc (_, inner) => max acc inner.length) acc =
++        max acc (maxInnerSize v) by
++    simpa using (h v 0).symm
++  intro v
++  induction v with
++  | nil => simp [maxInnerSize]
++  | cons hd tl ih =>
++      intro acc
++      obtain ⟨c, inner⟩ := hd
++      simp [maxInnerSize, List.foldl, ih]
++
++theorem innerHasNegative_eq_any (l : List (ByteString × Integer)) :
++    innerHasNegative l = l.any (fun (_, q) => q < 0) := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih => obtain ⟨t, q⟩ := hd; simp [innerHasNegative, ih]
++
++theorem hasNegativeAmount_eq_any (v : ValueRep) :
++    hasNegativeAmount v = v.any (fun (_, inner) => inner.any (fun (_, q) => q < 0)) := by
++  induction v with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp [hasNegativeAmount, innerHasNegative_eq_any, ih]
++
++theorem innerDelete_eq_filter (tok : ByteString) (l : List (ByteString × Integer)) :
++    innerDelete tok l = l.filter (fun (t, _) => t != tok) := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      rw [innerDelete, List.filter_cons, ih]
++      cases h : t == tok <;> simp [h, bne]
++
++/-- `deleteCoin` satisfies exactly the defining equation of the original
++    `filter`/`isEmpty` formulation. -/
++theorem deleteCoin_cons_eq (cur tok c : ByteString)
++    (inner : List (ByteString × Integer)) (rest : ValueRep) :
++    deleteCoin cur tok ((c, inner) :: rest) =
++      if c == cur then
++        let inner' := inner.filter (fun (t, _) => t != tok)
++        if inner'.isEmpty then rest else (c, inner') :: rest
++      else (c, inner) :: deleteCoin cur tok rest := by
++  by_cases h : c == cur
++  · simp only [deleteCoin, h, if_pos, ← innerDelete_eq_filter]
++    cases hd : innerDelete tok inner <;> simp [List.isEmpty]
++  · simp [deleteCoin, h]
++
++/-- `insertCoin` equals the original negated-guard formulation
++    (with `insertUnsafe` the lifted `insertCoin.go`). -/
++theorem insertCoin_eq_original (cur tok : ByteString) (amt : Integer) (v : ValueRep) :
++    insertCoin cur tok amt v =
++      (if amt == 0 then some (deleteCoin cur tok v)
++       else if ¬ validKey cur then none
++       else if ¬ validKey tok then none
++       else if ¬ validQuantity amt then none
++       else some (insertUnsafe cur tok amt v)) := by
++  by_cases h0 : amt == 0
++  · simp [insertCoin, h0]
++  · by_cases h1 : validKey cur
++    · by_cases h2 : validKey tok
++      · by_cases h3 : validQuantity amt <;> simp [insertCoin, h0, h1, h2, h3]
++      · simp [insertCoin, h0, h1, h2]
++    · simp [insertCoin, h0, h1]
++
++theorem lookupInner_eq_find? (tok : ByteString) (l : List (ByteString × Integer)) :
++    lookupInner tok l =
++      (match l.find? (fun (t, _) => t == tok) with
++       | none => 0
++       | some (_, q) => q) := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      simp only [lookupInner, List.find?]
++      cases h : t == tok <;> simp [h, ih]
++
++theorem lookupCoin_eq_find? (cur tok : ByteString) (v : ValueRep) :
++    lookupCoin cur tok v =
++      (match v.find? (fun (c, _) => c == cur) with
++       | none => 0
++       | some (_, inner) =>
++           match inner.find? (fun (t, _) => t == tok) with
++           | none => 0
++           | some (_, q) => q) := by
++  induction v with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp only [lookupCoin, List.find?]
++      cases h : c == cur <;> simp [h, ih, lookupInner_eq_find?]
++
++/-- The `Option.map`-sugar steps of the original `unionInner` hold verbatim for
++    the match-based restatement (the two are definitionally the same recursion;
++    stated for the collision-free arms, the collision arm is
++    `unionInner_collision_eq` below). -/
++theorem unionInner_lt_eq (t₁ t₂ : ByteString) (q₁ q₂ : Integer)
++    (xs ys : List (ByteString × Integer)) (h : t₁ < t₂) :
++    unionInner ((t₁, q₁) :: xs) ((t₂, q₂) :: ys) =
++      (unionInner xs ((t₂, q₂) :: ys)).map ((t₁, q₁) :: ·) := by
++  rw [unionInner]
++  simp only [if_pos h]
++  cases unionInner xs ((t₂, q₂) :: ys) <;> rfl
++
++theorem unionInner_gt_eq (t₁ t₂ : ByteString) (q₁ q₂ : Integer)
++    (xs ys : List (ByteString × Integer)) (h₁ : ¬ t₁ < t₂) (h₂ : t₂ < t₁) :
++    unionInner ((t₁, q₁) :: xs) ((t₂, q₂) :: ys) =
++      (unionInner ((t₁, q₁) :: xs) ys).map ((t₂, q₂) :: ·) := by
++  rw [unionInner]
++  simp only [if_neg h₁, if_pos h₂]
++  cases unionInner ((t₁, q₁) :: xs) ys <;> rfl
++
++theorem unionInner_collision_eq (t₁ t₂ : ByteString) (q₁ q₂ : Integer)
++    (xs ys : List (ByteString × Integer)) (h₁ : ¬ t₁ < t₂) (h₂ : ¬ t₂ < t₁) :
++    unionInner ((t₁, q₁) :: xs) ((t₂, q₂) :: ys) =
++      (if validQuantity (q₁ + q₂) then
++        (unionInner xs ys).map
++          (fun rest => if q₁ + q₂ == 0 then rest else (t₁, q₁ + q₂) :: rest)
++       else none) := by
++  rw [unionInner]
++  simp only [if_neg h₁, if_neg h₂]
++  by_cases hv : validQuantity (q₁ + q₂)
++  · simp only [hv, ite_true]
++    cases unionInner xs ys <;> rfl
++  · simp [hv]
++
++/-- The do-notation collision arm of the original `unionOuter` holds verbatim
++    for the match-based restatement. -/
++theorem unionOuter_collision_eq (c₁ c₂ : ByteString)
++    (i₁ i₂ : List (ByteString × Integer)) (xs ys : ValueRep)
++    (h₁ : ¬ c₁ < c₂) (h₂ : ¬ c₂ < c₁) :
++    unionOuter ((c₁, i₁) :: xs) ((c₂, i₂) :: ys) =
++      (do
++        let inner ← unionInner i₁ i₂
++        let rest ← unionOuter xs ys
++        pure (if inner.isEmpty then rest else (c₁, inner) :: rest)) := by
++  rw [unionOuter]
++  simp only [if_neg h₁, if_neg h₂]
++  cases unionInner i₁ i₂ with
++  | none => rfl
++  | some inner =>
++      cases unionOuter xs ys with
++      | none => rfl
++      | some rest => cases inner <;> rfl
++
++theorem containedInner_eq_all (v₁ : ValueRep) (c : ByteString)
++    (l : List (ByteString × Integer)) :
++    containedInner v₁ c l = l.all (fun (t, q) => q ≤ lookupCoin c t v₁) := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih => obtain ⟨t, q⟩ := hd; simp [containedInner, ih]
++
++theorem containedOuter_eq_all (v₁ v₂ : ValueRep) :
++    containedOuter v₁ v₂ =
++      v₂.all (fun (c, inner) => inner.all (fun (t, q) => q ≤ lookupCoin c t v₁)) := by
++  induction v₂ with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp [containedOuter, containedInner_eq_all, ih]
++
++theorem valueContains_eq_all (v₁ v₂ : ValueRep) :
++    valueContains v₁ v₂ =
++      (if hasNegativeAmount v₁ then none
++       else if hasNegativeAmount v₂ then none
++       else some (v₂.all fun (c, inner) =>
++         inner.all fun (t, q) => q ≤ lookupCoin c t v₁)) := by
++  simp [valueContains, containedOuter_eq_all]
++
++theorem innerToData_eq_map (l : List (ByteString × Integer)) :
++    innerToData l = l.map (fun (t, q) => ((.B t : Data), (.I q : Data))) := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih => obtain ⟨t, q⟩ := hd; simp [innerToData, ih]
++
++theorem valueData_eq_map (v : ValueRep) :
++    valueData v =
++      .Map (v.map fun (c, inner) =>
++        (.B c, .Map (inner.map fun (t, q) => (.B t, .I q)))) := by
++  suffices h : outerToData v =
++      v.map (fun (c, inner) =>
++        ((.B c : Data), (.Map (inner.map fun (t, q) => (.B t, .I q)) : Data))) by
++    simp [valueData, h]
++  induction v with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp [outerToData, innerToData_eq_map, ih]
++
++/-- The decode step of `unValueDataTokens` equals the original
++    negated-guard/`<$>` formulation. -/
++theorem unValueDataTokens_cons_eq (prev : Option ByteString)
++    (t : ByteString) (q : Integer) (rest : List (Data × Data)) :
++    unValueDataTokens prev ((.B t, .I q) :: rest) =
++      (if ¬ validKey t then none
++       else if ¬ ascendingFrom prev t then none
++       else if q == 0 then none
++       else if ¬ validQuantity q then none
++       else ((t, q) :: ·) <$> unValueDataTokens (some t) rest) := by
++  by_cases h1 : validKey t <;>
++    by_cases h2 : ascendingFrom prev t <;>
++      by_cases h3 : q == 0 <;>
++        by_cases h4 : validQuantity q <;>
++          simp [unValueDataTokens, h1, h2, h3, h4] <;>
++            cases unValueDataTokens (some t) rest <;> rfl
++
++/-- The decode step of `unValueDataCurrencies` equals the original
++    negated-guard/`isEmpty`/do-notation formulation. -/
++theorem unValueDataCurrencies_cons_eq (prev : Option ByteString)
++    (c : ByteString) (tsD : Data) (rest : List (Data × Data)) :
++    unValueDataCurrencies prev ((.B c, tsD) :: rest) =
++      (if ¬ validKey c then none
++       else if ¬ ascendingFrom prev c then none
++       else
++        match tsD with
++        | .Map ts =>
++            if ts.isEmpty then none
++            else do
++              let inner ← unValueDataTokens none ts
++              let restV ← unValueDataCurrencies (some c) rest
++              pure ((c, inner) :: restV)
++        | _ => none) := by
++  by_cases h1 : validKey c
++  · by_cases h2 : ascendingFrom prev c
++    · cases tsD with
++      | Constr i args => simp [unValueDataCurrencies, h1, h2]
++      | List l => simp [unValueDataCurrencies, h1, h2]
++      | I i => simp [unValueDataCurrencies, h1, h2]
++      | B b => simp [unValueDataCurrencies, h1, h2]
++      | Map ts =>
++        cases ts with
++        | nil => simp [unValueDataCurrencies, h1, h2]
++        | cons t₀ ts' =>
++            simp only [unValueDataCurrencies, h1, h2, not_true_eq_false,
++              ite_true, ite_false, if_pos, List.isEmpty_cons, Bool.false_eq_true]
++            cases unValueDataTokens none (t₀ :: ts') with
++            | none => rfl
++            | some inner =>
++                cases unValueDataCurrencies (some c) rest <;> rfl
++    · cases tsD <;> simp [unValueDataCurrencies, h1, h2]
++  · cases tsD <;> simp [unValueDataCurrencies, h1]
++
++theorem dropZeroQuantities_eq_filter (l : List (ByteString × Integer)) :
++    dropZeroQuantities l = l.filter (fun (_, q) => q != 0) := by
++  induction l with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨t, q⟩ := hd
++      rw [dropZeroQuantities, List.filter_cons, ih]
++      cases h : q == 0 <;> simp [h, bne]
++
++theorem normalizeEntries_eq_map_filter (v : ValueRep) :
++    normalizeEntries v =
++      (v.map fun (c, inner) => (c, inner.filter (fun (_, q) => q != 0))).filter
++        (fun (_, inner) => ¬ inner.isEmpty) := by
++  induction v with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, inner⟩ := hd
++      simp only [← dropZeroQuantities_eq_filter] at ih ⊢
++      rw [normalizeEntries]
++      cases hd : dropZeroQuantities inner with
++      | nil => simp [hd, ih]
++      | cons a l => simp [hd, ih]
++
++theorem packInnerLoop_eq_foldl (acc : List (ByteString × Integer))
++    (raw : List (ByteString × Integer)) :
++    packInnerLoop acc raw = raw.foldl (fun iacc (t, q) => innerInsert t q iacc) acc := by
++  induction raw generalizing acc with
++  | nil => rfl
++  | cons hd tl ih => obtain ⟨t, q⟩ := hd; simp [packInnerLoop, List.foldl, ih]
++
++theorem packOuterLoop_eq_foldl (acc : ValueRep)
++    (raw : List (ByteString × List (ByteString × Integer))) :
++    packOuterLoop acc raw =
++      raw.foldl
++        (fun acc (c, innerRaw) =>
++          outerInsertReplace c
++            (innerRaw.foldl (fun iacc (t, q) => innerInsert t q iacc) []) acc)
++        acc := by
++  induction raw generalizing acc with
++  | nil => rfl
++  | cons hd tl ih =>
++      obtain ⟨c, innerRaw⟩ := hd
++      simp [packOuterLoop, List.foldl, ih, packInnerLoop_eq_foldl]
++
++/-- `packValue` equals the original `foldl`/`map`/`filter` formulation. -/
++theorem packValue_eq_original (raw : List (ByteString × List (ByteString × Integer))) :
++    packValue raw =
++      (let outer := raw.foldl
++        (fun acc (c, innerRaw) =>
++          let inner := innerRaw.foldl (fun iacc (t, q) => innerInsert t q iacc) []
++          outerInsertReplace c inner acc)
++        []
++      (outer.map fun (c, inner) => (c, inner.filter (fun (_, q) => q != 0))).filter
++        (fun (_, inner) => ¬ inner.isEmpty)) := by
++  simp [packValue, normalizeEntries_eq_map_filter, packOuterLoop_eq_foldl]
+ 
+ end PlutusCore.Value
+-- 
+2.43.0
+
