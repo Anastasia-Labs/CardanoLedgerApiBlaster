@@ -499,6 +499,24 @@ within the budget. Mandatory consequences:
   within K CEK steps, ledger-accept ⟺ `isSuccessful (appliedX.prop …)`. K is per-validator and
   must be computed and published (empirically calibrated with concrete accepting ctxs run through
   `cekExecuteProgram`).
+  > **IMPLEMENTATION DEVIATION, recorded (task A1, 2026-07-25) — comment only, no
+  > requirement is withdrawn.** The four `LR_BUDGET_*` axioms name
+  > `Runs.XRun K` (`WSC/Runs.lean`) rather than `appliedX.prop`.
+  > `Runs.XRun K params ctx = cekExecuteProgram <imported flat>.script
+  > (<WSC/Prep inputs fn> params ctx) K` — i.e. literally the last clause of this
+  > requirement ("concrete accepting ctxs run through `cekExecuteProgram`"), with
+  > no `Blaster.Optimize` pass interposed. Everything E1 demands is preserved: the
+  > bound is on CEK STEPS, budget exhaustion is still `State.Error`, `K` is still
+  > per-validator and published as a `def` (seven of them now, each ≥ a named
+  > witness's measured accepting step count), and the scope language is unchanged.
+  > What the deviation buys: the connective to a shaped theorem becomes the
+  > kernel-checked `rfl` `ShapeBridge.exec_<S>` instead of a solver verdict, the
+  > side condition `GlobalPreppedAt` disappears, and the axioms become statable at
+  > the budgets 2500/3300/3800/4400 where no `#prep_uplc` is affordable. What it
+  > does NOT buy: nothing about shape coverage, and `PropExecFaithful` still binds
+  > the shaped layer (the P-theorems remain on `.prop`). Full rationale in
+  > `WSC/Honest.lean` §LR-BUDGET "RESTATEMENT"; disposition per audit finding in
+  > `WSC/AUDIT.md` Appendix A.
 - The invariant `I(L)`, `Preservation`, and the top claim are scoped to the bounded-tx class
   (`validLedgerStep` gains a `WithinBudget tx` hypothesis), OR the top claim carries an explicit
   unproven residual for >K transactions. The docstring of the top theorem MUST state this.

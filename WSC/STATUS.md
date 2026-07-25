@@ -4,6 +4,11 @@
 measured *in this repository*, with the file/line or the measurement cited. Where a
 result is not there yet, this table says so in those words.
 
+**AMENDED BY TASK A1 (2026-07-25).** The U3 body below is unchanged except where a
+row became FALSE; every A1 change is collected in **§0.0** and cross-marked
+`(A1)` in the row it touches. A1 was mechanical restatement plus five non-vacuity
+theorems — it moved nothing in the top-claim column, and §0.0 says so first.
+
 **This revision (2026-07-25, task U3) was reconciled against an independent
 clean-room rebuild, not against the task fragments that claimed the results.** All
 six `WSC/status-fragments/*.md` are merged here and superseded; they remain as the
@@ -22,15 +27,73 @@ favour of this file, and the disagreements are itemised in `WSC/AUDIT.md` §7.
   the shaped layer — over a fixed `Data` **shape**; a composition theorem lifts the
   leaves; a closed, audit-mapped axiom set (`WSC/Honest.lean`,
   `WSC/Composition.lean`) carries "honest deployment" + "trust the Cardano ledger".
-* Verified state of the build at this revision: **401 jobs, 93.7 s wall, 98 solver
-  verdicts (64 `✅ Valid` + 34 `✅ Expected Falsified`), 0 `⚠️`, 0 `❌`, 0 errors,
-  21 expected `sorry` warnings** (`WSC/AUDIT.md` §1-§2).
+* Verified state of the build at U3: **401 jobs, 93.7 s wall, 98 solver verdicts
+  (64 `✅ Valid` + 34 `✅ Expected Falsified`), 0 `⚠️`, 0 `❌`, 0 errors, 21 expected
+  `sorry` warnings** (`WSC/AUDIT.md` §1-§2).
+  **(A1) AFTER TASK A1: 404 jobs, 79.8 s wall, 101 solver verdicts (66 `✅ Valid` +
+  35 `✅ Expected Falsified`), 0 `⚠️`, 0 `❌`, 0 errors, 20 expected `sorry`
+  warnings.** The delta reconciles exactly: **+4** from the new
+  `WSC/Props/P3_BaseRun.lean` (3 Valid + 1 Expected Falsified) and **−1** because
+  `Composition.mintingNonVacuous` no longer calls `blaster` (which also removes its
+  `sorry` warning, 21 → 20).
 * Companion documents: `WSC/AUDIT.md` (the five censuses and what not to believe),
   `WSC/ARCHITECTURE.md` (binding; ADDENDUM v3 overrides the base text),
   `WSC/SHAPING-RESULTS.md`, `WSC/SHAPE-BRIDGE.md`, `WSC/SPIKE-FINDINGS.md`,
   `WSC/LR-CTX-AUDIT.md`, `WSC/goldens/K-MEASUREMENTS.md` (**read §0.5 below before
   believing its §5.1 prep numbers**).
-* HEAD when this file was written: `a8d95a7` on `wsc-containment-proofs`.
+* HEAD when the U3 body was written: `a8d95a7` on `wsc-containment-proofs`;
+  task A1 started from `54a6545` on the same branch.
+
+## 0.0 TASK A1 — what changed, and what deliberately did not
+
+**THE ONE-LINE ANSWER: the composition is now wired to the kernel-checked bridge
+instead of to a solver verdict, every non-vacuity obligation in the library is
+discharged, and the top claim is exactly as open as it was.** `top_claim` still
+consumes an un-instantiated `LeafSet` (audit **F1**), still depends on the SAME 26
+project axioms (re-measured, list identical), and still carries `sorryAx`
+(audit **F4**). Shape coverage (audit **F2**) is untouched. A1 closed the audit's
+mechanical findings; it closed none of its critical ones.
+
+WHAT CHANGED:
+
+| # | change | audit finding |
+|---|---|---|
+| 1 | The four `LR_BUDGET_*` axioms are restated against **`Runs.XRun K`** (new leaf module `WSC/Runs.lean`) instead of `appliedX_K.prop`. The right-hand side is now a plain Lean definition — imported flat + audited `WSC/Prep` inputs fn + `cekExecuteProgram` — so the connective from a shaped theorem to the ledger side is `ShapeBridge.exec_<S>`, a kernel-checked `rfl` with no `sorryAx`, rather than a `blaster` verdict. | **F3 HIGH — CLOSED** |
+| 2 | **`GlobalPreppedAt` DELETED.** It was U2's abstract "the term you handed me really is the prep of that flat at that budget" side condition; `Runs.globalRun K` exhibits flat, inputs fn and budget in its own definition. `WSC/Honest.lean` 38 → 37 axioms; library 51 → 50. | F3 sub-item — CLOSED |
+| 3 | **All five open non-vacuity obligations DISCHARGED** as theorems, `native_decide` on the real CEK, **no `sorryAx` and no project axiom**: `GlobalNonVacuous` at 1600 / 3300 / 4400, `SeizeNonVacuous` at 3800, `MintingNonVacuous` at 2500 (`WSC/Props/Shaped/NonVacuity.lean`). With `Composition`'s base/minting-900 pair the set is COMPLETE. | **F7 — CLOSED**, and more |
+| 4 | **Three new published K constants**, each ≥ a named witness's measured accepting step count: `K_mint_custody = 2500` (L1, K=1681), `K_global_member = 3300` (G6, K=2837), `K_seize = 3800` (S1, K=3004). `K_seize` REVERSES a "DELIBERATELY UNAVAILABLE" entry — the reasoning behind it was about `#prep_uplc` cost and does not apply to a run term. | F12 last bullet — CLOSED |
+| 5 | **P3 restated on the run term** (`WSC/Props/P3_BaseRun.lean`, `✅ Valid`, with its own vacuity probe `✅ Expected Falsified` **at the run term**), so `Composition.p3_lifted` mentions no `#prep_uplc` output and `PropExecFaithful` is off the keystone path. | F8 — narrowed, not closed |
+| 6 | `baseNonVacuous` and `mintingNonVacuous` no longer carry `sorryAx`: their accept component is now a `native_decide` witness on the term the predicate names, not a `blaster` verdict on a `.prop`. | — |
+| 7 | **K-MEASUREMENTS §5.1's prep table marked SUPERSEDED with a re-measured §5.1a.** Measured with `lake build`, cold, one module at a time: base 600 = **1.35 s**, minting 900 = **1.53 s**, global 1600 = **37.8 s** against **2,143 s** published — 6–58× overstatement, cause = `lake env lean` without `--load-dynlib`. | **F5 — CLOSED** |
+| 8 | `WSC/Props/P5_Witness1600.lean` given a banner naming what is and is not a theorem, and its two `#eval` facts PROMOTED to `native_decide` theorems so the file can be cited safely at all. | **F11 — CLOSED** |
+
+WHAT DELIBERATELY DID NOT CHANGE, and each is a decision a reviewer may disagree
+with:
+
+* **`WithinBudget` still quotes only `K_base` / `K_mint` / `K_global`.** The 2500
+  minting bridge now exists, but consuming it widens `HonestTx`, which strengthens
+  `top_claim`'s statement and correspondingly hardens its OPEN `LeafSet`
+  obligations. That is a change to the composition's core transaction class, not a
+  restatement. Recorded at `K_mint_custody` and `Composition` §5.
+* **No `LeafSet` value is constructed.** A1 added none of the four fields.
+* **`PropExecFaithful` still binds the SHAPED layer.** Every shaped P-theorem is
+  still stated on `appliedXShaped.prop` and reaches the ledger via
+  `ShapeBridge.bridge_<S>` (Tier B, `blaster`, health warning in
+  `SHAPE-BRIDGE.md` §5.2). A1 removed it from ONE path and MEASURED that the same
+  removal works at keystone grade; the other 14 theorem groups (and 14 fresh vacuity
+  probes) are real work and were not done.
+* **Nothing about shape coverage.** Audit F2 stands verbatim.
+* **The seize bridge now exists and is used by nothing.** `LeafSet.p2` is open,
+  `WithinBudget` has no seize clause, and 3800 does not cover the 2-input accepting
+  seize golden (4,647 steps).
+
+MEASUREMENT DISCREPANCY REPORTED, not silently corrected: `WSC/AUDIT.md` §2
+publishes "**47** `axiom` declarations — `Honest.lean` (35), `Composition.lean`
+(10), `P1_Transfer.lean` (1), `SeizeModel.lean` (1)". At the audited revision
+`grep -c '^axiom '` gives **51** — Honest **38**, Composition 10, P1_Transfer **2**,
+SeizeModel 1. The audit's per-file split and its central conclusion ("no `axiom`
+hides in any `Prep/*`, `Shaped/*` or `Props/Shaped/*` module") both reproduce; only
+the totals are 4 low. After A1: 50 / 37 / 10 / 2 / 1.
 
 ## 0. The five sentences that must never be dropped
 
@@ -121,14 +184,16 @@ are banned):
 |---|---|
 | `isSuccessful (appliedXShaped.prop args) ↔ isSuccessful (appliedX.prop (shapedCtx args))` | **PROVED for all 16 shaped preps, no axiom.** 25 verdicts re-verified in the U3 rebuild (19 Valid + 6 Expected-Falsified controls). The `exec`-level form (`XRun K`) is **kernel-checked `rfl`** — `[propext, Classical.choice, Quot.sound]`, no `sorryAx` — and holds at every budget; `inputs_M1` "does not depend on any axioms". |
 | Tier A (6 shapes: B1@600, M1/M2@900, G1/GIdx/GNIdx@1600) | RHS is the unshaped prep's `prop` at the same budget — complete, no residual. |
-| Tier B (10 shapes: G6@3300, L1/L2/DT1/DS1@2500, S1@3800, T1/T2/T6/T7@4400) | RHS is `XRun K`; **no unshaped prep exists at those budgets and none is affordable.** Inherits the `PropExecFaithful` warning (`SHAPE-BRIDGE.md` §5). |
-| **Is it consumed?** | **NO.** `Honest.lean`'s budget bridges and `Composition.lean`'s `LeafSet` still name unshaped preps. Highest-value next action: restate `LR_BUDGET_*` against `ShapeBridge.XRun K` — four axiom statements, no new proving (`WSC/AUDIT.md` F3). |
+| Tier B (10 shapes: G6@3300, L1/L2/DT1/DS1@2500, S1@3800, T1/T2/T6/T7@4400) | RHS is `Runs.XRun K`; **no unshaped prep exists at those budgets and none is affordable.** Inherits the `PropExecFaithful` warning (`SHAPE-BRIDGE.md` §5). |
+| **Is it consumed?** | **(A1) PARTLY — YES by `Honest.lean`, still NO by `Composition.lean`'s `LeafSet`.** Task A1 restated the four `LR_BUDGET_*` axioms against `Runs.XRun K` (the definitions moved to the leaf module `WSC/Runs.lean` to break the import cycle), so the ledger side now names exactly the term the 16 kernel-checked `exec_<S>` `rfl`s land on, at EVERY budget. What is still unconsumed is the `LeafSet`: no field is instantiated, so no `bridge_<S>` is applied to anything. See §0.0. |
+| **(A1) Does the Tier A/B split still matter?** | For the LEDGER bridge, no — both tiers' right-hand sides are now what `LR_BUDGET_*` names. For OPTIMIZER evidence, yes: Tier A's RHS went through `Optimize.main` on a symbolic context and Tier B's did not go through it at all, so only Tier A's verdict says anything about shaping-commutes-with-the-optimizer. `PropExecFaithful` is unchanged in substance and scope for the shaped layer. |
 | In the default build target? | **Yes, since U3** — `WSC.lean` imports it (36 s). `lake build WSC` did not check it before. |
 
 ## 2. Axiom base — what is assumed
 
-**47 `axiom` declarations**, and **no `axiom` anywhere in `Prep/*`, `Shaped/*` or
-`Props/Shaped/*`** — the shaped layer really does add no assumption, which is its
+**(A1) 50 `axiom` declarations** by `grep -c '^axiom '` (51 before A1 deleted
+`GlobalPreppedAt`; `WSC/AUDIT.md` §2's "47" is 4 low — see §0.0's measurement
+note), and **no `axiom` anywhere in `Prep/*`, `Shaped/*` or `Props/Shaped/*`** — the shaped layer really does add no assumption, which is its
 central claim and is now machine-verified. `top_claim` reaches **26** of the 47;
 read that as a **floor**, since instantiating the open `LeafSet` fields adds the
 other 21. Full per-theorem census: `WSC/AUDIT.md` §3. **Read the
@@ -201,10 +266,17 @@ whitelist is a count of *unsuppressed* warnings only). Use `#print axioms` →
 
 ## 4. What would move the needle, in order
 
-1. **Restate `LR_BUDGET_*` against `ShapeBridge.XRun K`** — four axiom statements,
-   no new proving. Puts the composition on the kernel-checked bridge, removes
-   `PropExecFaithful` from the trust base, removes the need for `GlobalPreppedAt`,
-   dissolves the Tier A/B split, and unblocks `LeafSet.p1`/`p4`.
+1. ~~**Restate `LR_BUDGET_*` against `ShapeBridge.XRun K`**~~ — **DONE (task A1)**,
+   see §0.0. It delivered items (a) the kernel-checked bridge, (c) no more
+   `GlobalPreppedAt`, and (d) the Tier A/B dissolution for the ledger bridge; it
+   delivered (b) `PropExecFaithful` removal only on the base/keystone path, not
+   campaign-wide, and it did NOT by itself unblock `LeafSet.p1`/`p4`, whose binding
+   residues turned out to be the shape bridge and shape COVERAGE. **The replacement
+   item at this priority: restate the 14 shaped P-theorem groups on `Runs.XRun K`**
+   (measured feasible at keystone grade in `WSC/Props/P3_BaseRun.lean`: `✅ Valid`,
+   3.7 s), each with a FRESH vacuity probe at the run term — that is what would
+   delete `PropExecFaithful` from the campaign. Real proving, with real risk that a
+   probe returns `Valid` (i.e. vacuous), as happened to P6 at 2500.
 2. **Instantiate the `LeafSet`.** `p1` and `p4` need only their residues (item 1 +
    coverage); `p2` needs "structure preserved ⟹ `Contain`"; `nopre` needs the full
    P4 plus trace induction. Until one `LeafSet` value exists, the top claim is an
@@ -222,19 +294,31 @@ whitelist is a count of *unsuppressed* warnings only). Use `#print axioms` →
    ≥2 mini-ledger inputs.
 7. **Instantiate `ValueAlgebra` + `LedgerCanon`** to delete `LR_BALANCE_SLOT`;
    budget it as a ~330-line `Value`-algebra development, not a mechanical step.
-8. **Minting budget bridge at 2500**, and raise `WithinBudget`'s `K_mint` clause
-   with it, so P4's arms 1-3 are usable by the composition.
+8. ~~**Minting budget bridge at 2500**~~ — **the BRIDGE half is DONE (task A1)**:
+   `LR_BUDGET_minting` at `K_mint_custody = 2500`, non-vacuity proved from SHAPE L1
+   (K = 1681). What remains is raising `WithinBudget`'s `K_mint` clause to match,
+   which is a widening of `HonestTx` and therefore a composition-core decision
+   (§0.0).
 
 ## 5. Reproduction
 
 ```
-# the whole library, clean-room (401 jobs, 93.7 s, 98 ✅ markers, 0 errors)
+# the whole library, clean-room
+#   U3: 401 jobs, 93.7 s, 98 ✅ markers, 0 errors, 21 sorry warnings
+#   A1: 404 jobs, 79.8 s, 101 ✅ markers, 0 errors, 20 sorry warnings
 cp -a <CLAB checkout> <SCRATCH>/clab && cd <SCRATCH>/clab
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
 /usr/bin/time -v lake build WSC WSC.ShapeBridge
 
 # the axiom census behind §2 and WSC/AUDIT.md §3 (2.7 s warm)
 lake build WSC.Shaped.Probe.U3Census
+
+# (A1) prep-cost RE-MEASUREMENT, the F5 repair -- WSC/goldens/K-MEASUREMENTS.md §5.1a
+for m in Base Minting Minting800 Minting900 Minting1300 Seize Global Global1600; do
+  rm -f .lake/build/lib/lean/WSC/Prep/$m.olean .lake/build/lib/lean/WSC/Prep/$m.ilean \
+        .lake/build/lib/lean/WSC/Prep/$m.trace .lake/build/lib/lean/WSC/Prep/$m.*.hash
+  /usr/bin/time -f "$m %e s %M KB" lake build WSC.Prep.$m > /dev/null
+done
 
 # CEK step counts K of the 13 goldens (3.2 s)  -- WSC/goldens/K-MEASUREMENTS.md §6
 cp -a /home/gumbo/iohk/PlutusCoreBlaster <SCRATCH>/pcb-kmeasure   # git log -1 == 9f9ca8c

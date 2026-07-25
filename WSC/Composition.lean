@@ -32,9 +32,16 @@ field of `LeafSet` (§6) with the library theorem, in §9.
    (`WSC/Honest.lean`; `K_global` was republished from 1600 by task U2 — see its
    docstring for the measurement that forced it). No result here covers
    unboundedly large transactions.
-   There is deliberately **no `K_seize`** (`WSC/Honest.lean` "K_seize —
-   DELIBERATELY UNAVAILABLE"), so the seize route is bridged by
-   `LR_SEIZE_HALTS` (§4) instead, which is unbounded but weaker.
+   TASK A1: `WSC/Honest.lean` now ALSO publishes `K_mint_custody = 2500`,
+   `K_global_member = 3300` and `K_seize = 3800`, each with a proved non-vacuity
+   theorem, because the restated `LR_BUDGET_*` axioms need no `#prep_uplc` and are
+   therefore statable at every budget. **`WithinBudget` below is UNCHANGED and
+   still quotes only `K_base` / `K_mint` / `K_global`**: consuming the new
+   constants means widening the transaction class, which strengthens `top_claim`'s
+   statement and hardens its open `LeafSet` obligations — a change to the
+   composition's core, not a restatement, and deliberately outside A1's scope.
+   The seize route is still bridged by `LR_SEIZE_HALTS` (§4), not by
+   `LR_BUDGET_seize`, for the same reason.
 2. **SHAPE RESTRICTIONS (task Z2).** Every transaction in the class also carries
    an abstract `Shape` predicate. Instantiating a leaf with a `by blaster`
    theorem proved over a SHAPED context (P4a/P4-burn over SHAPE M1/M2, P5 over
@@ -76,6 +83,11 @@ it), and no statement here claims unbounded coverage.
 -/
 import WSC.Honest
 import WSC.Props.P3_Base
+-- Task A1: the RUN-form keystone.  `WSC.LR_BUDGET_base` now delivers
+-- `isSuccessful (Runs.baseRun K …)`, so `p3_lifted` consumes
+-- `WSC.P3_base_requires_global_or_seize_run` and no `#prep_uplc` output appears
+-- anywhere on the composition's keystone path (see that module's header).
+import WSC.Props.P3_BaseRun
 -- Task U2: `WSC.P4Witness` (the concrete `BurnOnly` minting context) and
 -- `appliedMinting900`, used to DISCHARGE `WSC.MintingNonVacuous` as a theorem in
 -- §9.5a. This module does NOT import `WSC.Honest`, so there is no cycle, and it
@@ -89,6 +101,13 @@ import WSC.Props.P4_Minting
 import WSC.Model.Ground
 
 namespace WSC.Composition
+
+-- Task A1.  §7's `baseNonVacuous` / `mintingNonVacuous` and §7's `p3_lifted`
+-- identify `Runs.XRun K …` with the corresponding `appliedX.exec …` (δ-reduction
+-- on terms carrying the witnesses' large concrete `Data` skeletons), so the defeq
+-- checks need the recursion depth the witness modules already set
+-- (`WSC/Props/P3_Base.lean`, `WSC/Props/P4_Minting.lean`).
+set_option maxRecDepth 1000000
 
 open CardanoLedgerApi.V2 (TxOut)
 open CardanoLedgerApi.V3 (Credential CurrencySymbol TokenName Value MintValue
@@ -830,10 +849,18 @@ axiom ts_minting_identity_L :
 /-! ### NOT stated here as an axiom: the seize halting bridge
 
 The seize leaf (§6 `LeafSet.p2`) is triggered by `WSC.NodeAcceptsSeize` — real node
-acceptance — and NOT by any prepped term, because there is no published `K_seize`
-and every affordable prep budget is MEASURED vacuous (`WSC/Honest.lean`, "K_seize —
-DELIBERATELY UNAVAILABLE"), which makes `WSC.LR_BUDGET_seize` unusable by
-construction. Discharging `LeafSet.p2` from `WSC.P2.P2a_bytecode` /
+acceptance — and NOT by any prepped term.
+
+ORIGINAL REASON: there was no published `K_seize`, and every affordable prep budget
+is MEASURED vacuous, which made `WSC.LR_BUDGET_seize` unusable by construction.
+**TASK A1 CHANGED THAT HALF**: `WSC.K_seize = 3800` is published, restated over
+`Runs.seizeRun` (no prep, so the cost wall does not apply), and
+`WSC.NonVacuity.seizeNonVacuous_at_3800` proves its non-vacuity hypothesis from
+SHAPE S1's K = 3004 witness. So `WSC.LR_BUDGET_seize` is now applicable in
+principle. It is still NOT applied here, and the seize leaf is still triggered by
+`NodeAcceptsSeize`, because `WithinBudget` has no seize clause (see §5) and
+`LeafSet.p2` is open regardless. Discharging `LeafSet.p2` from
+`WSC.P2.P2a_bytecode` /
 `WSC.P2.P2b_bytecode` therefore additionally requires
 
     LR_SEIZE_HALTS : NodeAcceptsSeize pcs ctx → SeizeModel.seizeAcceptsUnbounded pcs ctx
@@ -874,8 +901,20 @@ The minting clause is still `K_mint = 900` and is still TOO TIGHT for P4's
 `Local`/`DelegateTransfer`/`DelegateSeize` arms (K = 1,681 / 1,257 / 1,466) —
 §10.5.
 
-THERE IS NO SEIZE CLAUSE, deliberately: no `K_seize` exists (see
-`LR_SEIZE_HALTS`). -/
+TASK A1 NOTE — WHAT IS NOW AVAILABLE AND DELIBERATELY NOT TAKEN. The minting
+clause could be widened to `WSC.K_mint_custody = 2500`: the bridge exists there
+(`WSC.LR_BUDGET_minting` is `K`-parametric over `Runs.mintingRun K`) and its
+non-vacuity hypothesis is proved (`WSC.NonVacuity.mintingNonVacuous_at_2500`,
+SHAPE L1, K = 1681). Before A1 it could NOT be widened, for lack of any term at
+2500 — no unshaped `#prep_uplc` there is affordable. Widening it ADMITS more
+transactions into `HonestTx`, i.e. STRENGTHENS `preservation`/`top_claim` and
+correspondingly HARDENS the open `LeafSet` fields; that is a change to the
+composition's core transaction class and is not part of A1.
+
+THERE IS NO SEIZE CLAUSE. Deliberate, and the reason has changed: `WSC.K_seize`
+now EXISTS (3800, non-vacuity proved), but nothing here consumes it and
+`LeafSet.p2` is open, so adding a clause would only narrow the class for no gain.
+See `LR_SEIZE_HALTS` above. -/
 def WithinBudget (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
   (∀ ctx', SameTx ctx ctx' →
      WSC.nodeStepsBase hp.globalLogicCred hp.seizeLogicCred ctx' ≤ WSC.K_base) ∧
@@ -909,15 +948,20 @@ library's budget bridges stop being usable:
 * for MINTING the bridge NOW EXISTS at `K_mint = 900`: task U2 repointed
   `WSC.LR_BUDGET_minting` from the budget-600 `appliedMinting.prop` (machine-checked
   vacuous, `WSC.minting600_is_vacuous`) to `appliedMinting900.prop`, and DISCHARGED
-  its non-vacuity hypothesis (`mintingNonVacuous`, §7). It still does not reach
-  P4's three non-burn arms, which need a bridge at the 2500 prep (§10.5);
-* for GLOBAL, task U2 made `WSC.LR_BUDGET_global` PREP-PARAMETRIC (it now carries
-  the prepped term and its budget as arguments plus a `GlobalPreppedAt` side
-  condition), which removes the old defect — it used to name the budget-600
-  `appliedGlobal.prop` while quoting `K_global`. It is still not INSTANTIABLE at
-  the shaped preps without the SHAPE BRIDGE (§9.4), so §7 still does no global
-  budget plumbing;
-* for SEIZE there is no bridge at all, only `LR_SEIZE_HALTS`.
+  its non-vacuity hypothesis (`mintingNonVacuous`, §7). **TASK A1** additionally
+  makes it available at `WSC.K_mint_custody = 2500`, which is what P4's three
+  non-burn arms need (§9.5a′, §10.5);
+* for GLOBAL, task U2 made `WSC.LR_BUDGET_global` PREP-PARAMETRIC, removing the old
+  defect — it used to name the budget-600 `appliedGlobal.prop` while quoting
+  `K_global`. **TASK A1 replaced that with `K`-parametricity over
+  `Runs.globalRun K`**, deleted the `GlobalPreppedAt` side condition, and DISCHARGED
+  `WSC.GlobalNonVacuous` at all three global budgets (§9.5b). §7 still does no
+  global budget plumbing, because what a shaped leaf needs beyond the bridge is the
+  SHAPE BRIDGE (§9.4) and shape coverage;
+* for SEIZE, **TASK A1** published `WSC.K_seize = 3800`, restated
+  `WSC.LR_BUDGET_seize` over `Runs.seizeRun K` and proved its non-vacuity, so a
+  bridge now exists; this file still routes the seize leaf through
+  `LR_SEIZE_HALTS`, because `WithinBudget` has no seize clause.
 
 Putting the trigger at `NodeAccepts*` therefore keeps §7's proof honest: it
 consumes no bridge that does not exist. -/
@@ -1057,12 +1101,24 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
 The branch analysis of ARCHITECTURE.md §5.2, proved from `LeafSet` and the
 axioms. Nothing in this section is `blaster`-closed or `native_decide`d. -/
 
-/-- Non-vacuity of the base prep — DISCHARGED, as a theorem, from the in-library
-concrete witness (`WSC/Props/P3_Base.lean`). This is what makes
-`WSC.LR_BUDGET_base` usable below. -/
-theorem baseNonVacuous : WSC.BaseNonVacuous :=
+/-- Non-vacuity of the base validator at `K_base` — DISCHARGED, as a theorem, from
+the in-library concrete witness (`WSC/Props/P3_Base.lean`). This is what makes
+`WSC.LR_BUDGET_base` usable below.
+
+**REPAIRED BY TASK A1, and the repair REMOVES a `sorryAx`.** `WSC.BaseNonVacuous`
+is now `K`-parametric and stated over `Runs.baseRun K` rather than
+`appliedBase.prop`, so the accepting component is `WSC.P3Witness.exec_accepts` —
+`native_decide` on the REAL CEK machine — instead of `P3Witness.prop_accepts`,
+which was `by blaster` and therefore `admit`-closed. `#print axioms
+WSC.Composition.baseNonVacuous` no longer lists `sorryAx`; it lists only the three
+Lean-standard axioms plus the two `native_decide` compiler-trust axioms.
+
+(`top_claim` still carries `sorryAx`, through `p3_lifted` →
+`WSC.P3_base_requires_global_or_seize_run`, which is a `blaster` verdict. Audit F4
+is unchanged.) -/
+theorem baseNonVacuous : WSC.BaseNonVacuous WSC.K_base :=
   ⟨WSC.P3Witness.globalCred, WSC.P3Witness.seizeCred, WSC.P3Witness.ctx,
-   WSC.P3Witness.ctx_valid, WSC.P3Witness.prop_accepts⟩
+   WSC.P3Witness.ctx_valid, WSC.P3Witness.exec_accepts⟩
 
 /-- **Non-vacuity of the minting prep at `K_mint = 900` — DISCHARGED, as a
 theorem (task U2).**
@@ -1075,11 +1131,22 @@ witness that discharges it:
 * the context is `WSC.P4Witness.ctx` — a hand-built, fully concrete `BurnOnly`
   minting transaction (`WSC/Props/P4_Minting.lean:457-476`);
 * `WSC.P4Witness.ctx_valid : validMintingContext ctx = true`, by `native_decide`;
-* acceptance is on the OPTIMIZED `prop` term the theorems quantify over, closed by
-  `blaster` on the fully concrete goal — exactly the route
-  `WSC.P3Witness.prop_accepts` takes for the base validator, and NOT the weaker
-  `exec` route (`#prep_uplc` emits `prop` and `exec` as two separate terms with no
-  proved equality, `PlutusCore/UPLC/PreProcess.lean:43-46`).
+* acceptance is `WSC.P4Witness.exec_accepts_at_900`, i.e. `native_decide` on the
+  real CEK machine.
+
+  **CHANGED BY TASK A1 — read this, because the previous revision argued the
+  opposite and both arguments are correct in their own setting.** It used to say:
+  "acceptance is on the OPTIMIZED `prop` term the theorems quantify over, closed by
+  `blaster` on the fully concrete goal … and NOT the weaker `exec` route
+  (`#prep_uplc` emits `prop` and `exec` as two separate terms with no proved
+  equality, `PlutusCore/UPLC/PreProcess.lean:43-46`)". That was right while
+  `WSC.MintingNonVacuous` named `appliedMinting900.prop`: an `exec` witness would
+  then have been about a DIFFERENT term than the statement, which is audit F8's
+  `prop`-vs-`exec` gap. After A1 the predicate names `Runs.mintingRun K`, so the
+  `exec` route is not the weaker one — it is the ONLY one that is about the term in
+  the statement, and it is `native_decide` rather than `admit`. Net effect on the
+  trust base: one `sorryAx` removed, `Lean.ofReduceBool`/`Lean.trustCompiler`
+  already present via `ctx_valid`.
 
 Corroboration, all already in the library: the real bytecode REJECTS this context
 at 600 and ACCEPTS it at 800 and 900 (`P4Witness.exec_rejects_at_600`,
@@ -1087,10 +1154,11 @@ at 600 and ACCEPTS it at 800 and 900 (`P4Witness.exec_rejects_at_600`,
 `programmableTokenMinting.mint-burnonly` does the same with measured K = 784
 (`WSC.P4Golden`).
 
-MEASURED COST of the `blaster` call: 0.6 s (task U2). -/
-theorem mintingNonVacuous : WSC.MintingNonVacuous :=
+MEASURED COST: the `blaster` call this used to make cost 0.6 s (task U2); the
+A1 form costs nothing beyond the `native_decide` that `P4Witness` already ran. -/
+theorem mintingNonVacuous : WSC.MintingNonVacuous WSC.K_mint :=
   ⟨WSC.P4Witness.protocolParamsCS, WSC.P4Witness.mintingLogicHash, WSC.P4Witness.ctx,
-   WSC.P4Witness.ctx_valid, by blaster⟩
+   WSC.P4Witness.ctx_valid, WSC.P4Witness.exec_accepts_at_900⟩
 
 /-- A `withPurpose`-built spending context of an on-chain transaction satisfies
 CLAB's `validSpendingContext`: the purpose matches by construction and
@@ -1112,8 +1180,22 @@ the plumbing itself instead of assuming it:
 `WSC.LR_SPEND_RUNS_VALIDATOR` (the ledger runs the base script) →
 `WSC.LR_BUDGET_base` at `K_base = 600`, its non-vacuity hypothesis discharged by
 `baseNonVacuous` → `WSC.LR_CTX` for the precondition →
-`WSC.P3_base_requires_global_or_seize`, a `by blaster` theorem over the REAL
+`WSC.P3_base_requires_global_or_seize_run`, a `by blaster` theorem over the REAL
 compiled `programmableLogicBase` bytecode with no shape restriction.
+
+**RE-PLUMBED BY TASK A1, and this is the one place in the library where the
+`prop`-vs-`exec` residual (audit F8) is actually REMOVED rather than relocated.**
+`WSC.LR_BUDGET_base` now delivers `isSuccessful (Runs.baseRun K_base …)` — the
+imported flat under a meter, a plain Lean definition — so the keystone consumed
+here is the RUN-form P3 (`WSC/Props/P3_BaseRun.lean`) rather than the
+`appliedBase.prop` form. Nothing on this chain is an `Optimize.main` output, hence
+`PropExecFaithful` is not on it. The run-form P3 has its OWN mandatory vacuity
+probe at its OWN term (`P3_run_vacuity_probe`, `✅ Expected Falsified`) — a probe at
+the old prep term would have certified nothing about the new one.
+
+WHAT DID NOT CHANGE: the run-form P3 is still a `blaster` verdict closed by
+`admit`, so `p3_lifted` and therefore `top_claim` still carry `sorryAx` (audit
+F4), and the base clause is still a 600-step bound.
 
 SCOPE: `WithinBudget`'s base clause (600 CEK steps) is where E1 bites. -/
 theorem p3_lifted (hp : WSC.HonestParams) (ctx : ScriptContext) (t : TxInInfo)
@@ -1125,8 +1207,9 @@ theorem p3_lifted (hp : WSC.HonestParams) (ctx : ScriptContext) (t : TxInInfo)
   obtain ⟨r, d, hoc', hacc⟩ := WSC.LR_SPEND_RUNS_VALIDATOR hp ctx t hdep hoc ht hpc
   have hsteps := hb.1 _ (sameTx_withPurpose ctx r (.SpendingScript t.txInInfoOutRef d))
   have hsucc :=
-    (WSC.LR_BUDGET_base baseNonVacuous hp.globalLogicCred hp.seizeLogicCred _ hoc' hsteps).mp hacc
-  have := WSC.P3_base_requires_global_or_seize hp.globalLogicCred hp.seizeLogicCred _
+    (WSC.LR_BUDGET_base WSC.K_base baseNonVacuous
+      hp.globalLogicCred hp.seizeLogicCred _ hoc' hsteps).mp hacc
+  have := WSC.P3_base_requires_global_or_seize_run hp.globalLogicCred hp.seizeLogicCred _
     (validSpendingContext_of_onChain ctx r t.txInInfoOutRef d hoc') hsucc
   simpa [WSC.withPurpose] using this
 
@@ -1876,8 +1959,13 @@ theorem p4_disjuncts_of_custody (hp : WSC.HonestParams) (mlh : ScriptHash)
 /-! ## §10.5 What each field still owes AFTER §10.1-§10.4
 
 **`LeafSet.p1`** — owes exactly two things, both named in `ShapedGlobalContainment`:
-the SHAPE BRIDGE (§9.4) and `WSC.LR_BUDGET_global` instantiated at
-`K_global = 4400` over a shaped prep (its named TODO in `WSC/Honest.lean`).
+the SHAPE BRIDGE (§9.4) and `WSC.LR_BUDGET_global` at `K_global = 4400`.
+TASK A1: the SECOND of those is now DISCHARGEABLE — the axiom is restated over
+`Runs.globalRun K` and holds at 4400 with a proved non-vacuity hypothesis
+(`WSC.NonVacuity.globalNonVacuous_at_4400`), and its "named TODO
+`LR_BUDGET_global_shaped`" is withdrawn (§9.5b). What remains is the SHAPE BRIDGE
+(`ShapeBridge.bridge_{T1,T2,T6,T7}`, Tier B) and shape COVERAGE, which is the
+harder half and is untouched.
 Vocabulary: CLOSED (§10.1, §7.1). `Shape` must be
 "`ctx` is an instance of T1, T2, T6 or T7", and — new since task U2 —
 `WithinBudget`'s global clause no longer excludes those transactions, because
@@ -1892,13 +1980,19 @@ there is no single theorem over a symbolic redeemer tag
 repointed `WSC.LR_BUDGET_minting` from the vacuous 600 prep to `appliedMinting900`
 and DISCHARGED its non-vacuity, but 900 does not cover K = 1,257/1,466/1,681, so
 the three non-burn arms need a bridge at the 2500 prep and `WithinBudget`'s
-`K_mint` clause raised to match; (c) the SHAPE BRIDGE.
+`K_mint` clause raised to match — **TASK A1 supplies the BRIDGE half**
+(`WSC.LR_BUDGET_minting` at `WSC.K_mint_custody = 2500`, non-vacuity proved by
+`WSC.NonVacuity.mintingNonVacuous_at_2500`); the `WithinBudget` clause is
+deliberately NOT raised (§5); (c) the SHAPE BRIDGE.
 
 **`LeafSet.p2`.** `WSC/Props/Shaped/P2Shaped.lean` proves BOTH conjuncts over
-SHAPE S1 at budget 3800 (witnesses K = 3004 / 3328). Missing: (a) the seize budget
-bridge does not exist at all (`WSC.LR_BUDGET_seize` names the budget-600 prep and
-there is deliberately no `K_seize`), so `WithinBudget` has no seize clause and the
-route through §4's note (`LR_SEIZE_HALTS`) is the only one; (b) the shape bridge;
+SHAPE S1 at budget 3800 (witnesses K = 3004 / 3328). Missing: (a) **CHANGED BY TASK
+A1** — the seize budget bridge now EXISTS (`WSC.LR_BUDGET_seize` restated over
+`Runs.seizeRun K`, `WSC.K_seize = 3800` published, non-vacuity PROVED by
+`WSC.NonVacuity.seizeNonVacuous_at_3800`), where before it named the budget-600 prep
+and there was deliberately no `K_seize`. It is still not USED: `WithinBudget` has no
+seize clause and the route through §4's note (`LR_SEIZE_HALTS`) is the one this file
+takes; (b) the shape bridge;
 (c) a vocabulary reconciliation this task did not write, because P2Shaped's
 conclusion is stated over SHAPE S1's scalars rather than over a `ScriptContext`'s
 `txInfoOutputs`/`txInfoInputs`.
@@ -1924,9 +2018,11 @@ proved anywhere.
 | `covering_excludes_registeredIn` + `covering_node_excludes_registration` (`WSC/Honest.lean`) | **PROVED** — ADDENDUM E3's bridge, now a theorem; conjunct (iv) added to `DirWF` |
 | `covering_excludes_ledger_registration` (this file) | **PROVED** from `DIRWF_L` |
 | `mintOf_nonpos_of_not_mintPos`, `nonEscape_of_noEscape`, `valueOf_zero_of_not_hasCS`, the sum lemmas | **PROVED**, ordinary Lean |
-| `baseNonVacuous` (`WSC.BaseNonVacuous`) | **PROVED** from `WSC.P3Witness` |
-| `mintingNonVacuous` (`WSC.MintingNonVacuous`) | **PROVED** (task U2) from `WSC.P4Witness` + `blaster` on the concrete accept goal at `appliedMinting900.prop` |
-| `WSC.GlobalNonVacuous` / `WSC.SeizeNonVacuous` | **STILL-OPEN** — see `WSC/Honest.lean`; global is dischargeable only at a SHAPED prep, seize at no affordable budget |
+| `baseNonVacuous` (`WSC.BaseNonVacuous K_base`) | **PROVED** from `WSC.P3Witness`; after task A1 by `exec_accepts` (`native_decide`), so **no `sorryAx`** |
+| `mintingNonVacuous` (`WSC.MintingNonVacuous K_mint`) | **PROVED** (U2) from `WSC.P4Witness`; after A1 by `exec_accepts_at_900` (`native_decide`) instead of `blaster` on `appliedMinting900.prop`, so **no `sorryAx`** |
+| `WSC.MintingNonVacuous K_mint_custody` (2500) | **PROVED** (task A1) — `WSC.NonVacuity.mintingNonVacuous_at_2500`, SHAPE L1, K = 1681 |
+| `WSC.GlobalNonVacuous` at 1600 / 3300 / 4400 | **PROVED** (task A1) — `WSC.NonVacuity.globalNonVacuous_at_{1600,3300,4400}` from SHAPES G1 / G6 / T1 (K = 1541 / 2837 / 2603). Closes audit **F7**; was STILL-OPEN at every budget |
+| `WSC.SeizeNonVacuous K_seize` (3800) | **PROVED** (task A1) — `WSC.NonVacuity.seizeNonVacuous_at_3800`, SHAPE S1, K = 3004. Was recorded MEASURED FALSE at every affordable prep budget |
 | `authenticDirNode_of_hasCSH`, `dirNodeFields_of_fromData`, `coveringIn_of_coveringRaw` (§7.1) | **PROVED** (task U2) — the raw↔ground-truth reconciliation of the exemption predicate, at a cost of `WSC.TS3` only |
 | `coveringRaw_false_of_registered` (§7.1) | **PROVED** — registered ⟹ the leaves' RAW exemption is unavailable |
 | `outSum_eq_sumOutsIf`, `inSum_eq_sumInsIf`, `contain_iff_modelSums` (§10.1) | **PROVED** — the sum vocabulary bridges |
@@ -2061,21 +2157,51 @@ non-vacuity hypothesis is DISCHARGED as the theorem `mintingNonVacuous` (§7). T
 bridge is therefore USABLE for the first time. It still does not cover P4's three
 non-burn arms (K = 1,257 / 1,466 / 1,681 > 900) — §10.5.
 
+**§9.5a′ — TASK A1: the 2500 minting bridge now EXISTS.** `WSC.LR_BUDGET_minting`
+is restated over `Runs.mintingRun K` (`WSC/Runs.lean`) and is `K`-parametric, so it
+holds at `WSC.K_mint_custody = 2500` — the budget P4's `Local`/`DelegateTransfer`/
+`DelegateSeize` shaped modules actually prep at — with its non-vacuity hypothesis
+proved (`WSC.NonVacuity.mintingNonVacuous_at_2500`, SHAPE L1, measured K = 1681).
+This is the gap §10.5 records and that the audit repeats as F12's last bullet.
+WHAT IS STILL MISSING for those three arms is therefore no longer the bridge: it is
+(a) `WithinBudget`'s minting clause, still `K_mint = 900` (see §5 for why widening
+it is a composition-core change), and (b) the SHAPE BRIDGE of §9.4 —
+`ShapeBridge.bridge_{L1,L2,DT1,DS1}`, which exist and are `blaster`-verified at
+Tier B. Neither is taken here.
+
 **§9.5b GLOBAL BRIDGE — REPAIRED IN SHAPE, STILL NOT INSTANTIABLE.**
 `WSC.LR_BUDGET_global` used to name `appliedGlobal.prop` (budget 600, its own
 probe `Valid` for "vacuous") while quoting `K_global`. Repointing it at ONE prep
 cannot work, because the global theorems live at THREE budgets (1600 for P5, 3300
 for P6/SHAPE G6, 4400 for P1's four shapes) and `K_global` is now 4400. It is
-therefore **PREP-PARAMETRIC**: it takes the prepped term and its budget as
-arguments, with a `WSC.GlobalPreppedAt globalProp K` side condition discharged by
-inspection of the `#prep_uplc` line at each use site. That removes the mismatch by
-construction. What it does NOT do is make the bridge instantiable at the shaped
-preps: that needs the SHAPE BRIDGE (§9.4), and the named TODO is recorded in
-`WSC.LR_BUDGET_global`'s docstring. `WSC.GlobalNonVacuous` is likewise parametric
-and remains UNDISCHARGED at every unshaped prep — at 1600 the symbolic certificate
-did not return in 87 minutes, and `exec` acceptance does not transfer to `prop`
-(two separate terms, `PlutusCore/UPLC/PreProcess.lean:43-46`).
-COST OF THE REPAIR, stated: ONE new abstract declaration, `WSC.GlobalPreppedAt`.
+was therefore made **PREP-PARAMETRIC** by task U2: it took the prepped term and its
+budget as arguments, with a `WSC.GlobalPreppedAt globalProp K` side condition
+discharged by inspection of the `#prep_uplc` line at each use site. That removed the
+mismatch by construction, at a cost of ONE new abstract declaration.
+
+**SUPERSEDED BY TASK A1 — READ THIS INSTEAD OF THE PARAGRAPH ABOVE.**
+`WSC.LR_BUDGET_global` is now parametric over `K` ONLY, and its right-hand side is
+`Runs.globalRun K` (`WSC/Runs.lean`) — the imported `programmableLogicGlobal` flat
+applied to `globalInputs1600` under a `K`-step meter, a plain Lean definition.
+Three consequences:
+
+* **`WSC.GlobalPreppedAt` is DELETED.** Its whole job was to stop a caller
+  substituting an arbitrary function for `globalProp`; `Runs.globalRun K` pins the
+  flat, the inputs function and the budget in its own definition, so there is
+  nothing left to constrain. `WSC/Honest.lean`'s `axiom` count goes 38 → 37 (the
+  library's 51 → 50, by `grep -c '^axiom '`; see §11's measurement note).
+* **`WSC.GlobalNonVacuous` is DISCHARGED at ALL THREE global budgets** —
+  1600 / 3300 / 4400 — by `WSC.NonVacuity.globalNonVacuous_at_{1600,3300,4400}`,
+  each `native_decide` on the real CEK from a named shaped witness. The two
+  reasons this was open are BOTH about the old statement and neither survives it:
+  the 87-minute symbolic probe was over `appliedGlobal1600.prop`, and "`exec`
+  acceptance does not transfer to `prop`" (`PreProcess.lean:43-46`) is irrelevant
+  once the predicate no longer mentions `prop`. This closes audit **F7**.
+* **The named TODO `LR_BUDGET_global_shaped` is WITHDRAWN**: the bridge exists at
+  every budget. What a shaped leaf still owes is the SHAPE BRIDGE of §9.4 —
+  `ShapeBridge.bridge_{G1,GIdx,GNIdx,G6,T1,T2,T6,T7}`, `blaster`-verified, Tier B,
+  carrying `WSC/SHAPE-BRIDGE.md` §5.2's health warning — plus shape COVERAGE,
+  which nothing in this library supplies. Neither is closed by A1.
 
 **§9.5c `LR_BALANCE_SLOT` — DERIVED, axiom retained pending two residues.**
 `LR_BALANCE_SLOT_of_valueAlgebra` (§4) proves the axiom's exact statement from
@@ -2135,13 +2261,35 @@ TASK U2 CHANGES TO THE CENSUS, before/after:
   hygiene repairs are all inside axioms `top_claim` does not reach
   (`LR_BUDGET_minting`, `LR_BUDGET_global`, the `*NonVacuous` predicates), or are
   new theorems.
-* `WSC.GlobalPreppedAt` is a NEW abstract declaration in `WSC/Honest.lean`
-  (§9.5b). It does NOT appear in `top_claim`'s list, because nothing in §7 uses the
-  global budget bridge.
+* `WSC.GlobalPreppedAt` was a NEW abstract declaration in `WSC/Honest.lean`
+  (§9.5b). It did NOT appear in `top_claim`'s list, because nothing in §7 uses the
+  global budget bridge. **TASK A1 DELETED IT** (§9.5b), so `WSC/Honest.lean`'s
+  `axiom` count goes **38 → 37** and the library's **51 → 50**, measured by
+  `grep -c '^axiom '`. (`WSC/AUDIT.md` §2's "47 / Honest 35 / P1_Transfer 1" is 4
+  low against that grep at the audited revision; the audit's per-file split and its
+  "no axiom hides in the shaped layer" conclusion both reproduce.)
 * `mintingNonVacuous` (§7) adds `Lean.ofReduceBool` / `Lean.trustCompiler`
-  (`native_decide` on `P4Witness.ctx_valid`) and `sorryAx` (`blaster`'s `admit`) —
-  the same three `baseNonVacuous` already contributes, so `top_claim`'s list is
-  unchanged. `mintingNonVacuous` is not reached by `top_claim` at all.
+  (`native_decide` on `P4Witness.ctx_valid`) — the same two `baseNonVacuous`
+  already contributes. It used to add `sorryAx` as well (`blaster`'s `admit` on
+  `appliedMinting900.prop`); **after task A1 neither `baseNonVacuous` nor
+  `mintingNonVacuous` carries `sorryAx`**, because the accept component is now a
+  `native_decide` witness on the `Runs.XRun K` term the predicate names. Neither is
+  reached by `top_claim`.
+
+TASK A1 CHANGES TO THE CENSUS, before/after — **`top_claim`'s 26 project axioms are
+UNCHANGED, verified by the `#print axioms` output below.** What moved:
+
+* `WSC.LR_BUDGET_base` is still in the list, and still an axiom. Its STATEMENT
+  changed (right-hand side `Runs.baseRun K` instead of `appliedBase.prop`), not its
+  status.
+* `sorryAx` is STILL in `top_claim`'s list (audit F4 unchanged). Its source moved
+  from `WSC.P3_base_requires_global_or_seize` to
+  `WSC.P3_base_requires_global_or_seize_run` (`WSC/Props/P3_BaseRun.lean`) — both
+  `blaster` verdicts closed by `admit`. What the move BUYS is not a smaller trust
+  base by axiom count: it is that no `#prep_uplc` output appears on the keystone
+  chain, so the unproved `PropExecFaithful` (audit F8) is off it.
+* `Lean.ofReduceBool` / `Lean.trustCompiler` still enter through `baseNonVacuous`,
+  now via `P3Witness.exec_accepts` rather than `ctx_valid` alone.
 * the §7.1 reconciliation theorems add `WSC.TS3` (plus `WSC.Deployed`/`WSC.OnChain`)
   — visible in `coveringIn_of_coveringRaw`'s own census below, and NOT in
   `top_claim`'s, because §7 discharges the exemption premise through

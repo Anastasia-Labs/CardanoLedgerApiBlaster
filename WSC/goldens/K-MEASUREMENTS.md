@@ -22,6 +22,34 @@ validators' step counts — it is symbolic-prep cost as a function of budget.**
 
 ---
 
+> ## ⛔ CORRECTION NOTICE (task A1, 2026-07-25) — read before quoting ANY prep cost
+>
+> **§3's CEK step counts are correct and unaffected.** They are what this document
+> is for, they were cross-checked to the unit against the ledger's `ExBudget` for
+> all 9 accepting goldens, and every later task has reproduced them.
+>
+> **§5.1's PREP-COST table is wrong by 6–58×, and so is every prep-cost figure in
+> the headline paragraph above** ("prep 600 = 11 s", "prep ≈ 20 s", "26–36 min",
+> "3 to 9 orders of magnitude"). The measurements were taken with `lake env lean`
+> **without `--load-dynlib`**, so Blaster and PlutusCoreBlaster ran interpreted
+> rather than native. The authoritative, re-measured table is **§5.1a**: base 600 =
+> **1.35 s**, minting 900 = **1.53 s**, global 1600 = **37.8 s** (published as
+> 2,143 s = 35.7 min). The U3 audit recorded this as finding **F5**, having seen it
+> cause a task to skip half the library's build.
+>
+> §5.2 and §5.3's per-validator VERDICTS and every extrapolation in §5 are anchored
+> on the superseded figures. Their structural conclusions stand; their costs do not.
+> **Measure with `lake build` before concluding that anything is unaffordable.**
+>
+> Also note what has made the whole question less load-bearing: task A1 restated
+> `WSC/Honest.lean`'s four `LR_BUDGET_*` axioms against `Runs.XRun K`
+> (`WSC/Runs.lean`), which needs no `#prep_uplc` at all, so the ledger-side bridges
+> now exist at 2500 / 3300 / 3800 / 4400 — budgets §5 correctly reported as beyond
+> any affordable unshaped prep. The prep wall still binds the SHAPED preps the
+> P-theorems are stated over.
+
+---
+
 ## 1. Method
 
 Measured on the FULLY APPLIED goldens `WSC/goldens/applied/*.flat` — the
@@ -207,6 +235,33 @@ published, empirically calibrated with concrete accepting ctxs run through
 
 ### 5.1 The measured prep-cost wall
 
+> ## ⛔ THE TABLE IMMEDIATELY BELOW IS **SUPERSEDED**. SEE §5.1a.
+>
+> Every figure in the "ORIGINAL (task X1)" table is **6–58× too large** on the
+> current substrate, and the error is not uniform, so no scaling factor rescues it.
+> It is retained ONLY as the historical record of how the wall was first found.
+>
+> **CAUSE** (two components, neither of them a property of `#prep_uplc`):
+> 1. the measurements were taken with **`lake env lean` on a prep-only file,
+>    WITHOUT `--load-dynlib`**, so the Blaster / PlutusCoreBlaster compiled code
+>    ran in the Lean **interpreter** instead of as native code. `lake build`
+>    supplies the dynlibs; `lake env lean` does not. This is the dominant term.
+> 2. a substrate bump since X1 (`Blaster` `beta-lambda-cache-optimization`, plus
+>    the CIP-153 `Value` builtins in the pinned PlutusCoreBlaster).
+>
+> **THIS COST REAL WORK, which is why the warning is this loud.** Task U2 declined
+> to build `WSC/Props/P1_Transfer.lean`, `WSC/Props/P5_NonMember.lean` and the
+> ENTIRE shaped layer, citing "a 35.7-min `#prep_uplc`" from the row below, and
+> shipped edits validated against a partial build. The U3 audit recorded this as
+> finding **F5 (MEDIUM)**. The real figure for that module is **37.8 s**.
+>
+> **RULE: never conclude that a budget is unaffordable from this table. Measure it
+> with `lake build` first.** The one conclusion of §5.1–§5.3 that the re-measurement
+> does NOT overturn is the SHAPE of the curve (exponential in the budget, with a
+> cliff) and the non-completions, which were real timeouts.
+
+#### ORIGINAL (task X1) — SUPERSEDED, DO NOT QUOTE
+
 Symbolic `#prep_uplc` cost is driven by the BUDGET (the symbolic unrolling
 depth), and it grows explosively. Nine fresh measurements were taken for this
 task, on the same box that produced SPIKE-FINDINGS (32 cores, 61 GB, Lean 4.24.0,
@@ -215,7 +270,7 @@ in a `cp -a` of this repo at `<SCRATCH>/clab-prep` with the PlutusCore dep
 repointed at `<SCRATCH>/pcb-kmeasure`; probe sources in
 `WSC/goldens/prep-probes/`):
 
-| validator | budget | prep wall | source |
+| validator | budget | prep wall (SUPERSEDED) | source |
 |---|---|---|---|
 | programmableTokenMinting | 600 | **11.1 s** | this task (`prep-probes/Mint600`) |
 | programmableTokenMinting | 900 | **27.6 s** | this task |
@@ -230,7 +285,66 @@ repointed at `<SCRATCH>/pcb-kmeasure`; probe sources in
 | programmableSeize | 9,000 | never completed (>62 m) | SPIKE-FINDINGS |
 | governance (repo precedent) | 9,000 | never completed (>29 m) | SPIKE-FINDINGS |
 
-Three facts fall out:
+### 5.1a RE-MEASURED (task A1, 2026-07-25) — **THIS is the authoritative table**
+
+Method, so it is reproducible in one loop. In a `cp -a` of the repo at
+`<SCRATCH>/clab-A1` (branch `wsc-containment-proofs`), for each prep module:
+
+```
+rm -f .lake/build/lib/lean/WSC/Prep/<M>.olean .lake/build/lib/lean/WSC/Prep/<M>.ilean \
+      .lake/build/lib/lean/WSC/Prep/<M>.trace .lake/build/lib/lean/WSC/Prep/<M>.*.hash
+/usr/bin/time -f '%e %M' lake build WSC.Prep.<M>
+```
+
+Each row is therefore a **cold re-elaboration of exactly one module** (confirmed
+per row by lake's `Built WSC.Prep.<M> (Ns)` line and by the
+`Successfully decoded double CBOR hex …` message reappearing), with dependency
+oleans warm, `--load-dynlib` supplied by `lake`, and nothing else competing.
+Wall time includes ≈0.4 s of `lake` overhead. Same box, Lean 4.24.0,
+Z3 4.15.2, `maxHeartbeats 0`.
+
+| module | validator | budget | prep wall | max RSS | ORIGINAL figure | overstated by |
+|---|---|---|---|---|---|---|
+| `WSC.Prep.Base` | programmableLogicBase | 600 | **1.35 s** | 1.20 GB | "≈11 s class" | ≈8× |
+| `WSC.Prep.Minting` | programmableTokenMinting | 600 | **1.15 s** | 1.21 GB | 11.1 s | 9.7× |
+| `WSC.Prep.Minting800` | programmableTokenMinting | 800 | **1.34 s** | 1.21 GB | (≈20 s, extrapolated) | ≈15× |
+| `WSC.Prep.Minting900` | programmableTokenMinting | 900 | **1.53 s** | 1.21 GB | 27.6 s | 18× |
+| `WSC.Prep.Minting1300` | programmableTokenMinting | 1,300 | **5.31 s** | 1.28 GB | 131.6 s @1,200 | ≈25× |
+| `WSC.Prep.Seize` | programmableSeize | 600 | **1.25 s** | 1.21 GB | 12.7 s | 10× |
+| `WSC.Prep.Global` | programmableLogicGlobal | 600 | **2.00 s** | 1.25 GB | 11.8 s | 5.9× |
+| `WSC.Prep.Global1600` | programmableLogicGlobal | 1,600 | **37.8 s** (36.6 s in a second run) | 1.66 GB | **2,143 s = 35.7 min** | **57×** |
+
+Independent cross-check: the U3 clean-room rebuild of all 63 WSC modules measured
+`WSC.Prep.Global1600` at **44 s**, higher than the 37.8 s here because that build
+was running 30+ other modules in parallel. Both falsify 2,143 s.
+
+WHAT THE RE-MEASUREMENT DOES **NOT** CHANGE:
+
+* the CURVE is still exponential in the budget with a cliff — 600 → 1,600 is
+  1.15 s → 37.8 s for minting/global-class scripts, i.e. ×2 per ≈150 budget steps
+  in this range;
+* every **non-completion** in the original table was a real timeout and is not
+  re-measured here (minting @1,700 killed at 48.6 min; seize @2,000 >77 min;
+  seize @9,000 >62 min). They are 1.5–2× further up an exponential from a point
+  that now costs 5–38 s, so they may well be affordable today — **that is an
+  untested hypothesis, deliberately not asserted.** Nobody should conclude a
+  budget is reachable from this table either;
+* §5.2/§5.3's per-validator verdicts and the extrapolations below are anchored on
+  the SUPERSEDED numbers and are therefore ALSO unreliable as costs. Their
+  structural conclusions (base is trivial, minting's cheap end is in hand, global
+  splits, seize's fully-symbolic route is the hardest) are unaffected.
+* **most important: none of this matters for the campaign's ledger bridges any
+  more.** Task A1 restated `WSC/Honest.lean`'s four `LR_BUDGET_*` axioms against
+  `Runs.XRun K` (`WSC/Runs.lean`) — the imported flat under a `K`-step meter, a
+  plain Lean definition with NO `#prep_uplc` and hence NO prep cost at ANY budget.
+  The budgets this table said were out of reach (2500, 3300, 3800, 4400) now carry
+  published `K` constants with PROVED non-vacuity theorems. The prep wall still
+  binds the SHAPED `#prep_uplc`s the P-theorems are stated over — which is why
+  shaping exists (shaped prep is essentially budget-independent, ≈1 s at 4400,
+  SHAPING-RESULTS §2.5).
+
+Three facts fall out of the ORIGINAL table (the ratios below are computed from the
+superseded figures; the qualitative claims survive, the absolute costs do not):
 
 * **Prep cost is driven by the budget, NOT by script size.** At 600: minting
   11.1 s, global 11.8 s, seize 12.7 s. At 900: seize 19.4 s, global 24.3 s,
@@ -373,12 +487,24 @@ cp WSC/goldens/KVerify.lean.disabled <SCRATCH>/pcb-kmeasure/KVerify.lean
 cd <SCRATCH>/pcb-kmeasure && lake env lean KVerify.lean > /tmp/kverify.log
 python3 WSC/goldens/verify-applied.py /tmp/kverify.log      # → ALL-MATCH
 
-# prep-cost wall (§5.1); each probe is Prep/<V>.lean with a changed budget
+# prep-cost wall — §5.1's SUPERSEDED method.  DO NOT USE: `lake env lean` gets no
+# --load-dynlib, so Blaster/PCB run interpreted and every figure is 6-58x too high.
 cp -a <this repo> <SCRATCH>/clab-prep
 #   in <SCRATCH>/clab-prep/lakefile.lean: repoint `require PlutusCore from` to
 #   <SCRATCH>/pcb-kmeasure ; probes are WSC/goldens/prep-probes/*.lean.disabled
 cd <SCRATCH>/clab-prep && /usr/bin/time -f "WALL=%e" timeout 3000 \
     lake env lean PrepProbe/Mint900.lean
+
+# prep-cost wall — §5.1a's CORRECT method (task A1).  No probe files needed: time a
+# cold re-elaboration of the real prep module with `lake build`, which supplies the
+# dynlibs.  Confirm each row really re-elaborated by looking for lake's
+# `Built WSC.Prep.<M> (Ns)` line, not `Replayed`.
+cd <SCRATCH>/clab-A1
+for m in Base Minting Minting800 Minting900 Minting1300 Seize Global Global1600; do
+  rm -f .lake/build/lib/lean/WSC/Prep/$m.olean .lake/build/lib/lean/WSC/Prep/$m.ilean \
+        .lake/build/lib/lean/WSC/Prep/$m.trace .lake/build/lib/lean/WSC/Prep/$m.*.hash
+  /usr/bin/time -f "$m %e s %M KB" lake build WSC.Prep.$m > /dev/null
+done
 ```
 
 ## 7. Open issues

@@ -622,3 +622,91 @@ grep -o 'WSC/[^ ]*: ✅ [A-Za-z ]*'                  <log>   # expect 98, all �
 grep -c "declaration uses 'sorry'"                  <log>   # expect 21 (§2)
 grep -c '^error:'                                   <log>   # expect 0
 ```
+
+---
+
+# APPENDIX A — TASK A1 RESOLUTION LOG (2026-07-25)
+
+**Nothing above this line has been edited.** §1-§8 are the audit as written, and
+they remain the authoritative statement of what was true at HEAD `a8d95a7`. This
+appendix records, finding by finding, what task A1 did about them, at HEAD
+`54a6545` on the same branch. Where A1 disagrees with a measurement in §1-§3 the
+disagreement is stated here, not patched there.
+
+## A.1 Rebuild, re-measured after A1
+
+Same method as §1.1 (`rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*`
+then `/usr/bin/time -v lake build WSC WSC.ShapeBridge`):
+
+| measurement | §1.2 (U3) | after A1 |
+|---|---|---|
+| exit status | 0 (401 jobs) | **0 (404 jobs)** |
+| wall clock | 1 m 33.66 s | **1 m 19.79 s** |
+| max RSS | 1.61 GB | 1.65 GB |
+| `error:` lines | 0 | **0** |
+| solver verdicts | 98 (64 Valid + 34 Expected Falsified) | **101 (66 + 35)** |
+| `⚠️ Undetermined` / `❌` | 0 | **0** |
+| `declaration uses 'sorry'` | 21 | **20** |
+
+**The verdict delta reconciles exactly, and this is the check that rules out a
+skipped stanza:** `+4` from the new `WSC/Props/P3_BaseRun.lean` (3 × Valid: the
+run-form P3, its negative control, the prop↔run equivalence; 1 × Expected
+Falsified: the run-term vacuity probe) and `−1` because
+`Composition.mintingNonVacuous` is now a term proof instead of `by blaster` — which
+also removes its `sorry` warning, hence 21 → 20. The three new modules
+(`WSC/Runs.lean`, `WSC/Props/P3_BaseRun.lean`,
+`WSC/Props/Shaped/NonVacuity.lean`) account for the 401 → 404 jobs.
+`WSC/Props/Shaped/NonVacuity.lean` contributes **zero** solver verdicts: all five
+of its theorems are `native_decide` plus an anonymous constructor.
+
+## A.2 Finding-by-finding
+
+| finding | severity | A1 disposition |
+|---|---|---|
+| **F1** — top claim's antecedent (`LeafSet`) never constructed | CRITICAL | **UNTOUCHED.** A1 constructed no `LeafSet` field. `top_claim` is still an implication with an open antecedent, still depends on the SAME 26 project axioms (re-measured after A1; list byte-identical to §3.1), still carries `sorryAx`. Every external quotation must still say "reduction, not proof". |
+| **F2** — no shape-coverage argument; P2b does not generalise | CRITICAL | **UNTOUCHED**, and A1 did nothing that could touch it. Restating a ledger-side axiom says nothing about which transactions a shape denotes. §5.2's P2b analysis stands verbatim. |
+| **F3** — shape bridge proved but nothing consumes it | HIGH | **CLOSED for `Honest.lean`, OPEN for `Composition.lean`.** The four `LR_BUDGET_*` axioms are restated against `Runs.XRun K`; the four definitions moved from `ShapeBridge.lean` §RUN to the new leaf module `WSC/Runs.lean`, which is what made this possible at all (`Honest` cannot import `ShapeBridge`). Of U1's four predicted benefits: (a) kernel-checked bridge — delivered; (b) `PropExecFaithful` out of the trust base — **delivered only on the base/keystone path, see F8**; (c) `GlobalPreppedAt` unnecessary — delivered, deleted; (d) Tier A/B dissolution — delivered for the ledger bridge, not for optimizer evidence. The `LeafSet` remains un-instantiated, so no `bridge_<S>` is applied to anything; F1 is now the sole binding gap. |
+| **F4** — "the top theorem is `sorry`-free" is false | MEDIUM | **STILL FALSE, unchanged.** `top_claim` still reaches `sorryAx`. Its SOURCE moved, from `WSC.P3_base_requires_global_or_seize` to `WSC.P3_base_requires_global_or_seize_run` — both `blaster` verdicts closed by `admit`. What improved is elsewhere and is not a sorry-count claim: `baseNonVacuous` and `mintingNonVacuous` no longer carry `sorryAx` individually (their accept component is now `native_decide` on the term the predicate names). |
+| **F5** — K-MEASUREMENTS §5.1 prep table ~49x pessimistic | MEDIUM | **CLOSED.** §5.1's table is marked SUPERSEDED with the cause spelled out (`lake env lean` without `--load-dynlib`, plus a substrate bump), and a re-measured **§5.1a** added: per-module cold `lake build`, base 600 = **1.35 s**, minting 600/800/900/1300 = **1.15 / 1.34 / 1.53 / 5.31 s**, seize 600 = **1.25 s**, global 600 = **2.00 s**, global 1600 = **37.8 s** (published 2,143 s → **57x**), max RSS 1.20-1.66 GB. A top-of-file correction notice was added because the headline paragraph quotes the same bad figures. The audit's own 44 s for `Prep.Global1600` is reconciled: that was measured under 30-way build parallelism; isolated it is 36.6-37.8 s. Both falsify 2,143 s. The correct measurement recipe is now in §6 alongside the superseded one, which is labelled DO NOT USE. |
+| **F6** — `warn.sorry false` makes the log census incomplete | MEDIUM | **UNCHANGED and reconfirmed.** `WSC/Props/P3_BaseRun.lean` also sets it (house convention), so its 4 `admit`s are among the hidden ones. `#print axioms` → `sorryAx` remains the authoritative instrument. |
+| **F7** — `GlobalNonVacuous` recorded open although proved | LOW | **CLOSED, and over-delivered.** `WSC/Props/Shaped/NonVacuity.lean` (downstream module, following the `P6Bridge.lean` precedent the finding names) discharges `GlobalNonVacuous` at **1600, 3300 AND 4400**, plus `SeizeNonVacuous` at 3800 and `MintingNonVacuous` at 2500 — five theorems, all `native_decide` on the real CEK, all with axiom list `[propext, Classical.choice, Lean.ofReduceBool, Lean.trustCompiler, Quot.sound]`: **no `sorryAx`, no project axiom.** With `Composition`'s base/minting-900 pair, **no `*NonVacuous` obligation in the library is open.** Note the discharge is CLEANER than the one F7 pointed at: `ShapeBridge.G1NonVacuity.globalNonVacuous_at_1600` is a `blaster` verdict on `appliedGlobal1600.prop` and carries `sorryAx`; it is retained as independent corroboration on the `prop` term. |
+| **F8** — `prop` vs `exec` (`PropExecFaithful`) | LOW/structural | **NARROWED, NOT CLOSED, and the narrowing is smaller than F3's recommendation implied.** Restating the AXIOM does not discharge the residual: the shaped P-THEOREMS are still stated on `appliedXShaped.prop` and reach the ledger via `bridge_<S>` (Tier B), so the residual binds the whole shaped layer exactly as before. A1 removed it from ONE path by restating P3 ITSELF on `Runs.baseRun K_base` (`WSC/Props/P3_BaseRun.lean`, `✅ Valid`, with a FRESH mandatory vacuity probe at the run term, `✅ Expected Falsified` — a probe at the old prep term would have certified nothing about the new one). `Composition.p3_lifted` now mentions no `#prep_uplc` output. The same restatement for the other 14 theorem groups is the identified route to deleting the residual campaign-wide; it is real proving work with real vacuity risk (cf. P6 at 2500) and was NOT done. The prop↔run equivalence at the base prep is recorded as `propRun_base_600` WITH §5.2's health warning attached, and is used by nothing. |
+| **F9**, **F10** | LOW | Fixed by U3; unaffected. |
+| **F11** — `P5_Witness1600.lean` is `#eval`s, not theorems | INFORMATIONAL | **CLOSED, two ways.** The file opens with a boxed banner naming exactly what is and is not a theorem in it, why (citing this finding), and what to cite instead. The two facts it was cited for are now THEOREMS in that file — `golden_halts_at_1600`, `golden_errors_at_1553`, both `native_decide` on the real applied golden flat — so the file can be cited safely at all. The two `#eval`s are retained, each prefixed `NOT A THEOREM`, purely as human-readable log lines. |
+| **F12** — carried-forward items | INFORMATIONAL | **D6** unchanged (T3/T4 still blocked; the two `*FAILS` probes still imported nowhere). **D5** unchanged — the PCB pin is still an absolute local path to the unpushed `cip153-value-builtins`; A1 did not touch `lakefile.lean` and nothing here builds off this machine. **`LR5` / `SeizeWdrlOfScoped`** unchanged. **`ValueAlgebra`/`LedgerCanon`** unchanged. **"Minting budget bridge exists at 900 only" — CLOSED on the bridge side**: `LR_BUDGET_minting` is `K`-parametric over `Runs.mintingRun K` and holds at `K_mint_custody = 2500` with non-vacuity proved from SHAPE L1 (K = 1681). `WithinBudget`'s `K_mint` clause was deliberately NOT raised — that widens `HonestTx`, strengthening `top_claim` and hardening its open `LeafSet` fields, i.e. a composition-core change rather than a restatement. |
+
+## A.3 One measurement in §2 that A1 could not reproduce
+
+§2 states "**47** `axiom` declarations … `WSC/Honest.lean` (**35**),
+`WSC/Composition.lean` (10), `WSC/Props/P1_Transfer.lean` (1),
+`WSC/Model/SeizeModel.lean` (1)". Re-measured at the audited revision
+(`grep -rn '^axiom ' --include='*.lean' WSC/`):
+
+```
+     10 WSC/Composition.lean
+     38 WSC/Honest.lean
+      1 WSC/Model/SeizeModel.lean
+      2 WSC/Props/P1_Transfer.lean
+   TOTAL 51
+```
+
+So the total is **51, not 47**: `Honest.lean` has 38 (not 35) and
+`P1_Transfer.lean` has 2 (not 1). The audit's per-file ATTRIBUTION and its central
+conclusion — *"no `axiom` hides in any `Prep/*`, `Shaped/*` or `Props/Shaped/*`
+module"* — both reproduce exactly, as does the `top_claim`-reaches-26 figure of
+§3.1. Only the totals are 4 low. After A1 deleted `GlobalPreppedAt`: **50** total,
+`Honest.lean` **37**.
+
+## A.4 What §8 ("WHAT A REVIEWER SHOULD NOT BELIEVE") looks like after A1
+
+Items 1, 2, 3, 6 and 7 stand **verbatim**. Two need an amendment:
+
+* **Item 4 ("do not believe the prep-cost figures")** — still correct, and now the
+  document says so itself: §5.1 is marked SUPERSEDED and §5.1a carries figures
+  measured the right way. The overstatement is 6-58x, not "up to ~49x".
+* **Item 5 ("the witnesses and the theorems are about different terms")** — still
+  correct for the SHAPED layer, where the theorems are on `.prop` and the witnesses
+  on `.exec`. It is **no longer correct** for (i) every `*NonVacuous` obligation,
+  (ii) every published `K` constant's justification, and (iii) the base/keystone
+  path — all three now state and witness on the same `Runs.XRun K` term. When
+  quoting item 5, name which layer.

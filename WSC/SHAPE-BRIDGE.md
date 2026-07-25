@@ -328,8 +328,13 @@ Restating against the current text:
   extra but the *only* route, and makes the Tier-B health warning (§5.2) part of the
   global path's trust base until `PropExecFaithful` is discharged or `LR_BUDGET_*`
   is restated against `XRun K` (§9, follow-on).
-* **`GlobalNonVacuous appliedGlobal1600.prop` — U2 records it OPEN; U1 DISCHARGES
-  it.** U2's grounds are that the SYMBOLIC vacuity probe over
+* **`GlobalNonVacuous` — U2 records it OPEN; U1 DISCHARGES it on the `prop` term;
+  TASK A1 DISCHARGES IT AT ALL THREE GLOBAL BUDGETS on the run term.** A1's version
+  (`WSC.NonVacuity.globalNonVacuous_at_{1600,3300,4400}`) is `native_decide` on the
+  real CEK — no solver, no `sorryAx` — because after the restatement the predicate
+  names `Runs.globalRun K`, the term the witnesses were always about. U1's `prop`-term
+  version is RETAINED as independent corroboration; neither instrument subsumes the
+  other. The rest of this bullet is U1's original text and still holds: U2's grounds are that the SYMBOLIC vacuity probe over
   `appliedGlobal1600.prop` returned no verdict in 87 min and that "`exec` acceptance
   does not transfer to `prop`". Both true, and neither needed: non-vacuity is an ∃,
   so a CLOSED goal suffices, and `blaster` on a closed goal is the idiom that already
@@ -340,17 +345,56 @@ Restating against the current text:
   this module need not import `WSC/Honest.lean`. Trust status identical to
   `BaseNonVacuous` / `mintingNonVacuous`; strictly stronger than the `exec`-only
   evidence, because it is about the `prop` term.
-* **`GlobalPreppedAt`** (U2's new abstract declaration) is unaffected: it is a
+* **`GlobalPreppedAt`** (U2's new abstract declaration) was unaffected by U1: it is a
   statement about the elaborator, discharged by inspection of a `#prep_uplc` line.
   Note that a `LR_BUDGET_*` restated against `XRun K` (§9) would **not need it at
   all**, since `XRun K` is a definition, not an elaborator output — a second reason
-  to prefer that restatement.
+  to prefer that restatement. **TASK A1 DID THAT AND DELETED IT.**
 * **Defect D6** blocks the SHAPE T3/T4 preps, so those shapes have no `.prop` and
   hence no bridge row. Unchanged by U1.
 
 ## 9. Honest summary — which case of the task's rubric, and the follow-on
 
-### Recommended follow-on (highest value U1 identified)
+### Recommended follow-on (highest value U1 identified) — **DONE BY TASK A1**
+
+> **STATUS (task A1, 2026-07-25): IMPLEMENTED, with three of the four predicted
+> benefits delivered in full and one only partly.**
+>
+> The four `XRun` definitions moved from `WSC/ShapeBridge.lean` §RUN to the new leaf
+> module **`WSC/Runs.lean`** (they had to: `Honest.lean` cannot import
+> `ShapeBridge`, which imports the shaped preps, which import `Honest` — that cycle
+> is why this had not been done). `Honest.lean` and `ShapeBridge.lean` now both
+> import `WSC/Runs.lean` and name the same four constants; this module's 25 verdicts
+> are unchanged in statement and were re-run green.
+>
+> * **(a) composition on the kernel-checked bridge — DELIVERED.** `LR_BUDGET_*`'s
+>   right-hand side is now exactly what the 16 `exec_<S>` `rfl`s land on.
+> * **(b) `PropExecFaithful` out of the trust base — DELIVERED ONLY ON THE
+>   BASE/KEYSTONE PATH.** This prediction was too strong. Restating the AXIOM does
+>   not remove the residual, because the shaped P-THEOREMS are still stated on
+>   `appliedXShaped.prop` and reach the ledger through `bridge_<S>` (Tier B), not
+>   through `exec_<S>`. A1 removed it from `Composition.p3_lifted` by restating P3
+>   ITSELF on the run term (`WSC/Props/P3_BaseRun.lean`, `✅ Valid`, own vacuity probe
+>   `✅ Expected Falsified` at the run term) — which is the technique that WOULD remove
+>   it campaign-wide, applied to one theorem group out of fifteen.
+> * **(c) `GlobalPreppedAt` unnecessary — DELIVERED.** Deleted; `Honest.lean` 38 → 37
+>   axioms.
+> * **(d) Tier A/B split dissolved — DELIVERED FOR THE LEDGER BRIDGE ONLY.** Both
+>   tiers' right-hand sides are now consumable. The split still marks a real
+>   difference in what the verdict EVIDENCES: Tier A's RHS went through
+>   `Optimize.main` on a symbolic context, Tier B's never went through it, so only
+>   Tier A says anything about shaping-commutes-with-the-optimizer. §5.2's health
+>   warning is unchanged.
+>
+> Unpredicted bonus: with the axioms stated at every budget, three new `K` constants
+> became publishable with PROVED non-vacuity — `K_mint_custody = 2500`,
+> `K_global_member = 3300`, `K_seize = 3800` (the last reverses a "no `K_seize` can
+> exist" entry) — and all five previously-open `*NonVacuous` obligations are now
+> theorems (`WSC/Props/Shaped/NonVacuity.lean`). See `WSC/STATUS.md` §0.0.
+>
+> NOT delivered, and not claimable: the `LeafSet` is still un-instantiated
+> (audit F1), shape coverage is untouched (audit F2), and `top_claim`'s 26 project
+> axioms plus `sorryAx` are unchanged (re-measured; identical list).
 
 **Restate `LR_BUDGET_base/minting/global/seize` against `ShapeBridge.XRun K` instead
 of `appliedX_K.prop`.** `XRun K` is imported production bytecode + the audited
@@ -371,7 +415,8 @@ prep at all, so it must go through Tier B and inherits §5.2's warning.
 | LEVEL 1 (inputs) | `shapedInputs leaves = unshapedInputs (params leaves) (σ leaves)` | **PROVED, `rfl`, zero axioms**, 16/16 shapes |
 | LEVEL 2 (exec) | `appliedXShaped.exec leaves = XRun K (params leaves) (σ leaves)` | **PROVED, `rfl`, no `sorryAx`**, 16/16 shapes, any budget |
 | LEVEL 3 Tier A (prop↔prop) | `isSuccessful (shaped.prop) ↔ isSuccessful (appliedX_K.prop … (σ leaves))` | **PROVED by `blaster`**, 6/6 shapes at the three published K; controls Falsified; **no residual** |
-| LEVEL 3′ Tier B (prop↔run) | `isSuccessful (shaped.prop) ↔ isSuccessful (XRun K … (σ leaves))` | **PROVED by `blaster`**, 10/10 shapes; residual `PropExecFaithful` precisely stated, **not axiomatized** |
+| LEVEL 3′ Tier B (prop↔run) | `isSuccessful (shaped.prop) ↔ isSuccessful (Runs.XRun K … (σ leaves))` | **PROVED by `blaster`**, 10/10 shapes; residual `PropExecFaithful` precisely stated, **not axiomatized** |
+| **(A1) LEDGER BRIDGE** | `NodeAcceptsX ctx ↔ isSuccessful (Runs.XRun K params ctx)` for `nodeStepsX … ≤ K` | **AXIOM** (`WSC.LR_BUDGET_*`), 4/4 restated against `Runs.XRun K`, `K`-parametric, each with a PROVED non-vacuity hypothesis at every published `K`. What it asserts is `runSteps` monotonicity, unchanged; what it no longer requires is `GlobalPreppedAt` or a prep at the budget |
 | COVERAGE | "the shapes cover all transactions" | **NOT established, NOT axiomatized** — see §10 |
 
 So: **case (a) of the task's rubric for the six Tier-A shapes** (a proved theorem,

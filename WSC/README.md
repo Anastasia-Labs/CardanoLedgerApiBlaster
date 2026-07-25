@@ -218,18 +218,29 @@ collateral field, so it must be closed outside this model.
 2. **No shape-coverage argument.** `SHAPE-BRIDGE.md` §10 enumerates three routes
    and offers none; `ShapeBridge.M1Covers` is recorded **false as stated**. §2's
    P2b caveat shows this is not pedantry.
-3. **The shape bridge is proved but unconsumed** — `Honest.lean`'s budget bridges
-   and `Composition.lean`'s `LeafSet` still name unshaped preps. U1's own
-   recommendation (restate `LR_BUDGET_*` against the kernel-checked `XRun K` form)
-   is four axiom statements and no new proving; it is the highest-value next
-   action. **U1's residual**, stated precisely and deliberately *not*
+3. **The shape bridge is proved and now HALF consumed (task A1).** `Honest.lean`'s
+   four `LR_BUDGET_*` axioms are restated against the kernel-checked
+   `Runs.XRun K` form (`WSC/Runs.lean` — a new leaf module, because the definitions
+   had to leave `ShapeBridge.lean` to break an import cycle), so the ledger side
+   names exactly the term the 16 `exec_<S>` `rfl`s land on, at every budget.
+   `GlobalPreppedAt` is deleted, all five previously-open non-vacuity obligations
+   are theorems, and three new K constants (2500 / 3300 / 3800) are published with
+   proved non-vacuity. **`Composition.lean`'s `LeafSet` is still un-instantiated**,
+   so no `bridge_<S>` is applied to anything — item 1 above is the binding gap, not
+   this one. **U1's residual**, stated precisely and deliberately *not*
    axiomatized: `PropExecFaithful` — the theorems are about the optimizer's
    `.prop` term, every witness and every measured K runs `.exec`, and
    `prop = exec` is not definitional (`rfl` fails; the failure is kept as
    evidence). Tier A (6 shapes at the three published budgets) does not need it;
    Tier B (10 shapes at 2500/3300/3800/4400, where no unshaped prep is
    affordable) does. Mitigation in place: every vacuity probe is stated on
-   `.prop`.
+   `.prop`. **A1 removed this residual from ONE path only** — the base/keystone
+   chain, by restating P3 itself on `Runs.baseRun K_base`
+   (`WSC/Props/P3_BaseRun.lean`, `✅ Valid`, with a fresh vacuity probe at the run
+   term, also green). Restating the axiom does NOT remove the residual, because the
+   shaped P-theorems are still stated on `.prop`; doing the same for all 14 shaped
+   theorem groups (each needing its own re-measured vacuity probe) is what would
+   delete it campaign-wide, and it is real proving work that was not done.
 4. **Blaster defect D6.** `#prep_uplc` emits kernel-ill-typed `Blaster.dite'`
    terms when a CIP-153 `Value` builtin result stays symbolic (the motive is not
    updated after De Morgan / Bool-polarity rewrites). Reproductions:

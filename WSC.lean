@@ -13,8 +13,23 @@ import WSC.Prep.Global
 import WSC.Prep.Global1600
 import WSC.Redeemer
 import WSC.Spec
+-- ── task A1: the LEDGER SIDE, optimizer-free ────────────────────────────────
+-- Four definitions, `XRun K params ctx = cekExecuteProgram <flat>.script
+-- (<Prep inputs fn> params ctx) K`.  A leaf module (depends only on WSC/Prep/*)
+-- so that BOTH WSC/Honest.lean and WSC/ShapeBridge.lean can name the same four
+-- constants; that import cycle is why the four `LR_BUDGET_*` axioms could not be
+-- restated against them before (audit F3).  Read its header for what the
+-- restatement buys and — more important — what it does not.
+import WSC.Runs
 import WSC.Honest
 import WSC.Props.P3_Base
+-- P3 restated with its accept hypothesis on `Runs.baseRun K_base` instead of
+-- `appliedBase.prop`, with its OWN vacuity probe at the run term.  This is what
+-- WSC/Composition.lean's `p3_lifted` consumes after task A1, so no `#prep_uplc`
+-- output appears on the composition's keystone path and `PropExecFaithful` is off
+-- it.  Also records, with its health warning, the prop↔run equivalence at this
+-- prep.
+import WSC.Props.P3_BaseRun
 -- P4/P4a (issuance minting policy) at budget 900: statements + the machine-checked
 -- budget characterization and both positive witnesses. See the SOLVER COST stanza
 -- in that file for what is and is not closed.
@@ -132,6 +147,15 @@ import WSC.Props.Shaped.P6Shaped
 -- tasks defined the same two ground-truth quantities independently; the bridge is
 -- two `rfl`-style inductions and adds no trust).
 import WSC.Props.Shaped.P6Bridge
+-- ── task A1: every non-vacuity obligation of WSC/Honest.lean, DISCHARGED ─────
+-- Five theorems: MintingNonVacuous@2500, GlobalNonVacuous@{1600,3300,4400},
+-- SeizeNonVacuous@3800, each `native_decide` on the real CEK from a named shaped
+-- witness, each with NO `sorryAx` and NO project axiom.  Closes audit F7 (which
+-- recorded GlobalNonVacuous open) and reverses the "MEASURED FALSE at every
+-- affordable budget" entry for seize.  Downstream module because Honest.lean
+-- cannot import the witnesses (they import it) — the P6Bridge precedent.
+-- With Composition's `baseNonVacuous`/`mintingNonVacuous` the set is complete.
+import WSC.Props.Shaped.NonVacuity
 -- ── the SHAPE BRIDGE (task U1), added to the default target by the U3 audit ──
 -- `isSuccessful (appliedXShaped.prop args) ↔ isSuccessful (appliedX.prop (shapedCtx
 -- args))` for all 16 shaped preps, plus the kernel-checked `exec`-level form
@@ -139,6 +163,10 @@ import WSC.Props.Shaped.P6Bridge
 -- it, so `lake build WSC` did not check it; the U3 clean-room rebuild measured the
 -- cost of including it at 36 s and 25 of the 98 solver verdicts, so it is imported
 -- here rather than left to a separate invocation.  READ §5 of WSC/SHAPE-BRIDGE.md
--- before quoting Tier B rows: they are stated against `XRun K`, and the residual
--- `PropExecFaithful` is NOT discharged.
+-- before quoting Tier B rows: they are stated against `Runs.XRun K`, and the
+-- residual `PropExecFaithful` is NOT discharged.
+-- TASK A1: the §RUN definitions moved from this module to WSC/Runs.lean and the
+-- `LR_BUDGET_*` axioms now name them, so the 16 kernel-checked `exec_*` `rfl`s are
+-- the connective between a shaped theorem and the ledger side.  The 25 verdicts
+-- here are unchanged in statement and were re-run.
 import WSC.ShapeBridge

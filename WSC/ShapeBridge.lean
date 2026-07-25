@@ -85,10 +85,11 @@ Two different residuals, and they must not be confused:
 2. **Tier B — shapes at budgets where NO unshaped prep exists** (2500 minting,
    3300/4400 global, 3800 seize; see §UNSHAPED-PREP-REACH for why one cannot be
    built).  For these the bridge lands on the RAW metered run
-   (`baseRun/mintingRun/globalRun/seizeRun` below), which mentions no optimizer:
+   (`Runs.baseRun`/`Runs.mintingRun`/`Runs.globalRun`/`Runs.seizeRun`, task A1's
+   leaf module `WSC/Runs.lean`), which mentions no optimizer:
 
        isSuccessful (appliedXShaped.prop leaves)
-         ↔ isSuccessful (XRun K (paramsOf leaves) (σ leaves))
+         ↔ isSuccessful (Runs.XRun K (paramsOf leaves) (σ leaves))
 
    `blaster` proves these too (§LEVEL 3′), but READ THE HEALTH WARNING in
    `WSC/SHAPE-BRIDGE.md` §5: `blaster` discharges them by re-running the SAME
@@ -99,6 +100,24 @@ Two different residuals, and they must not be confused:
    previously unnamed dependency of the whole campaign (every P-theorem is about
    `.prop`; every executable witness runs `.exec`), not something U1 introduced.
 
+**UPDATE (task A1) — the Tier A / Tier B split no longer matters for the LEDGER
+bridge, only for the OPTIMIZER-commutation content.**  `WSC/Honest.lean`'s four
+`LR_BUDGET_*` axioms are now stated against `Runs.XRun K` for every budget, so
+Tier B's right-hand side is exactly what the ledger side names and the two tiers
+have the same consumer.  What Tier A still adds — and Tier B still lacks — is an
+INDEPENDENT statement about the optimizer: Tier A's right-hand side went through
+`Optimize.main` on a symbolic context, Tier B's did not go through it at all, so
+Tier B's verdict cannot witness optimizer faithfulness.  The `PropExecFaithful`
+residual is therefore UNCHANGED in substance and UNCHANGED in scope for the
+shaped layer: every shaped P-theorem is still stated on `appliedXShaped.prop`.
+Where A1 does remove it is the base/keystone path — `WSC/Props/P3_BaseRun.lean`
+proves P3 with its accept hypothesis on `Runs.baseRun K_base`, so
+`Composition.p3_lifted` no longer mentions `.prop` at all.  That module also
+MEASURES that the same restatement is feasible for the P-theorems generally
+(`✅ Valid` in 3.7 s, with a `✅ Expected Falsified` vacuity probe at the run
+term), which is the identified route to deleting `PropExecFaithful` campaign-wide.
+It is NOT done, and no claim here depends on it being done.
+
 ## §NOT ESTABLISHED HERE — SHAPE COVERAGE
 
 The bridge says "shaped theorem ⟹ statement about the `ScriptContext`s the shape
@@ -107,6 +126,9 @@ records what a coverage argument would require and does not invent one.
 
 WORKSPACE / PROVENANCE: task U1, branch `wsc-containment-proofs`, canonical HEAD
 at start `0e2a99d`.  Probes retained under `WSC/Shaped/Probe/BridgeProbe*.lean`.
+Task A1 moved §RUN's four definitions to `WSC/Runs.lean` and repointed the
+`LR_BUDGET_*` axioms at them; the 25 verdicts of this module are unchanged in
+statement (they name the same constants under their new home) and were re-run.
 -/
 import WSC.Shaped.BaseShaped
 import WSC.Shaped.MintingShaped
@@ -123,6 +145,7 @@ import WSC.Shaped.GlobalShapedP1MintPrep
 import WSC.Shaped.GlobalShapedP1OutPrep
 import WSC.Prep.Global1600
 import WSC.Prep.Seize
+import WSC.Runs
 import Blaster
 
 set_option maxHeartbeats 0
@@ -140,33 +163,19 @@ open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 
 /-! ## §RUN — the ledger side, optimizer-free
 
-These four functions are *the validator running on a ledger-supplied
-`ScriptContext` under a `K`-step meter*, and nothing else: the imported
-production bytecode, the audited parameter-evidence inputs function of
-`WSC/Prep/*`, and `cekExecuteProgram`.  They are the right-hand side of the
-bridge for every shape whose budget has no unshaped prep.
+`Runs.baseRun` / `Runs.mintingRun` / `Runs.globalRun` / `Runs.seizeRun` are *the
+validator running on a ledger-supplied `ScriptContext` under a `K`-step meter*,
+and nothing else: the imported production bytecode, the audited parameter-evidence
+inputs function of `WSC/Prep/*`, and `cekExecuteProgram`.  They are the
+right-hand side of the bridge for every shape.
 
-`prog.script` is the same projection `#prep_uplc` uses (`mkProj PlutusScript 1`,
-`PreProcess.lean:148`), which is why the `exec_*` theorems below are `rfl`. -/
-
-/-- `programmableLogicBase` at budget `K` on a ledger-supplied context. -/
-def baseRun (K : Nat) (globalCred seizeCred : Credential) (ctx : ScriptContext) :=
-  cekExecuteProgram programmableLogicBase.script (baseInputs globalCred seizeCred ctx) K
-
-/-- `programmableTokenMinting` at budget `K` on a ledger-supplied context.  The
-script constant is the one every minting-side shaped prep uses. -/
-def mintingRun (K : Nat) (protocolParamsCS : CurrencySymbol) (mintingLogicHash : ScriptHash)
-    (ctx : ScriptContext) :=
-  cekExecuteProgram programmableTokenMinting900.script
-    (mintingPolicyInputs900 protocolParamsCS mintingLogicHash ctx) K
-
-/-- `programmableLogicGlobal` at budget `K` on a ledger-supplied context. -/
-def globalRun (K : Nat) (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext) :=
-  cekExecuteProgram programmableLogicGlobal1600.script (globalInputs1600 protocolParamsCS ctx) K
-
-/-- `programmableSeize` at budget `K` on a ledger-supplied context. -/
-def seizeRun (K : Nat) (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext) :=
-  cekExecuteProgram programmableSeize.script (seizeInputs protocolParamsCS ctx) K
+**MOVED OUT OF THIS MODULE BY TASK A1** into the leaf module `WSC/Runs.lean`, so
+that `WSC/Honest.lean` can name them without an import cycle.  That was audit
+finding **F3**'s repair: the four `LR_BUDGET_*` axioms are now stated against
+these very constants, so the sixteen kernel-checked `exec_*` `rfl`s below are the
+connective between a shaped theorem and the ledger side.  The definitions are
+unchanged; `WSC/Runs.lean`'s header states what the restatement buys and what it
+does not. -/
 
 /-! ## §LEVEL 1 + §LEVEL 2 — the kernel-checked bridge, shape by shape
 
@@ -196,7 +205,7 @@ theorem exec_B1
     (w0 w1 : ScriptHash) (a0 a1 : Integer)
     (fee : Integer) (red : Integer) (lo hi : Integer) (tid : ByteString) :
     appliedBaseShaped.exec gh sh txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid
-      = baseRun 600 (Credential.ScriptCredential gh) (Credential.ScriptCredential sh)
+      = Runs.baseRun 600 (Credential.ScriptCredential gh) (Credential.ScriptCredential sh)
           (baseShapedCtx txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid) := rfl
 
 /-! ### SHAPE M1 — `appliedMintShaped900`, budget 900 -/
@@ -226,7 +235,7 @@ theorem exec_M1
     (fee : Integer) (txid : ByteString) (oidx : Integer)
     (lo hi : Integer) (tid : ByteString) :
     appliedMintShaped900.exec ppCS mlh ownCS tn q owner inAda qIn dest outAda qOut w0 w1 a0 a1 fee txid oidx lo hi tid
-      = mintingRun 900 ppCS mlh
+      = Runs.mintingRun 900 ppCS mlh
           (mintShapedCtx ownCS tn q owner inAda qIn dest outAda qOut w0 w1 a0 a1 fee txid oidx lo hi tid) := rfl
 
 /-! ### SHAPE M2 — `appliedMintShapedIdx900`, budget 900 -/
@@ -256,7 +265,7 @@ theorem exec_M2
     (fee : Integer) (txid : ByteString) (oidx : Integer)
     (lo hi : Integer) (tid : ByteString) (wIdx : Integer) :
     appliedMintShapedIdx900.exec ppCS mlh ownCS tn q owner inAda qIn dest outAda qOut w0 w1 a0 a1 fee txid oidx lo hi tid wIdx
-      = mintingRun 900 ppCS mlh
+      = Runs.mintingRun 900 ppCS mlh
           (mintShapedCtxIdx ownCS tn q owner inAda qIn dest outAda qOut w0 w1 a0 a1 fee txid oidx lo hi tid wIdx) := rfl
 
 /-! ### SHAPE G1 — `appliedGlobalShaped1600`, budget 1600 -/
@@ -293,7 +302,7 @@ theorem exec_G1
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedGlobalShaped1600.exec ppCS cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = globalRun 1600 ppCS
+      = Runs.globalRun 1600 ppCS
           (globalShapedCtx cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
             dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
 
@@ -332,7 +341,7 @@ theorem exec_GIdx
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) (pIdx nIdx : Integer) :
     appliedGlobalShapedIdx1600.exec ppCS cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee pIdx nIdx
-      = globalRun 1600 ppCS
+      = Runs.globalRun 1600 ppCS
           (globalShapedCtxIdx cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
             dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
             pIdx nIdx) := rfl
@@ -372,7 +381,7 @@ theorem exec_GNIdx
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) (nIdx : Integer) :
     appliedGlobalShapedNIdx1600.exec ppCS cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee nIdx
-      = globalRun 1600 ppCS
+      = Runs.globalRun 1600 ppCS
           (globalShapedCtxIdx cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
             dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
             0 nIdx) := rfl
@@ -409,7 +418,7 @@ theorem exec_G6
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedGlobalMemberShaped3300.exec ppCS cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1 pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee
-      = globalRun 3300 ppCS
+      = Runs.globalRun 3300 ppCS
           (memberShapedCtx cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
             pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee) := rfl
 
@@ -450,7 +459,7 @@ theorem exec_L1
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedMintLocalShaped2500.exec ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = mintingRun 2500 ppCS mlh
+      = Runs.mintingRun 2500 ppCS mlh
           (localShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
@@ -494,7 +503,7 @@ theorem exec_L2
     (regIdx : Integer)
     (fee : Integer) :
     appliedMintLocalIdxShaped2500.exec ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 regIdx fee
-      = mintingRun 2500 ppCS mlh
+      = Runs.mintingRun 2500 ppCS mlh
           (localIdxShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 regIdx fee) := rfl
@@ -536,7 +545,7 @@ theorem exec_DT1
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedMintDTShaped2500.exec ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = mintingRun 2500 ppCS mlh
+      = Runs.mintingRun 2500 ppCS mlh
           (dtShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
@@ -580,7 +589,7 @@ theorem exec_DS1
     (sCred : ByteString) (sIdx : Integer)
     (fee : Integer) :
     appliedMintDSShaped2500.exec ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 sCred sIdx fee
-      = mintingRun 2500 ppCS mlh
+      = Runs.mintingRun 2500 ppCS mlh
           (dsShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 sCred sIdx fee) := rfl
@@ -630,7 +639,7 @@ theorem exec_S1
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedSeizeShaped3800.exec ppCS mlH inStk i0Ada mlCS mlTn i0Qty dIn wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = seizeRun 3800 ppCS
+      = Runs.seizeRun 3800 ppCS
           (seizeShapedCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn
             wallet i1Ada i1CS i1Tn i1Qty
             oStk o0Ada o0Qty dOut
@@ -678,7 +687,7 @@ theorem exec_T1
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedGlobalShapedT1.exec ppCS cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = globalRun 4400 ppCS
+      = Runs.globalRun 4400 ppCS
           (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
@@ -722,7 +731,7 @@ theorem exec_T2
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedGlobalShapedT2.exec ppCS cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = globalRun 4400 ppCS
+      = Runs.globalRun 4400 ppCS
           (p1ShapedMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
@@ -766,7 +775,7 @@ theorem exec_T6
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedGlobalShapedT6.exec ppCS cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = globalRun 4400 ppCS
+      = Runs.globalRun 4400 ppCS
           (p1ShapedOutCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
@@ -810,7 +819,7 @@ theorem exec_T7
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) :
     appliedGlobalShapedT7.exec ppCS cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee
-      = globalRun 4400 ppCS
+      = Runs.globalRun 4400 ppCS
           (p1ShapedOutMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee) := rfl
@@ -823,7 +832,8 @@ theorem quantifies over) and the ledger side.  Two forms, per §WHAT REMAINS:
 * **Tier A** (`B1`, `M1`, `M2`, `G1`, `GIdx`, `GNIdx`) — right-hand side is the
   UNSHAPED prep's `prop` at the same budget.  Complete: no residual.
 * **Tier B** (`G6`, `L1`, `L2`, `DT1`, `DS1`, `S1`, `T1`, `T2`, `T6`, `T7`) —
-  right-hand side is the RAW metered run `XRun K`.  Read with `PropExecFaithful`.
+  right-hand side is the RAW metered run `Runs.XRun K` (`WSC/Runs.lean`) — which
+  is exactly what `LR_BUDGET_*` now names.  Read with `PropExecFaithful`.
 
 All are discharged by `blaster`, i.e. they carry the same trust status as every
 other WSC bytecode theorem (solver verdict + `admit`; see ARCHITECTURE Tier 4). -/
@@ -950,7 +960,7 @@ theorem bridge_G6
     (fee : Integer) :
     isSuccessful (appliedGlobalMemberShaped3300.prop ppCS cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1 pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (globalRun 3300 ppCS
+          (Runs.globalRun 3300 ppCS
             (memberShapedCtx cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
             pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee)) := by blaster
 
@@ -971,7 +981,7 @@ theorem bridge_L1
     (fee : Integer) :
     isSuccessful (appliedMintLocalShaped2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (mintingRun 2500 ppCS mlh
+          (Runs.mintingRun 2500 ppCS mlh
             (localShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
@@ -994,7 +1004,7 @@ theorem bridge_L2
     (fee : Integer) :
     isSuccessful (appliedMintLocalIdxShaped2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 regIdx fee)
       ↔ isSuccessful
-          (mintingRun 2500 ppCS mlh
+          (Runs.mintingRun 2500 ppCS mlh
             (localIdxShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 regIdx fee)) := by blaster
@@ -1016,7 +1026,7 @@ theorem bridge_DT1
     (fee : Integer) :
     isSuccessful (appliedMintDTShaped2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (mintingRun 2500 ppCS mlh
+          (Runs.mintingRun 2500 ppCS mlh
             (dtShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
@@ -1039,7 +1049,7 @@ theorem bridge_DS1
     (fee : Integer) :
     isSuccessful (appliedMintDSShaped2500.prop ppCS mlh ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1 pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 sCred sIdx fee)
       ↔ isSuccessful
-          (mintingRun 2500 ppCS mlh
+          (Runs.mintingRun 2500 ppCS mlh
             (dsShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
             pHash pCS pTn pAda pQty dirCS plc glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 sCred sIdx fee)) := by blaster
@@ -1063,7 +1073,7 @@ theorem bridge_S1
     (fee : Integer) :
     isSuccessful (appliedSeizeShaped3800.prop ppCS mlH inStk i0Ada mlCS mlTn i0Qty dIn wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (seizeRun 3800 ppCS
+          (Runs.seizeRun 3800 ppCS
             (seizeShapedCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn
             wallet i1Ada i1CS i1Tn i1Qty
             oStk o0Ada o0Qty dOut
@@ -1090,7 +1100,7 @@ theorem bridge_T1
     (fee : Integer) :
     isSuccessful (appliedGlobalShapedT1.prop ppCS cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (globalRun 4400 ppCS
+          (Runs.globalRun 4400 ppCS
             (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
@@ -1113,7 +1123,7 @@ theorem bridge_T2
     (fee : Integer) :
     isSuccessful (appliedGlobalShapedT2.prop ppCS cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (globalRun 4400 ppCS
+          (Runs.globalRun 4400 ppCS
             (p1ShapedMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
@@ -1136,7 +1146,7 @@ theorem bridge_T6
     (fee : Integer) :
     isSuccessful (appliedGlobalShapedT6.prop ppCS cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (globalRun 4400 ppCS
+          (Runs.globalRun 4400 ppCS
             (p1ShapedOutCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
@@ -1159,7 +1169,7 @@ theorem bridge_T7
     (fee : Integer) :
     isSuccessful (appliedGlobalShapedT7.prop ppCS cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
       ↔ isSuccessful
-          (globalRun 4400 ppCS
+          (Runs.globalRun 4400 ppCS
             (p1ShapedOutMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
             dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
             nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)) := by blaster
@@ -1282,7 +1292,7 @@ def control_T1_polarity : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
     ↔ isUnsuccessful
-      (globalRun 4400 ppCS
+      (Runs.globalRun 4400 ppCS
         (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut
           dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
           nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)))
@@ -1296,7 +1306,7 @@ corresponding `ScriptContext`, and check that BOTH sides accept.  SHAPE M1's
 witness is used because it is the campaign's only concrete accepting instance
 that is also `validMintingContext`-true (`WSC/Props/Shaped/P4Shaped.lean:294`).
 
-The four corners are: shaped `exec`, raw `mintingRun` on the denoted
+The four corners are: shaped `exec`, raw `Runs.mintingRun` on the denoted
 `ScriptContext` (these two are the SAME term by `exec_M1`), shaped `prop`, and —
 the composition-facing one — the UNSHAPED prep's `prop` at `K_mint = 900` applied
 to the denoted `ScriptContext`. -/
@@ -1342,7 +1352,7 @@ theorem corner1_shaped_exec :
 the very same term as CORNER 1; both are stated so the bridge is visible on a
 closed instance. -/
 theorem corner2_ledger_run :
-    isSuccessful (mintingRun 900 ppCS mlh ctx) :=
+    isSuccessful (Runs.mintingRun 900 ppCS mlh ctx) :=
   isHaltB_sound _ (by native_decide)
 
 /-- CORNER 3 — the SHAPED prep's OPTIMIZED term (what every P4 theorem
@@ -1366,7 +1376,7 @@ which the validator is constant.  (`#eval` cross-check in
 `WSC/Shaped/Probe/B1Accept.lean`: `w0 = "GLOBAL"` and `w0 = "SEIZE"` both accept,
 `w0 = "AAA"` does not.) -/
 theorem b1_rejects_when_neither_cred_present :
-    isHaltB (baseRun 600 (Credential.ScriptCredential (ByteString.mk "GLOBAL"))
+    isHaltB (Runs.baseRun 600 (Credential.ScriptCredential (ByteString.mk "GLOBAL"))
       (Credential.ScriptCredential (ByteString.mk "SEIZE"))
       (baseShapedCtx (ByteString.mk "") 0 (ByteString.mk "BASE") 100
         (ByteString.mk "AAA") (ByteString.mk "ZZZ") 0 0 40 0 0 1 (ByteString.mk "")))
@@ -1375,7 +1385,7 @@ theorem b1_rejects_when_neither_cred_present :
 /-- …and it ACCEPTS when the global credential IS present.  Same shape, one leaf
 changed. -/
 theorem b1_accepts_when_global_present :
-    isSuccessful (baseRun 600 (Credential.ScriptCredential (ByteString.mk "GLOBAL"))
+    isSuccessful (Runs.baseRun 600 (Credential.ScriptCredential (ByteString.mk "GLOBAL"))
       (Credential.ScriptCredential (ByteString.mk "SEIZE"))
       (baseShapedCtx (ByteString.mk "") 0 (ByteString.mk "BASE") 100
         (ByteString.mk "GLOBAL") (ByteString.mk "ZZZ") 0 0 40 0 0 1 (ByteString.mk ""))) :=
