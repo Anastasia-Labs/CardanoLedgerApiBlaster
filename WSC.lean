@@ -5,3 +5,4 @@ import WSC.Imports
 import WSC.Redeemer
 import WSC.Spec
 import WSC.Honest
+import WSC.Props.P3_Base
