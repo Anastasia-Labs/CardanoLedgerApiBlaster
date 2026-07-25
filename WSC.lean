@@ -102,3 +102,11 @@ import WSC.Props.Shaped.P1Shaped
 -- top theorem is a machine-checked REDUCTION of the claim to four named leaf
 -- obligations, none of which is fully discharged today.
 import WSC.Composition
+-- P2 (seize/clawback) at UPLC over SHAPE S1, budget 3800 (task Z6): BOTH
+-- conjuncts, including the containment conjunct that WSC/Props/P2_Seize.lean §5
+-- records as unproven on the source model.  READ the SCOPE block: two binding
+-- bounds (budget + shape) plus three by-construction equalities forced by the
+-- `#prep_uplc` defect D4 documented in WSC/Shaped/SeizeShaped.lean's header.
+import WSC.Shaped.SeizeShaped
+import WSC.Props.Shaped.P2Shaped
+import WSC.Shaped.Probe.S1K

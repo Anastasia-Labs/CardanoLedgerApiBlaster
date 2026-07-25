@@ -792,7 +792,61 @@ index), the `remainingProgCSDelta` `perror` branches (:1767/:1768), and the
 laziness/strictness boundary of S1.  A transcription error in `perror`
 POLARITY — modelling a `perror` as `false`, or vice versa — would be
 invisible on accepting goldens; that is why every `perror` above is separately
-line-cited, and why the rejecting golden is in the differential suite. -/
+line-cited, and why the rejecting golden is in the differential suite.
+
+────────────────────────────────────────────────────────────────────────────
+APPENDED (task Z6, 2026-07-25) — WHAT THE SHAPED UPLC PROOF DOES AND DOES NOT
+DO FOR THIS AXIOM.
+────────────────────────────────────────────────────────────────────────────
+`WSC/Props/Shaped/P2Shaped.lean` now proves BOTH conjuncts of P2 **against the
+real compiled `programmableSeize` bytecode**, with no reference to this model and
+no use of this axiom (`#print axioms` there lists only `propext, sorryAx,
+Classical.choice, Quot.sound` — `sorryAx` being `blaster`'s `admit`).  The proof
+is bounded twice: CEK budget 3800 and the transaction shape SHAPE S1
+(`WSC/Shaped/SeizeShaped.lean`).
+
+**It does NOT discharge this axiom.**  The axiom is unbounded in BOTH dimensions
+that the shaped theorem bounds: it quantifies over every `ScriptContext` and over
+every step count.  A shaped, budgeted theorem cannot imply it, and there is no
+shape-coverage argument in this library that would let it (that gap is recorded
+as limit 1 of WSC/SHAPING-RESULTS.md §7).  So P2-via-this-model remains the only
+UNBOUNDED P2 statement, and it still rests entirely on this axiom.
+
+**What it DOES do — it narrows the residual risk, in four specific ways.**
+1. *The `#prep_uplc` justification quoted above ("what would discharge it") is
+   now obsolete as a description of the tooling limit.*  Shaping makes the prep
+   cost essentially budget-independent: the shaped prep at budget 3800 takes
+   ~3 s, against "did not finish in 77 min at 2,000".  What remains blocking is
+   only the SHAPE-FREE part of the obligation, not prep.
+2. *Two of the four risks this docstring names as "un-exercised by the goldens"
+   are now exercised by machine-checked runs of the real bytecode.*  Concretely,
+   `WSC/Props/Shaped/P2Shaped.lean`'s four concrete instances add, beyond the
+   three goldens, an accepting run with a NON-ZERO seize-time mint of the seized
+   policy, an accepting run whose residual base output over-covers the delta, a
+   ledger-legal ESCAPE attempt (rejected at 3800 and at 20000 steps), and a
+   ledger-legal attempt to re-point the continuing output at a DIFFERENT staking
+   credential (also rejected at both budgets).  The last two probe exactly the
+   `perror` POLARITY of `checkBalanceInvariant` (:1508) and of the per-pair
+   conjunction (:1469) that this docstring flags as the invisible-error risk.
+3. *The two conclusions agree.*  On SHAPE S1 the bytecode satisfies the SAME two
+   predicates (`WSC.seizeStructurePreserved`,
+   `WSC.P2.sumOutAtBase ≥ sumInAtBase + WSC.mintOf`) that the model route derives
+   from `seizeModel`.  A transcription error that changed P2's meaning would have
+   to be invisible on all three goldens AND consistent with the bytecode's
+   behaviour on the whole SHAPE S1 class, which is a strictly stronger demand
+   than before.
+4. *Conjunct 2 is no longer unproven anywhere.*  §5 of
+   `WSC/Props/P2_Seize.lean` records `P2b_seized_delta_contained` as NOT proven,
+   because bridge lemma B1 is false without ledger canonicity.  At SHAPE S1 that
+   canonicity is structural (one token name per policy), so conjunct 2 is a
+   theorem about the bytecode on that class.  The general, shape-free conjunct 2
+   is still open, and obligations B1/B2 there are still the way to get it.
+
+Nothing above changes the STRENGTH of any statement that cites this axiom; it
+changes only how much independent evidence stands behind it.  A reviewer quoting
+`P2a_bytecode` should now also read `WSC/Props/Shaped/P2Shaped.lean`'s SCOPE
+block, and should note the two routes trade different trust: this axiom is a hand
+transcription, the shaped route trusts the solver, `admit`, and the shape. -/
 axiom seizeModel_faithful :
     ∀ (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext),
       seizeModel protocolParamsCS ctx = true ↔ seizeAcceptsUnbounded protocolParamsCS ctx
