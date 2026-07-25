@@ -1168,8 +1168,8 @@ here, because the old warning is the more important of the two.**
 
 WHAT THE OLD ENTRY SAID, and it was correct: there is no affordable UNSHAPED
 `#prep_uplc` for this validator above ~1,000 steps (K-MEASUREMENTS §4/§5.2:
-symbolic prep at 2,000 never completed in 77 min; 2,570 extrapolates to ≥ 15
-days), the cheapest accepting seize run costs **2,570** steps, and therefore every
+symbolic prep at 2,000 never completed in 77 min; 3,002 extrapolates to ≥ 15
+days), the cheapest accepting seize run costs **3,002** steps, and therefore every
 affordable prep budget is PROVABLY VACUOUS — the E2 spike's probes at 600 and
 1,000 returned `Valid` for "no accepting context exists". Stating a bridge over
 `appliedSeize.prop` at any affordable `K` would have been a vacuous theorem, and
@@ -1184,8 +1184,12 @@ measured answer.
   to the step, and `ctxResidual` at **K = 3328** (`K_is_3004_and_3328`: `Halt` at
   K, `Error` at K-1). Both satisfy `validRewardingContext` IN FULL, including
   `isBalanced` (`all_four_valid`). For comparison the two accepting seize GOLDENS
-  cost 2,570 and 4,647 steps, so 3800 covers the 1-input golden's regime and NOT
-  the 2-input one (4,647 > 3800) — a real limit of this constant, stated.
+  cost **3,002** and **5,079** steps (re-measured by task C3 on the current
+  applied flats; the figures 2,570 / 4,647 published before it are the pre-fix
+  vectors' — `K-MEASUREMENTS.md` Appendix A′), so 3800 covers the 1-input
+  golden's regime (3,002 ≤ 3800) and NOT the 2-input one (5,079 > 3800) — a real
+  limit of this constant, stated. **The correction does not move the limit:** it
+  held before and holds after, on both sides.
 * NON-VACUITY THEOREM: `WSC.NonVacuity.seizeNonVacuous_at_3800`. So
   `LR_BUDGET_seize` is, for the first time, a bridge that can be applied to
   something.
@@ -1275,8 +1279,9 @@ rewarding context is ACCEPTED by `Runs.seizeRun K`.
 **RESTATED BY TASK A1, and DISCHARGED — reversing a "MEASURED FALSE" entry.**
 The previous form named `appliedSeize.prop` (budget 600) and was MEASURED FALSE
 there and at 1,000 (E2 spike vacuity probes returned `Valid` for the negation),
-with no affordable prep budget able to reach the cheapest accepting run of 2,570
-steps. Task U2 recorded the resulting prep-naming defect and deliberately left it
+with no affordable prep budget able to reach the cheapest accepting run of 3,002
+steps (2,570 as published pre-fix; re-measured by task C3). Task U2
+recorded the resulting prep-naming defect and deliberately left it
 alone, since the seize bridge was unusable by design and had no consumer.
 
 Both of those facts were about `#prep_uplc` cost, and neither survives the move
@@ -1422,7 +1427,7 @@ axiom can be applied.
 THE REPLACEMENT WARNING: nothing applies it. `WSC/Composition.lean` has no seize
 clause in `WithinBudget` and never invokes this axiom; `LeafSet.p2` is open
 (audit F1); and 3800 does NOT cover the 2-input accepting seize golden
-(4,647 steps). Read this as "the seize bridge now exists and is non-vacuous, and
+(**5,079** steps; 4,647 pre-fix). Read this as "the seize bridge now exists and is non-vacuous, and
 is not yet wired into anything".
 
 AUDIT / DISCHARGE of the axiom itself: identical to `LR_BUDGET_base`. -/
