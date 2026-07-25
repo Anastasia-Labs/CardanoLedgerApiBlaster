@@ -1,0 +1,178 @@
+-- KMeasure.lean — TASK X1: TRUE minimal CEK step count (K) of every WSC golden.
+--
+-- RUN LOCATION (paths in `--` comments on purpose: a Lean BLOCK comment cannot
+-- contain this scratchpad path — the `…claude-1000/-home-…` segment contains
+-- `/-`, which opens a nested comment and breaks the file):
+--
+--   workspace: <SCRATCH>/pcb-kmeasure, a `cp -a` of /home/gumbo/iohk/PlutusCoreBlaster
+--              at branch cip153-value-builtins @ 9f9ca8c (warm .lake), where
+--              <SCRATCH> = /tmp/claude-1000/-home-gumbo-iohk-wsc-poc/7ad8fab7-3c95-4aef-a618-398aa216c728/scratchpad
+--   inputs:    /home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/*.flat (absolute, below)
+--   command:   cd <SCRATCH>/pcb-kmeasure && lake env lean KMeasure.lean
+--
+-- This file is committed in CardanoLedgerApiBlaster as
+-- WSC/goldens/KMeasure.lean.disabled (lake ignores the suffix; it is NOT part of
+-- any lean_lib there and must be run from the PCB copy as above).
+
+/-
+METHOD.  Each `#import_uplc … PlutusV3 double_cbor_hex` imports a FULLY-APPLIED
+program (unapplied prod script + all params + the golden ScriptContext baked in
+as Data constants by Plutarch `applyArguments`; zero remaining arguments), so
+`initialState body` starts exactly the computation the ledger ran.  `countSteps`
+iterates the REAL CEK `step` (PlutusCore.UPLC.CekMachine.step — the same
+function `runSteps`/`cekExecuteProgram`/`#prep_uplc` consume) to the terminal
+state, counting applications.
+
+Relation to `runSteps` budgets (CekMachine.lean:229-241: a terminal state is
+returned as-is; fuel 0 on a NON-terminal state → State.Error):
+  * runSteps @ n ≥ K  = the terminal state,
+  * runSteps @ n < K  = State.Error (budget starvation),
+so K is EXACTLY the minimal `#prep_uplc`/`runSteps` budget at which the
+program's outcome appears.  Budget-exhaustion-vs-genuine-Error disambiguation:
+`countSteps` can only report `.error` by APPLYING `step` while fuel remains
+(fuel-out is a distinct `.fuelOut` outcome, which never fired), so a reported
+`error` is an evaluation Error, never starvation.  Each measurement is
+additionally confirmed the way the task words it: runSteps @ K, @ K-1 and @ 10·K
+are executed and classified (accepting: Halt / Error / Halt; rejecting:
+Error / Error / Error, the 10·K run pinning outcome stability at 10× budget).
+
+Builtin semantics variant: `default` — identical to what `cekExecuteProgram`
+(CekMachine.lean:252) and hence `#prep_uplc` bake in.
+
+DECODE VERIFICATION of the applied flats (task: "verify a couple of them decode
+before relying on them"): the importer itself prints "Successfully decoded
+double CBOR hex '<file>'" per file (a decode failure is a hard elaboration
+error), and `measure` additionally reports (a) the applied program's node count,
+(b) that its body is an `Apply` spine, NOT a top-level `Lam` — i.e. the params
+and ctx really are baked in and nothing remains to be applied, (c) the Halt
+value (`()` for these PUnit validators), and (d) PCB's own budget-metered
+CPU/mem for the same run, to be cross-checked against the ledger ExBudget in the
+golden JSONs.
+-/
+import PlutusCore.UPLC.ScriptEncoding.Basic
+import PlutusCore.UPLC.CekMachine
+import PlutusCore.UPLC.PlutusScript
+
+open PlutusCore.UPLC.CekMachine
+open PlutusCore.Default (BuiltinSemanticsVariant)
+open PlutusCore.UPLC.PlutusScript (PlutusScript)
+open PlutusCore.UPLC.Term (Term)
+
+namespace KMeasure
+
+inductive Outcome | halt | error | fuelOut
+deriving Repr, DecidableEq
+
+/-- 50M-step fuel ceiling: ~3 orders of magnitude above the largest plausible
+mainnet-tx step count (biggest golden's on-chain CPU 96.8M / ~16k cost-model
+CPU-per-step ≈ 6k steps). -/
+def fuelMax : Nat := 50000000
+
+/-- Iterate the real CEK `step` to a terminal state, counting applications.
+Written as a `for` loop rather than recursion so the Lean interpreter cannot
+blow its stack on long runs. Returns (K, outcome). -/
+def countSteps (sv : BuiltinSemanticsVariant) (s0 : State) (fuel : Nat) :
+    Nat × Outcome := Id.run do
+  let mut s : State := s0
+  let mut c : Nat := 0
+  for _ in [0:fuel] do
+    match s with
+    | .Halt _ => return (c, .halt)
+    | .Error  => return (c, .error)
+    | _       => s := step sv s; c := c + 1
+  match s with
+  | .Halt _ => (c, .halt)
+  | .Error  => (c, .error)
+  | _       => (c, .fuelOut)
+
+def classify : State → String
+  | .Halt _ => "Halt"
+  | .Error  => "Error"
+  | _       => "Running"
+
+def bodyOf : PlutusCore.UPLC.Term.Program → Term
+  | .Program _ b => b
+
+/-- Node count of the applied program (decode sanity metric). -/
+partial def termSize : Term → Nat
+  | .Var _ | .Const _ | .Builtin _ | .Error => 1
+  | .Lam _ b | .Delay b | .Force b => 1 + termSize b
+  | .Apply f a => 1 + termSize f + termSize a
+  | .Constr _ ts => 1 + (ts.map termSize).foldl (· + ·) 0
+  | .Case t ts => 1 + termSize t + (ts.map termSize).foldl (· + ·) 0
+
+/-- Applied programs must be CLOSED: an `Apply` spine, never a top-level `Lam`
+(a `Lam` would mean arguments are still missing, and any such run "succeeds"
+vacuously by returning a lambda). -/
+def shapeOf (p : PlutusCore.UPLC.Term.Program) : String :=
+  match bodyOf p with
+  | .Lam _ _   => "TOPLEVEL-LAM(UNAPPLIED!)"
+  | .Apply _ _ => "Apply(applied)"
+  | .Force _   => "Force(applied)"
+  | _          => "other"
+
+def haltValue (sv : BuiltinSemanticsVariant) (s0 : State) (k : Nat) : String :=
+  match runSteps sv s0 k with
+  | .Halt v => ((repr v).pretty.take 48).replace "\n" " "
+  | _       => "n/a"
+
+/-- PCB's own budget-metered run of the same applied program
+(PlutusV3 / postConway ⇒ semantics variant E, `defaultCekMachineCostsC` step
+costs + PCB's builtin cost model), for cross-check against the ledger ExBudget
+recorded in the golden JSONs. -/
+def budgetRun (p : PlutusCore.UPLC.Term.Program) : String :=
+  let huge : PlutusCore.UPLC.ExBudget.ExBudget := ⟨⟨1000000000000⟩, ⟨1000000000000⟩⟩
+  match cekExecuteProgramWithBudget p .plutusV3 .postConway [] huge with
+  | .Success _ spent =>
+      s!"cpu={spent.exBudgetCPU.unExCPU},mem={spent.exBudgetMemory.unExMemory}"
+  | .BudgetExhausted _ => "BUDGET-EXHAUSTED"
+  | .EvaluationError   => "EVAL-ERROR"
+
+def measure (name : String) (ps : PlutusScript) : IO Unit := do
+  let sv : BuiltinSemanticsVariant := default
+  let body := bodyOf ps.script
+  let s0   := initialState body
+  let t0 ← IO.monoMsNow
+  let (k, out) := countSteps sv s0 fuelMax
+  let t1 ← IO.monoMsNow
+  let atK   := classify (runSteps sv s0 k)
+  let atKm1 := classify (runSteps sv s0 (k-1))
+  let at10K := classify (runSteps sv s0 (10*k))
+  let t2 ← IO.monoMsNow
+  let bud := if out == .halt then budgetRun ps.script else "n/a(rejecting)"
+  let t3 ← IO.monoMsNow
+  IO.println s!"{name}: K={k} outcome={repr out} | runSteps@K={atK} @K-1={atKm1} @10K={at10K} | shape={shapeOf ps.script} nodes={termSize body} halt={haltValue sv s0 k} | pcbBudget[{bud}] | count_ms={t1-t0} confirm_ms={t2-t1} budget_ms={t3-t2}"
+
+end KMeasure
+
+open KMeasure
+
+-- The 13 goldens' fully-applied programs (double-CBOR hex, TextEnvelope layering).
+
+#import_uplc g01_base_transfer PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicBase.base-spend-transfer-tx.flat"
+#import_uplc g02_base_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT.flat"
+#import_uplc g03_mint_byref PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-local-registered-by-ref.flat"
+#import_uplc g04_mint_burnonly PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-burnonly.flat"
+#import_uplc g05_mint_topup PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-delegate-transfer-topup.flat"
+#import_uplc g06_mint_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-local-empty-withdrawals-REJECT.flat"
+#import_uplc g07_seize_1in PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input.flat"
+#import_uplc g08_seize_noise PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-2-inputs-partial-with-noise.flat"
+#import_uplc g09_seize_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input-missing-residual-output-REJECT.flat"
+#import_uplc g10_global_member PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-member-single-policy.flat"
+#import_uplc g11_global_nonmember PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-nonmember-covering-node.flat"
+#import_uplc g12_global_mixed PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-mixed-many-policies.flat"
+#import_uplc g13_global_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-containment-violation-REJECT.flat"
+
+#eval! measure "programmableLogicBase.base-spend-transfer-tx" g01_base_transfer
+#eval! measure "programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT" g02_base_reject
+#eval! measure "programmableTokenMinting.mint-local-registered-by-ref" g03_mint_byref
+#eval! measure "programmableTokenMinting.mint-burnonly" g04_mint_burnonly
+#eval! measure "programmableTokenMinting.mint-delegate-transfer-topup" g05_mint_topup
+#eval! measure "programmableTokenMinting.mint-local-empty-withdrawals-REJECT" g06_mint_reject
+#eval! measure "programmableSeize.seize-1-input" g07_seize_1in
+#eval! measure "programmableSeize.seize-2-inputs-partial-with-noise" g08_seize_noise
+#eval! measure "programmableSeize.seize-1-input-missing-residual-output-REJECT" g09_seize_reject
+#eval! measure "programmableLogicGlobal.transfer-member-single-policy" g10_global_member
+#eval! measure "programmableLogicGlobal.transfer-nonmember-covering-node" g11_global_nonmember
+#eval! measure "programmableLogicGlobal.transfer-mixed-many-policies" g12_global_mixed
+#eval! measure "programmableLogicGlobal.transfer-containment-violation-REJECT" g13_global_reject

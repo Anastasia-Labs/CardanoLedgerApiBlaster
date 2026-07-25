@@ -1,0 +1,84 @@
+-- KVerify.lean — fidelity check on the APPLIED golden flats (task X1: "verify a
+-- couple of them decode before relying on them" — done for all 13).
+-- Walks each applied program's Apply spine, checks every argument is a
+-- `Const (Data …)` constant, and re-serialises it with PCB's CBOR encoder
+-- (PlutusCore.Cbor.encodeData = the `serialiseData` builtin) printing the hex.
+-- The hexes are diffed against the golden JSONs' paramsHex/scriptContextHex by
+-- WSC/goldens/verify-applied.py (in this directory).
+-- Run: cd <SCRATCH>/pcb-kmeasure && lake env lean KVerify.lean
+import PlutusCore.UPLC.ScriptEncoding.Basic
+import PlutusCore.UPLC.CekMachine
+import PlutusCore.UPLC.PlutusScript
+import PlutusCore.Cbor
+
+open PlutusCore.UPLC.CekMachine
+open PlutusCore.UPLC.PlutusScript (PlutusScript)
+open PlutusCore.UPLC.Term (Term)
+open PlutusCore.UPLC.Term (Const)
+open PlutusCore.ByteString (ByteString)
+
+namespace KVerify
+
+def bodyOf : PlutusCore.UPLC.Term.Program → Term
+  | .Program _ b => b
+
+/-- Arguments of an `Apply` spine, in application order. -/
+partial def spineArgs : Term → List Term
+  | .Apply f a => spineArgs f ++ [a]
+  | _ => []
+
+partial def spineHead : Term → Term
+  | .Apply f _ => spineHead f
+  | t => t
+
+def headTag : Term → String
+  | .Var _ => "Var" | .Const _ => "Const" | .Builtin _ => "Builtin"
+  | .Lam _ _ => "Lam" | .Apply _ _ => "Apply" | .Delay _ => "Delay"
+  | .Force _ => "Force" | .Constr _ _ => "Constr" | .Case _ _ => "Case"
+  | .Error => "Error"
+
+def argHex : Term → String
+  | .Const (Const.Data d) =>
+      match PlutusCore.Cbor.encodeData d with
+      | some s => ((repr (ByteString.mk s)).pretty).drop 1  -- Repr prints "#<hex>"
+      | none   => "ENCODE-FAILED"
+  | t => s!"NOT-A-DATA-CONST({headTag t})"
+
+def verify (name : String) (ps : PlutusScript) : IO Unit := do
+  let body := bodyOf ps.script
+  let args := spineArgs body
+  IO.println s!"### {name} head={headTag (spineHead body)} nargs={args.length}"
+  for (a, i) in args.zipIdx do
+    IO.println s!"ARG {name} {i} {argHex a}"
+
+end KVerify
+
+open KVerify
+
+#import_uplc g01 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicBase.base-spend-transfer-tx.flat"
+#import_uplc g02 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT.flat"
+#import_uplc g03 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-local-registered-by-ref.flat"
+#import_uplc g04 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-burnonly.flat"
+#import_uplc g05 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-delegate-transfer-topup.flat"
+#import_uplc g06 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-local-empty-withdrawals-REJECT.flat"
+#import_uplc g07 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input.flat"
+#import_uplc g08 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-2-inputs-partial-with-noise.flat"
+#import_uplc g09 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input-missing-residual-output-REJECT.flat"
+#import_uplc g10 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-member-single-policy.flat"
+#import_uplc g11 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-nonmember-covering-node.flat"
+#import_uplc g12 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-mixed-many-policies.flat"
+#import_uplc g13 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-containment-violation-REJECT.flat"
+
+#eval! verify "programmableLogicBase.base-spend-transfer-tx" g01
+#eval! verify "programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT" g02
+#eval! verify "programmableTokenMinting.mint-local-registered-by-ref" g03
+#eval! verify "programmableTokenMinting.mint-burnonly" g04
+#eval! verify "programmableTokenMinting.mint-delegate-transfer-topup" g05
+#eval! verify "programmableTokenMinting.mint-local-empty-withdrawals-REJECT" g06
+#eval! verify "programmableSeize.seize-1-input" g07
+#eval! verify "programmableSeize.seize-2-inputs-partial-with-noise" g08
+#eval! verify "programmableSeize.seize-1-input-missing-residual-output-REJECT" g09
+#eval! verify "programmableLogicGlobal.transfer-member-single-policy" g10
+#eval! verify "programmableLogicGlobal.transfer-nonmember-covering-node" g11
+#eval! verify "programmableLogicGlobal.transfer-mixed-many-policies" g12
+#eval! verify "programmableLogicGlobal.transfer-containment-violation-REJECT" g13

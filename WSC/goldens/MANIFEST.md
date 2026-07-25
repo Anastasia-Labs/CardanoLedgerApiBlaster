@@ -115,3 +115,41 @@ rejecting goldens (counting evaluation aborts).
   above); re-derive against mainnet PV11 params before quoting on-chain costs.
 - Lean-side CEK step counts (per-validator `#prep_uplc` budgets K) are to be
   measured on these ctxs by a later task, per SPIKE-FINDINGS open issue 2.
+  **DONE — see `K-MEASUREMENTS.md`** (task X1). Measured K: base 208, minting
+  784/1,257/1,681, seize 2,570/4,647, global 1,554/3,262/3,726 CEK steps.
+
+## `applied/` — fully applied programs (task X1 input)
+
+`applied/<golden>.flat` is the same double-CBOR-hex TextEnvelope layering as
+`WSC/flats/*.flat` (so `#import_uplc … double_cbor_hex` reads it), but with the
+script parameters AND the golden `ScriptContext` already applied as `Data`
+constants via Plutarch `applyArguments` — i.e. CLOSED, zero-argument programs
+that start the exact computation the ledger ran. Produced by the extended golden
+driver described under "Extraction provenance" above (same wsc-poc worktree /
+commit, same prod script JSONs).
+
+VERIFIED (not assumed) by `KVerify.lean.disabled` + `verify-applied.py`, both in
+this directory:
+
+* PCB's flat decoder reads all 13 files ("Successfully decoded double CBOR hex").
+* Each program's `Apply` spine, after the script's own top-level `Force`/let
+  application (spine arg 0), carries exactly `paramsHex… ++ [scriptContextHex]`
+  from the sibling JSON — **byte-identical** after re-serialisation with PCB's
+  `PlutusCore.Cbor.encodeData` (= the `serialiseData` builtin). Result:
+  `ALL-MATCH` for all 13, with the documented arities (base/minting 2 params +
+  ctx, seize/global 1 param + ctx). No file is a bare top-level lambda, so no
+  measurement is arity-vacuous (cf. the upstream benchmark arity bug noted above).
+* PCB's budget-metered CEK run of each applied program
+  (`cekExecuteProgramWithBudget … .plutusV3 .postConway`) reproduces the
+  `exBudgetCpu`/`exBudgetMem` recorded in the JSONs **exactly, to the unit, for
+  all 9 accepting goldens** — independent agreement between the Lean CEK machine
+  + PCB cost model and Haskell `PlutusLedgerApi.V3.evaluateScriptCounting`.
+* Polarity is preserved: the 9 accepting goldens `Halt`, the 4 rejecting goldens
+  `Error` (still `Error` at 10× the step budget, so not budget starvation).
+
+Runner provenance: `KMeasure.lean.disabled` / `KVerify.lean.disabled` are run
+from a `cp -a` of `/home/gumbo/iohk/PlutusCoreBlaster` @ `9f9ca8c` (branch
+`cip153-value-builtins`) — see the header comment in each file and
+`K-MEASUREMENTS.md` §6. `prep-probes/*.lean.disabled` are the symbolic-`#prep_uplc`
+cost probes (budget sweeps of `WSC/Prep/Minting.lean` and `WSC/Prep/Global.lean`)
+behind `K-MEASUREMENTS.md` §5.1.

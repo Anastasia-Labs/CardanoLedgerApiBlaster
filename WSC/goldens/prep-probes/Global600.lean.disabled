@@ -1,0 +1,59 @@
+/-
+WSC/Prep/Global.lean — import + prep of the programmableLogicGlobal
+(transfer) validator. Split into its own module so the `#prep_uplc`
+elaboration is cached per-validator. Provenance: WSC/flats/PROVENANCE.md.
+
+CIP-153 NOTE (X4, 2026-07-25): this validator uses the CIP-153 Value builtins
+(insertCoin/lookupCoin/unionValue/valueContains/valueData/unValueData —
+flat builtin tags 94-99). It therefore decodes/preps ONLY against the
+CIP-153-capable PlutusCoreBlaster (branch `cip153-value-builtins`; see
+"Substrate pins" in WSC/ARCHITECTURE.md). Against PCB `main` @ 4ef4860 the
+import fails with "Could not decode program!" (verified 2026-07-24).
+
+BUDGET NOTE (mirrors Prep/Seize.lean): fully-symbolic `#prep_uplc` on
+accept-capable budgets is empirically intractable for the heavy validators
+(E2 spike). This module preps at 600 ONLY to validate the CIP-153
+import/apply/CEK pipeline end-to-end; the vacuity probe below CHARACTERIZES
+the budget as vacuous (no accepting context within 600 steps — the cheapest
+golden accept, transfer-nonmember-covering-node, costs 29,160,036 CPU units,
+so 600 raw CEK steps cannot reach accept). No P-theorem may be stated against
+`appliedGlobal` from this module — P1 uses SHAPED contexts with per-shape
+measured budgets (ARCHITECTURE.md ADDENDUM, Stage-3b).
+-/
+import PlutusCore.UPLC
+import CardanoLedgerApi.V3
+import Blaster
+set_option maxHeartbeats 0
+
+namespace ProbeGlobal600
+
+open CardanoLedgerApi.IsData.Class (toTerm)
+open CardanoLedgerApi.V3 (ScriptContext CurrencySymbol rewardingInputs
+                          validRewardingContext)
+open PlutusCore.UPLC.Term (Term)
+open PlutusCore.UPLC.Utils (isSuccessful)
+
+#import_uplc probeGlobal600 PlutusV3 double_cbor_hex "WSC/flats/programmableLogicGlobal.flat"
+
+/-- Parameter evidence for `programmableLogicGlobal` — 1 parameter, then ctx:
+
+1. `protocolParamsCS : PAsData PCurrencySymbol` — protocol-params NFT policy id.
+
+* Plutarch signature: `mkProgrammableLogicGlobal :: Term s (PAsData
+  PCurrencySymbol :--> PScriptContext :--> PUnit)`
+  — src/programmable-tokens-onchain/lib/SmartTokens/Contracts/ProgrammableLogicBase.hs:1176
+  (lambda order `\protocolParamsCS ctx` at :1177).
+* Offchain application: `mkProgrammableLogicGlobal # pdata (pconstant $
+  transPolicyId paramsPolId)`
+  — src/programmable-tokens-offchain/lib/ProgrammableTokens/OffChain/Scripts.hs:119-122.
+* Golden corroboration: all four `programmableLogicGlobal.*` vectors in
+  WSC/goldens/ carry exactly ONE `paramsHex` entry (MANIFEST.md param table,
+  `ProgrammableLogicBase.hs:1176` row).
+* Purpose: REWARDING (withdraw-zero) validator — `pisRewardingScript` is the
+  first validated condition (ProgrammableLogicBase.hs:1254). -/
+def globalInputs (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext) : List Term :=
+  toTerm protocolParamsCS :: rewardingInputs ctx
+
+#prep_uplc probeAppliedGlobal600 probeGlobal600 globalInputs 600
+
+end ProbeGlobal600
