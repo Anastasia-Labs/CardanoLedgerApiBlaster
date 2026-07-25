@@ -4,6 +4,18 @@ PROVED at UPLC level against the real compiled transfer bytecode, over SHAPE G6*
 (task V3 rung 4).
 
 ════════════════════════════════════════════════════════════════════════════
+⚠ SHAPE-CLASS STATUS (task C1) — READ BEFORE COMPOSING ANYTHING FROM THIS FILE
+════════════════════════════════════════════════════════════════════════════
+Every theorem below is TRUE and unchanged. But SHAPE G6's class is **EMPTY as a
+class of ledger transactions** under Conway UTXOW's `MissingRedeemers` rule —
+two script withdrawals, one redeemer entry (`WSC.g6_class_is_empty_under_coverage`,
+WSC/Props/Shaped/GlobalRealizability.lean). **Use
+`WSC/Props/Shaped/P6ShapedR.lean` instead**: the same statement
+(`P6R_shaped_member_adds_to_requirement`), same budget 3300, same witness
+K = 2837, over the re-cut SHAPE G6R whose class is proved NON-EMPTY
+(`WSC.g6R_realizable`).
+
+════════════════════════════════════════════════════════════════════════════
 P6 IN PLAIN ENGLISH
 ════════════════════════════════════════════════════════════════════════════
 *If a policy is classified `Member` during a transfer — i.e. claimed to be a

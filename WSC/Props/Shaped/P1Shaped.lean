@@ -4,6 +4,23 @@ and proved at UPLC level against the real compiled transfer bytecode, over
 SHAPES T1 and T2** (task V1).
 
 ════════════════════════════════════════════════════════════════════════════
+⚠ SHAPE-CLASS STATUS (task C1) — READ BEFORE COMPOSING ANYTHING FROM THIS FILE
+════════════════════════════════════════════════════════════════════════════
+Every theorem below is TRUE and unchanged. But SHAPES T1/T2/T6/T7 are **EMPTY as
+classes of ledger transactions**: they spend an input at `ScriptCredential plc`
+while carrying a ONE-entry redeemer map, which Conway UTXOW's `MissingRedeemers`
+rule forbids. Proved: `WSC.ShapeRealizability.t1_class_is_empty`
+(UNCONDITIONAL) and `WSC.t2_class_is_empty` / `WSC.t6_class_is_empty`
+(WSC/Props/Shaped/GlobalRealizability.lean). So these theorems must NOT be
+composed through a `Shape` restriction — the composition would be vacuous.
+
+**Use `WSC/Props/Shaped/P1ShapedR.lean` instead**: the same three statements
+(`P1R_T1`, `P1R_T2`, `P1R_T6`), same budget 4400, same witness K, over the
+re-cut SHAPES T1R/T2R/T6R whose redeemer maps cover every script witness and
+whose classes are proved NON-EMPTY (`WSC.t1R_realizable` and friends). SHAPE T7
+(two mini-ledger outputs AND a mint) was not re-cut — see that module's header.
+
+════════════════════════════════════════════════════════════════════════════
 P1 IN PLAIN ENGLISH
 ════════════════════════════════════════════════════════════════════════════
 *When the global validator accepts a transfer, no registered programmable token

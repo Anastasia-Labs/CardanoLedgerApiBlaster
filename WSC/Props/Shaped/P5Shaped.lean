@@ -4,6 +4,18 @@ UPLC level against the real compiled transfer bytecode, over SHAPE G1**
 (task Z2 rung 4).
 
 ════════════════════════════════════════════════════════════════════════════
+⚠ SHAPE-CLASS STATUS (task C1) — READ BEFORE COMPOSING ANYTHING FROM THIS FILE
+════════════════════════════════════════════════════════════════════════════
+Every theorem below is TRUE and unchanged. But SHAPE G1's class is **EMPTY as a
+class of ledger transactions** under Conway UTXOW's `MissingRedeemers` rule —
+its withdrawal entry 1 is a script credential with no `Rewarding` redeemer entry
+(`WSC.ShapeRealizability.g1_class_is_empty_under_coverage`). **Use
+`WSC/Props/Shaped/P5ShapedR.lean` instead**: the same statement
+(`P5R_shaped_indexed`, `P5R_shaped_exists`, `P5R_shaped_groundtruth`), same
+budget 1600, same witness K = 1541, over the re-cut SHAPE G1R whose class is
+proved NON-EMPTY (`WSC.g1R_realizable`).
+
+════════════════════════════════════════════════════════════════════════════
 WHAT CHANGED
 ════════════════════════════════════════════════════════════════════════════
 `WSC/Props/P5_NonMember.lean`'s "OBLIGATION STATUS" block records the bytecode

@@ -3,6 +3,11 @@ WSC/Shaped/GlobalMemberShaped.lean — SHAPED prep of the production transfer
 validator `programmableLogicGlobal` on a **`Member` mint classification**, at CEK
 step budget **3300** (task V3 rung 4 — the P6 shape).
 
+⚠ NODE-REALIZABILITY (task C1): SHAPE G6 below is EMPTY as a class of ledger
+transactions (two script withdrawals, one redeemer entry —
+`WSC.g6_class_is_empty_under_coverage`). The re-cut, redeemer-covered version is
+SHAPE G6R in WSC/Shaped/GlobalShapedR.lean.
+
 Mechanism (i) (WSC/Shaped/Shape.lean): the shape is baked into the `#prep_uplc`
 inputs function. Same flat and same imported program object as
 WSC/Prep/Global1600.lean (`programmableLogicGlobal1600`); only the budget and the

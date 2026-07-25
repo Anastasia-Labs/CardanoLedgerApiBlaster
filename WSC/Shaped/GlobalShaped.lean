@@ -2,6 +2,12 @@
 WSC/Shaped/GlobalShaped.lean — SHAPED prep of the production transfer validator
 `programmableLogicGlobal` at CEK step budget **1600** (task Z2 rung 4).
 
+⚠ NODE-REALIZABILITY (task C1): SHAPE G1 below is EMPTY as a class of ledger
+transactions (two script withdrawals, one redeemer entry). The re-cut,
+redeemer-covered version is SHAPE G1R in WSC/Shaped/GlobalShapedR.lean; this
+shape is kept because the emptiness proof and the historical P5 theorems are
+stated over it.
+
 Mechanism (i) (WSC/Shaped/Shape.lean): the shape is baked into the `#prep_uplc`
 inputs function. Same flat and same budget as WSC/Prep/Global1600.lean; the only
 difference from `appliedGlobal1600` is that the context argument is a shape

@@ -182,3 +182,27 @@ import WSC.ShapeBridge
 -- quoting any composition result over a shape.  The NON-vacuous `LeafSet` is
 -- `WSC/Composition.lean` §11 (`containedLeaves`).
 import WSC.Props.Shaped.ShapeRealizability
+-- ── task C1: THE NODE-REALIZABLE RE-CUT OF THE GLOBAL VALIDATOR'S SHAPES, and
+-- P1/P5/P6 re-proved over them.  The A2 finding above says the shaped classes are
+-- EMPTY as classes of ledger transactions; these modules fix that for the global
+-- (transfer) validator by giving each shape a redeemer map that COVERS every
+-- script witness the transaction needs — a `Spending` entry per
+-- script-payment-credential input, a `Rewarding` entry per script withdrawal, a
+-- `Minting` entry per minted policy — at the measured sizes of the real accepting
+-- goldens.  Six re-cut shapes (G1R, G6R, T1R, T2R, T6R, T7R), six preps, five
+-- re-proved headline theorems with their full control sets, and — the acceptance
+-- criterion — a REALIZABILITY theorem per shape: class-level coverage for every
+-- leaf assignment plus a concrete `validRewardingContext`-clean, redeemer-covered
+-- context the real bytecode accepts.  Measured: every witness K is UNCHANGED, so
+-- redeemer coverage costs zero CEK steps for this validator.
+import WSC.Shaped.GlobalShapedR
+import WSC.Shaped.GlobalShapedRPrep
+import WSC.Shaped.GlobalMemberShapedRPrep
+import WSC.Shaped.GlobalShapedP1RPrep
+import WSC.Shaped.GlobalShapedP1RMintPrep
+import WSC.Shaped.GlobalShapedP1ROutPrep
+import WSC.Shaped.GlobalShapedP1ROutMintPrep
+import WSC.Props.Shaped.P1ShapedR
+import WSC.Props.Shaped.P5ShapedR
+import WSC.Props.Shaped.P6ShapedR
+import WSC.Props.Shaped.GlobalRealizability

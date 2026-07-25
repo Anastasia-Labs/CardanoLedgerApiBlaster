@@ -2,6 +2,12 @@
 WSC/Shaped/GlobalShapedP1.lean — the SHAPES for **P1 (containment)** against the
 production transfer validator `programmableLogicGlobal` (task V1).
 
+⚠ NODE-REALIZABILITY (task C1): SHAPES T1/T2 below are EMPTY as classes of
+ledger transactions (one-entry redeemer map vs a script-credential input and two
+script withdrawals). The re-cut, redeemer-covered versions are SHAPES T1R/T2R in
+WSC/Shaped/GlobalShapedR.lean; the shapes here are kept because the emptiness
+proofs and the historical P1 theorems are stated over them.
+
 Mechanism (i) of WSC/Shaped/Shape.lean: the shape is baked into the `#prep_uplc`
 inputs function, so the CEK symbolic run sees a closed `Data` SKELETON and only
 the scalar leaves stay symbolic. Vocabulary and doctrine: WSC/Shaped/Shape.lean.
