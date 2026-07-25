@@ -111,14 +111,26 @@ def P3_base_vacuity_probe : Prop :=
 
 #blaster (gen-cex: 0) (solve-result: 1) [P3_base_vacuity_probe]
 
-/-! ## Bootstrap positive witness (E9 boundary witness)
+/-! ## BOOTSTRAP positive witness — SUPERSEDED (E9 boundary witness)
 
 A hand-constructed, fully concrete accepting context: one input spent from a
 script address, an ada-only canonical value, and a withdrawal map containing
 exactly the global credential (amount 0 — the withdraw-zero pattern). CLEARLY
 LABELED BOOTSTRAP: it certifies non-vacuity and the accept polarity end-to-end
-(concrete `Data`, real CEK) but is NOT an off-chain-produced golden vector;
-it is superseded by W1's real-suite goldens (WSC/goldens/) when they land. -/
+(concrete `Data`, real CEK) but is NOT an off-chain-produced golden vector.
+
+STATUS (task Y4 / ADDENDUM E9): **superseded, retained deliberately.** The
+real-suite replacement is `WSC/Goldens/Witnesses.lean`, which proves the same two
+facts — `exec_accepts` and `prop_accepts` — for the off-chain-produced golden
+`programmableLogicBase.base-spend-transfer-tx` (K = 208 CEK steps, inside this
+module's 600-step budget), decoded from its `serialiseData` CBOR with a
+byte-identical round-trip receipt. **Cite that module, not this one, as P3's
+non-vacuity witness.** This bootstrap is kept because it is the minimal
+accepting context (useful when debugging the accept path) and because, unlike
+the golden, it also satisfies `validSpendingContext` — the goldens are
+benchmark-harness-built and set `txInfoFee = 0` (see `WSC/LR-CTX-AUDIT.md`), so
+only the bootstrap can be substituted into `P3_base_requires_global_or_seize`
+itself. -/
 
 namespace P3Witness
 

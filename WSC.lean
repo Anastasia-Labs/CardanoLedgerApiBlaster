@@ -10,3 +10,6 @@ import WSC.Redeemer
 import WSC.Spec
 import WSC.Honest
 import WSC.Props.P3_Base
+-- Golden→Lean bridge + the three Y4 fidelity results (LR-CTX audit, real-suite
+-- positive witness, redeemer/datum mirror gate). See WSC/LR-CTX-AUDIT.md.
+import WSC.Goldens
