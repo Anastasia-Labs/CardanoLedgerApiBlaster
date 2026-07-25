@@ -30,3 +30,15 @@ import WSC.Props.P5_NonMember
 -- Concrete non-vacuity witness for budget 1600 (real bytecode + real golden
 -- NonMember ScriptContext: HALT at 1600, budget-ERROR at 1553).
 import WSC.Props.P5_Witness1600
+-- SOURCE MODEL of the global transfer validator (task Z4, ARCHITECTURE.md §2 B3
+-- route): P1 (containment) and P6 (Member self-penalization) are unreachable at
+-- UPLC (accepting runs cost 3,262/3,726 CEK steps), so they are proved against a
+-- source-cited transcription bridged by ONE axiom.  The model's verdict equals
+-- the real bytecode's on 4/4 global goldens, incl. the rejecting containment
+-- violation.  READ the OBLIGATION STATUS block at the bottom of
+-- WSC/Props/P1_Transfer.lean before citing anything from it.
+import WSC.Model.GlobalModel
+import WSC.Model.Ground
+import WSC.Model.GlobalGoldens
+import WSC.Props.P1_Transfer
+import WSC.Props.P6_Member
