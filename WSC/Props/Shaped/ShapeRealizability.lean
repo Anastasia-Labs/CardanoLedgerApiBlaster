@@ -53,6 +53,28 @@ context, which matters for one thing only — **composition**. A shaped theorem
 remains evidence about the validator's logic; it cannot be plugged into a
 ledger-level claim through a `Shape` restriction without emptying the claim.
 
+WHY YOU CANNOT ESCAPE BY PINNING LESS. The obvious dodge is to define `Shape` so that
+it constrains only the fields the leaf's conclusion mentions (inputs, outputs, mint)
+and leaves `txInfoRedeemers` free, making the class non-empty again. That does not
+work, and the reason is structural rather than accidental: a shaped P-theorem's
+hypothesis is `isSuccessful (appliedXShaped.prop <scalars>)`, whose subject is the
+prep of ONE `Data` skeleton — the whole context, redeemer map included. To apply it to
+a transaction you must exhibit that transaction's context AS the shaped context, i.e.
+pin every field the skeleton pins. `Shape` can be weaker only by making the leaf
+inapplicable. The redeemer map is part of `TxInfo`, so it is shared by every purpose
+view of the transaction (`WSC.withPurpose` copies `scriptContextTxInfo` verbatim) —
+there is no purpose at which it becomes free.
+
+WHY NOTHING CAUGHT THIS EARLIER, and it is a CLAB-fidelity finding in its own right:
+`validRewardingContext` / `validMintingContext` check the redeemer map only for the
+script that is CURRENTLY RUNNING (`validScriptInfo`'s first conjunct,
+`CardanoLedgerApi/V3/Contexts.lean:1035-1037` = audit row B of `WSC/Honest.lean`'s
+LR-CTX table). Neither predicate has a clause for "every script this transaction
+needs has an entry", so every shaped witness is `validXContext = true` while being
+unrealizable. §5 states that as a theorem against a witness the library already has,
+and the LR-CTX audit table has no row for the `MissingRedeemers` rule — that missing
+row is exactly `RedeemerCoverage` below.
+
 WHAT WOULD FIX IT, sized: re-shape with a ledger-realistic redeemer map. Adding the
 missing entries changes the `Data` skeleton, so each affected shape needs a new
 `#prep_uplc` (measured cost of a shaped prep: ≈1 s, and budget-independent —
@@ -70,9 +92,11 @@ LAYOUT
 * §1 SHAPE T1 — emptiness, UNCONDITIONAL (`WSC.LR_SPEND_RUNS_VALIDATOR` + `LR_CTX`)
 * §2 `RedeemerCoverage` and the conditional emptiness of L1 / M1 / G1 / S1 / DT1 / DS1
 * §3 the VACUOUS `LeafSet` at SHAPE T1, built and labelled as such
+* §5 the CLAB-fidelity corollary: the witnesses pass `validRewardingContext` anyway
 * §4 axiom census
 -/
 import WSC.Composition
+import WSC.Props.Shaped.P1Shaped
 import WSC.Shaped.GlobalShapedP1
 import WSC.Shaped.MintingLocalShaped
 import WSC.Shaped.MintingDelegateShaped
@@ -479,6 +503,45 @@ theorem t1_top_claim_is_vacuous (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
       Composition.I hp L :=
   Composition.top_claim hp (t1Shape hp) (t1VacuousLeaves hp hdep) hdep
 
+/-! # §5 THE CLAB-FIDELITY COROLLARY — why every witness looked ledger-legal
+
+`WSC.P1ShapedWitness.ctxOk` is the accepting SHAPE-T1 witness the P1 campaign is
+calibrated on: `validRewardingContext ctxOk = true` (`native_decide`, zero failing
+conjuncts) and the real CEK machine halts on it in 2,603 steps. It is also, by §1,
+NOT the context of any on-chain transaction of a deployment whose base credential is
+`ScriptCredential "PROGLOGIC"`.
+
+Both statements are theorems, so the conclusion is unavoidable: **CLAB's
+`validRewardingContext` is strictly weaker than the ledger rules this library already
+axiomatizes.** The gap is precisely the Conway `MissingRedeemers` rule —
+`validScriptInfo` checks the redeemer map for the RUNNING script only
+(`CardanoLedgerApi/V3/Contexts.lean:1035-1037`), never for the other scripts the
+transaction needs — and `WSC/Honest.lean`'s LR-CTX audit table has no row for it.
+`RedeemerCoverage` (§2) is the missing row.
+
+This is not a criticism of the witnesses: they were built to satisfy the strongest
+ledger predicate the substrate offers, and they do. It is the reason a whole layer of
+the campaign could be built on unrealizable contexts without any check firing. -/
+
+/-- **CLAB's ledger predicate cannot see the defect.** The library's own accepting
+SHAPE-T1 witness passes `validRewardingContext` and is nevertheless unrealizable. -/
+theorem clab_validRewardingContext_admits_unrealizable
+    (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
+    (hbase : hp.progLogicCred = Credential.ScriptCredential (ByteString.mk "PROGLOGIC")) :
+    CardanoLedgerApi.V3.validRewardingContext WSC.P1ShapedWitness.ctxOk = true ∧
+      ¬ WSC.OnChain WSC.P1ShapedWitness.ctxOk := by
+  refine ⟨WSC.P1ShapedWitness.ctxOk_valid, fun hoc => ?_⟩
+  exact t1_class_is_empty hp _ (ByteString.mk "MMM") (ByteString.mk "TOK")
+    (ByteString.mk "PROGLOGIC") (ByteString.mk "OWNER") 200 5
+    (ByteString.mk "EXT") 100 4 150 5
+    (ByteString.mk "DEST") 100 4
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+    (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+    (ByteString.mk "GS") (ByteString.mk "GLOBAL") (ByteString.mk "TLS") 0 0 50
+    hdep hoc hbase rfl
+
 /-! # §4 AXIOM CENSUS — printed at build time -/
 #print axioms WSC.ShapeRealizability.validScriptInfo_false_of_no_redeemer
 #print axioms WSC.ShapeRealizability.not_onChain_of_no_redeemer
@@ -491,5 +554,6 @@ theorem t1_top_claim_is_vacuous (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
 #print axioms WSC.ShapeRealizability.ds1_uncovered_wdrl_exists
 #print axioms WSC.ShapeRealizability.t1VacuousLeaves
 #print axioms WSC.ShapeRealizability.t1_no_honest_step
+#print axioms WSC.ShapeRealizability.clab_validRewardingContext_admits_unrealizable
 
 end WSC.ShapeRealizability
