@@ -8,7 +8,7 @@ verdict** are now **`Valid` theorems against the real compiled bytecode**:
 |---|---|---|
 | **P4a** — an accepted mint runs the token's minting-logic script | `Undetermined`; 296 s / 1,748 s / 3,208 s of Z3 all identical (`WSC/Props/P4_Minting.lean`) | **`✅ Valid` in ≈1 s** — `WSC/Props/Shaped/P4Shaped.lean:121` |
 | **P4-burn** — an accepted `BurnOnly` mint is a genuine pure burn | not attempted (weaker P4a already Undetermined) | **`✅ Valid` in ≈1 s** — `WSC/Props/Shaped/P4Shaped.lean:147` |
-| **P5** (escape-critical) — accept + `NonMember` ⟹ an authentic directory node covers `cs` | **killed at 5,241 s ≈ 87 min, NO verdict** (`WSC/Props/P5_NonMember.lean`) | **`✅ Valid` in ≈2 s** — `WSC/Props/Shaped/P5Shaped.lean:196` |
+| **P5** (escape-critical) — accept + `NonMember` ⟹ an authentic directory node covers `cs` | **killed at 5,241 s ≈ 87 min, NO verdict** (`WSC/Props/P5_NonMember.lean`) | **`✅ Valid` in ≈2 s** — `WSC/Props/Shaped/P5Shaped.lean:209` |
 
 Same flats, same budgets (900 and 1600), same postconditions, full control set
 (negative control `Valid`, tightness `Falsified`, **vacuity probe at the shape**
@@ -155,7 +155,10 @@ For the global validator the analogous loosening splits (see §6):
 | shape | difference from G1 | outcome |
 |---|---|---|
 | **G2** | BOTH `paramsRefIdx` and the `NonMember` node index free; postcondition index-free (`hasCoveringNode`) | **`❌ Falsified`** with a genuine counterexample (§6) — 6.6 s |
-| **G3** | node index free, `paramsRefIdx` pinned to 0; postcondition index-free | see §6.2 |
+| **G3** | node index free, `paramsRefIdx` pinned to 0; postcondition index-free (`hasCoveringNode`) | main obligation **`⚠️ Undetermined`** after a 906 s Z3 query; vacuity probe at the shape **`✅ Falsified`** (so the class is NON-empty — this is a solver limit, not an empty shape). Module wall 14 m 38 s. See §6.2 |
+
+So the two validators differ: for the ISSUANCE policy the concrete redeemer index
+is dispensable, for the GLOBAL validator it is load-bearing.
 
 ### 2.5 Prep-cost ceiling — shaping also removes the prep wall
 
@@ -262,13 +265,51 @@ accepting context satisfies the postcondition, whereas this exhibits the specifi
 ledger-legal context the postcondition EXCLUDES and shows the real CEK rejecting
 it. Without it, "accept ⟹ pure burn" could have been hypothesis-implied.
 
-**Note on D3.** The SHAPE G1 witness is the first accepting `ScriptContext` in
-this repository, for the global validator, that satisfies `validRewardingContext`
-in full. All 13 goldens fail it (`txInfoFee = 0` plus the CLAB order defects —
-`WSC/STATUS.md` §3 D3), so until now the only fully-normalized accepting witness
-anywhere was the hand-built `P3Witness.ctx` for the base validator.
+**Note on D3 (updated after task Z5).** When Z2 ran, all 13 goldens failed
+`validXContext` (`txInfoFee = 0` plus the CLAB order defects, `WSC/STATUS.md` §3
+D3), so the SHAPE G1 witness was then the ONLY fully-normalized accepting
+`ScriptContext` in the repo for the global validator. Task Z5 has since fixed the
+upstream builder and re-dumped the goldens, and D3 is CLOSED — all 9 accepting
+goldens now satisfy their matching `validXContext`. The shaped witnesses are
+therefore no longer unique in that respect; what they still add is (a) an
+accepting instance of the EXACT shape the theorems quantify over, and (b) for
+P5, a genuine MINT-side `NonMember` claim, which no golden exercises (§2.3).
 
 ---
+
+## 4.2 Axiom audit — what the shaped theorems actually rest on
+
+`#print axioms` on every shaped theorem (`WSC/Shaped/Probe/Axioms.lean`):
+
+| theorem | axioms |
+|---|---|
+| `P3_base_requires_global_or_seize` (pre-existing baseline) | `propext, sorryAx, Classical.choice, Quot.sound` |
+| `P4a_shaped_mint_runs_minting_logic` | `propext, sorryAx, Classical.choice, Quot.sound` |
+| `P4_burn_only_shaped` | same |
+| `P4a_shapedIdx_mint_runs_minting_logic` (SHAPE M2) | same |
+| **`P5_shaped_indexed`** | same |
+| `P5_shaped_exists` | same |
+| `P5_shaped_groundtruth` | same **+ exactly `WSC.Deployed, WSC.OnChain, WSC.TS3`** |
+| `P5.nthFrom_mem` (pure reduction lemma) | `propext` only |
+| `P5ShapedWitness.exec_accepts_at_1600`, `K_is_1541`, `P4ShapedWitness.exec_rejects_positive_mint` | `propext, Classical.choice, Lean.ofReduceBool, Lean.trustCompiler` (no `sorryAx`) |
+
+Three things to read off this table:
+
+1. **No `WSC/Honest.lean` axiom is used by any shaped bytecode theorem.** The only
+   WSC axioms anywhere in the layer are the three the ground-truth corollary
+   advertises, and `#print axioms` confirms there is nothing else hiding.
+2. **`sorryAx` is `blaster`'s `admit`**, not a gap left by this task: it appears
+   identically on the pre-existing, reviewed `P3_base_requires_global_or_seize`
+   (SPIKE-FINDINGS: "Valid closes via `admit`, so every blaster-proved theorem
+   carries a `declaration uses 'sorry'` warning"). Contrast the source-model route
+   (tasks Z3/Z4), whose theorems are `sorry`-free but carry a `<model>_faithful`
+   transcription axiom instead. **The two routes trade different things:** shaped
+   theorems trust the solver+`admit` pipeline and the shape; source-model theorems
+   trust a hand transcription. Neither dominates; a reviewer should know which
+   they are reading.
+3. The concrete witnesses depend on `native_decide`'s `ofReduceBool` /
+   `trustCompiler` and NOT on `sorryAx` — they are independent of both the solver
+   and `admit`.
 
 ## 5. Methodology warnings (both re-confirmed here)
 
@@ -328,13 +369,29 @@ concrete counterexample here in seconds.
 
 G3 keeps `paramsRefIdx = 0` (so reference input 0 IS the params UTxO the
 validator reads) and frees only the `NonMember` node index, with the index-free
-`hasCoveringNode` postcondition. Prep: 1.2 s.
-**Result: no verdict within the 30-minute cap** — the symbolic `dropList` inside
-the mint walk's `PNonMember` branch (ProgrammableLogicBase.hs:998) puts the
-branch structure back into the residual, and the solver behaves as it does on a
-fully symbolic context. So for the GLOBAL validator the concrete node index IS
-load-bearing, in contrast to the minting policy (§2.4). Recorded as an open
-issue, not as a property failure: `P5_shaped_indexed` at SHAPE G1 stands.
+`hasCoveringNode` postcondition. Prep: 1.2 s. Measured
+(`WSC/Shaped/Probe/G3Probe.lean`, `lake build`, Z3 capped at 900 s per query):
+
+| stanza | outcome | wall |
+|---|---|---|
+| index-free P5 at SHAPE G3 | **`⚠️ Undetermined`** | 906 s (the Z3 cap fired) |
+| vacuity probe at SHAPE G3 | **`✅ Falsified`** | — |
+| module total | — | 14 m 38 s |
+
+Read the two rows together: **the shape class is NOT empty** — accepting shape-G3
+contexts exist inside 1600 steps — so this is a genuine solver limit, not a
+vacuous class. The mechanism is visible in the term: the symbolic `dropList`
+inside the mint walk's `PNonMember` branch (ProgrammableLogicBase.hs:998) puts
+the branch structure back into the residual, which is exactly what shaping was
+removing. So for the GLOBAL validator the concrete node index IS load-bearing,
+in contrast to the minting policy (§2.4), where SHAPE M2 closes in 2.1 s with its
+index free.
+
+Recorded as an open issue, not a property failure: `P5_shaped_indexed` at SHAPE
+G1 stands, and the honest reading is that P5 is proved for the node index the
+redeemer actually witnesses, one index at a time. Enumerating the (finite,
+shape-bounded) index range as separate shapes would close the gap mechanically
+and is the obvious next step.
 
 ---
 
@@ -364,6 +421,10 @@ issue, not as a property failure: `P5_shaped_indexed` at SHAPE G1 stands.
    mint carries. A 2-entry shaped redeemer map would hit D1 head on.
 4. The three `Local` / `DelegateTransfer` / `DelegateSeize` arms of P4 are still
    unexercised, and P1 / P2 / P6 are untested at any shape.
+5. **P5 is proved one node index at a time.** Freeing the `NonMember` node index
+   (SHAPE G3) returns `Undetermined` after 906 s even though the shape class is
+   non-empty (§6.2). SHAPE G1 pins it at 1. Enumerating the index range as
+   separate shapes is mechanical but was not done.
 5. Substrate reproducibility caveat E11 is unchanged: the global validator's flat
    decodes only against the unpushed PCB branch `cip153-value-builtins`.
 
@@ -412,6 +473,12 @@ lake build WSC.Shaped.Probe.G1K
 # the G2 falsification, with counterexample
 lake build WSC.Shaped.Probe.G2Probe
 
+# the G3 negative result (Undetermined at 906 s; vacuity probe Falsified) — 15 min
+lake build WSC.Shaped.Probe.G3Probe
+
+# axiom audit of every shaped theorem
+lake build WSC.Shaped.Probe.Axioms
+
 # prep-cost ceiling sweep
 lake build WSC.Shaped.Probe.MPrep1700 WSC.Shaped.Probe.MPrep2500 \
            WSC.Shaped.Probe.GPrep2500 WSC.Shaped.Probe.GPrep4000
@@ -430,7 +497,9 @@ WSC/Shaped/MintingShapedIdx.lean  SHAPE M2  (= M1, symbolic withdrawal index)
 WSC/Shaped/GlobalShaped.lean      SHAPE G1  (transfer, mint-side NonMember, budget 1600)
 WSC/Shaped/GlobalShapedIdx.lean   SHAPE G2 / G3 (symbolic indices)
 WSC/Shaped/Calib/*.lean           rung-1 calibration pair
-WSC/Shaped/Probe/*.lean           exploration probes, K measurements, prep sweep
+WSC/Shaped/Probe/*.lean           exploration probes, K measurements, prep sweep,
+                                  the G2 falsification, the G3 negative result and
+                                  the `#print axioms` audit
 WSC/Props/Shaped/P4Shaped.lean    P4a + BurnOnly at M1, controls, concrete witness
 WSC/Props/Shaped/P4ShapedIdx.lean P4a + BurnOnly at M2 (supersedes in strength)
 WSC/Props/Shaped/P5Shaped.lean    P5 at G1, controls, corollaries, concrete witness

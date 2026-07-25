@@ -34,6 +34,16 @@ a one-policy/one-token mint, a 2-entry all-script withdrawal map, one redeemer
 entry, empty cert/signatory/datum/vote/proposal lists, and the redeemer fixed to
 `TransferAct [] [] [NonMember 1] 0`.
 
+**Bound 2b — ONE NODE INDEX AT A TIME.** SHAPE G1 pins the `NonMember` node index
+to 1. Freeing it (SHAPE G3, `WSC/Shaped/GlobalShapedIdx.lean`) with the index-free
+`hasCoveringNode` postcondition returns **`Undetermined` after a 906 s Z3 query**,
+while the vacuity probe at that shape is `Falsified` — so the class is non-empty
+and this is a solver limit, not an empty shape (`WSC/SHAPING-RESULTS.md` §6.2).
+The symbolic `dropList` at ProgrammableLogicBase.hs:998 puts the branch structure
+back into the residual. Contrast the issuance policy, where the analogous
+loosening (SHAPE M2) closes in 2.1 s. Enumerating the index range as separate
+shapes would close this gap mechanically; it was not done.
+
 **Bound 3 — P5's strength is DirWF's strength** (ADDENDUM E4, unchanged). What is
 proved is the covering-node WITNESS; turning it into "`cs` is not registered" is
 the composition-layer lemma `covering_node_excludes_registration`, which consumes
@@ -61,8 +71,11 @@ even calls the mint walk (:1219-1222) that `nonMemberNodeIdxOf` mirrors. So the
 claim in WSC/Prep/Global1600.lean and WSC/STATUS.md that this golden "is exactly
 P5's subject shape" is too strong: it witnesses accept-within-1600, not
 satisfiability of P5's hypotheses. SHAPE G1's concrete instance below is the
-first witness that does both — and it satisfies `validRewardingContext` with ZERO
-failing conjuncts, which no golden in the suite does (WSC/STATUS.md §3 D3).
+first witness that does both, and it satisfies `validRewardingContext` with ZERO
+failing conjuncts. (When this was written no golden did — defect D3. Task Z5 has
+since fixed the upstream builder and CLOSED D3, so the accepting goldens now
+qualify too; the mint-side point above is unaffected, because no golden exercises
+the mint walk's `PNonMember` branch at all.)
 
 ════════════════════════════════════════════════════════════════════════════
 PRECONDITION AUDIT (arch §4.1)
@@ -390,8 +403,7 @@ The strongest non-vacuity evidence available for this property, and the first on
 in the repository that is simultaneously
 (a) a genuine MINT-side `NonMember` claim (which the golden is not — see the
     FINDING in this module's header),
-(b) fully `validRewardingContext`-normalized with ZERO failing conjuncts (which
-    no golden in the suite is — WSC/STATUS.md §3 D3), and
+(b) fully `validRewardingContext`-normalized with ZERO failing conjuncts, and
 (c) accepted by the REAL compiled bytecode inside the 1600-step budget.
 
 Leaf values: a policy `MMM` is minted (7 of `MMM.TOK`, strictly POSITIVE — the
