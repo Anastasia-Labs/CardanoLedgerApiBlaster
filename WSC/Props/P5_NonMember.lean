@@ -25,6 +25,19 @@ against the real bytecode prepped at budget 1600 (WSC/Prep/Global1600.lean):
 |---|---|---|
 | P5 indexed (the bytecode obligation) + negative control + tightness, in one module | `theorem … := by blaster` ×2 and `#blaster … [P5_tightness]` | **killed at 5241 s ≈ 87 min, NO verdict** (not `Valid`, not `Undetermined`, no cex) |
 | mandatory vacuity probe of the 1600 prep | `#blaster (gen-cex: 1) (solve-result: 1)` in its own module | **killed at 5241 s ≈ 87 min, NO verdict** |
+| same vacuity probe, Z3 CAPPED | `#blaster (timeout: 120) (solve-result: 1)` | **`⚠️ Undetermined` in 120.1 s** |
+| indexed + negative control + tightness, Z3 capped at 300 s each | three `#blaster (timeout: 300) …` in one module | **killed at 1454 s, no verdict printed** (the cap is per Z3 QUERY, not per goal) |
+
+WHERE THE COST IS (diagnostic, this task). The Z3-capped run above is decisive:
+Blaster TRANSLATES the 1600-step residual goal fine and returns a verdict as
+soon as the solver is capped — so neither `#prep_uplc` (50.1 s) nor the
+translate/optimize step is the wall. **The wall is the SMT search itself**, and
+what it returns is `Undetermined`, i.e. Z3 neither proves nor refutes the query.
+So the honest reading of the missing vacuity certificate is
+"solver-undetermined", NOT "vacuous": the 600-step prep is *provably* vacuous
+(`✅ Valid`), whereas at 1600 Z3 simply does not decide. The concrete golden
+witness (WSC/Props/P5_Witness1600.lean) is what tells us the truth is
+"non-vacuous".
 
 Consequently every bytecode-level statement below is a `Prop` DEFINITION with
 the `#blaster` command recorded in its doc comment, never a `theorem`. What IS
