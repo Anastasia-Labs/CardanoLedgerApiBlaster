@@ -170,15 +170,23 @@ guess. Splitting `#prep_uplc` cost from SMT cost (both timed this session on the
 32-core box, warm `.lake`, `maxHeartbeats 0`, under `lake build` so Blaster runs
 from its precompiled `libBlaster.so`):
 
-| budget | prep (`lake build`) | SMT outcome for the goals below | Z3 cap | wall |
-|---|---|---|---|---|
-| 600  | cached  | **Valid** (= accept is UNSAT ⟹ budget VACUOUS) | none | **2.1 s** |
-| 800  | 3.1 s   | Undetermined (Z3 cap hit) | 300 s | 296 s |
-| 900  | 1.5 s   | Undetermined (Z3 cap hit) | 300 s | 296 s |
-| 900  | 1.5 s   | Undetermined (Z3 cap hit) | (uncapped, killed) | >1748 s |
-| 1300 | 7.4 s   | not attempted | — | — |
-| 1700 | 92.7 s  | not attempted | — | — |
-| 2000 | never completed (killed at 1800 s) | — | — | — |
+| budget | prep (`lake build`) | goal | SMT outcome | Z3 cap | wall |
+|---|---|---|---|---|---|
+| 600  | cached | vacuity probe | **Valid** = accept is UNSAT ⟹ budget VACUOUS | none | **2.1 s** |
+| 800  | 3.1 s  | P4a | Undetermined | 300 s  | 296 s |
+| 800  | 3.1 s  | P4a | Undetermined | 3300 s | 3208 s |
+| 900  | 1.5 s  | P4a | Undetermined | 300 s  | 296 s |
+| 900  | 1.5 s  | P4a + vacuity probe | Undetermined (killed) | uncapped | >1748 s |
+| 900  | 1.5 s  | P4a | Undetermined | 3300 s | 3208 s |
+| 900  | 1.5 s  | vacuity probe | Undetermined | 3300 s | 3207 s |
+| 1300 | 7.4 s  | — | not attempted | — | — |
+| 1700 | 92.7 s | — | not attempted | — | — |
+| 2000 | never completed (killed at 1800 s) | — | — | — | — |
+
+Read the 800-vs-900 rows together: dropping the budget by 100 steps (still above
+K_novac = 784, so still non-vacuous — `P4Witness.exec_accepts_at_800`) does not
+help at all. Nor does giving Z3 11× more time: 296 s, 1,748 s and 3,208 s all end
+in the same place.
 
 Two conclusions:
 
@@ -206,8 +214,9 @@ characterization, and the concrete `BurnOnly` witness executed through the real
 compiled bytecode at budgets 600 / 800 / 900 (bottom of file) — which is
 independent of the SMT solver and is what pins non-vacuity of the 900-step bound.
 
-The next lever is not a bigger timeout (1,748 s of Z3 made no progress on a
-problem whose cheap sibling takes 2.1 s): it is SHAPING the context — fixed list
+The next lever is not a bigger timeout (296 s, 1,748 s and 3,300 s of Z3 all end
+in the same place, on a problem whose budget-600 sibling takes 2.1 s) and not a
+smaller budget (800 behaves exactly like 900): it is SHAPING the context — fixed list
 spines and concrete redeemer indices with symbolic scalars — exactly the
 Stage-3b route ARCHITECTURE.md prescribes for P1/P2, now shown to be required
 for P4 as well. Unlike the prep-side shaping the E2 spike tried (which did not
@@ -226,7 +235,8 @@ authorization script unavoidable on every mint AND burn.
 NOT hypothesis-implied: for a MINTING purpose CLAB's `validScriptInfo` says
 nothing about `txInfoWdrl` beyond sortedness (precondition audit, above).
 
-MEASURED OUTCOME @900: **Undetermined** (Z3, no result in 1,748 s uncapped).
+MEASURED OUTCOME @900 and @800: **Undetermined** (Z3: 296 s cap, 3,300 s cap,
+and 1,748 s uncapped — all identical).
 The concrete witness at the bottom of this file satisfies this postcondition
 (`P4Witness.ctx_post_P4a`) and is accepted by the bytecode at 900. -/
 def P4a_mint_runs_minting_logic : Prop :=
@@ -327,7 +337,7 @@ def P4a_tightness : Prop :=
 
 /-- MANDATORY vacuity probe at 900 (SPIKE-FINDINGS / E9). Expected result:
 Falsified (accepting contexts exist inside 900 steps). MEASURED: **Undetermined**
-— Z3 hit both a 300 s cap and, uncapped, made no progress in 1,748 s.
+at Z3 caps of 300 s and 3,300 s, and no progress in 1,748 s uncapped.
 
 The probe's obligation is nevertheless DISCHARGED, executably and more strongly,
 by `P4Witness.exec_accepts_at_900`: a fully concrete ledger-normalized context
