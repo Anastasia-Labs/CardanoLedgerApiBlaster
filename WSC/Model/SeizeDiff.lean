@@ -292,12 +292,20 @@ theorem off_purpose_goldens_all_rejected :
 
 /-! ## HONEST SCOPE CAVEATS (do not delete)
 
-1. **The goldens do not satisfy `validRewardingContext`.**  Every golden has
-   `txInfoFee = 0` (a builder artefact — `WSC/STATUS.md` §3 D3), so none of them
-   can be substituted into `P2_seize_relocates_only_seized` to re-derive its
-   postcondition.  The differential test is therefore a test of the BYTECODE's
-   and the MODEL's accept behaviour, which is exactly what a fidelity gate needs;
-   the precondition question is settled by `WSC/LR-CTX-AUDIT.md`.
+1. **CAVEAT DISCHARGED (task Z5): the two ACCEPTING seize goldens now satisfy
+   `validRewardingContext`.**  This caveat used to read "the goldens do not
+   satisfy `validRewardingContext`; every golden has `txInfoFee = 0` (a builder
+   artefact)".  All three of that artefact's siblings have since been fixed
+   upstream in wsc-poc's
+   `ProgrammableTokens.Test.ScriptContext.Builder.buildLedgerShapedScriptContext`
+   — positive balanced fee, withdrawal map in the ledger's `Credential` order,
+   and min-UTxO ada on every output (the seize residual seized-token UTxO was the
+   only lovelace-free output in the whole suite) — and the goldens were
+   re-dumped.  So the two accepting seize goldens CAN now be substituted into
+   `P2_seize_relocates_only_seized` to re-derive its postcondition.  The
+   REJECTING golden still fails, but only on `isBalanced`, which is intrinsic to
+   its tamper (it deletes the residual output).  See
+   `WSC/LR-CTX-AUDIT.md` and `WSC/Goldens/Audit.lean`.
 2. **What the goldens do NOT exercise.**  Enumerated in
    `seizeModel_faithful`'s docstring: the constructor fall-through is exercised
    only by the 4 minting goldens (and only into a too-short field list, never
@@ -305,16 +313,21 @@ theorem off_purpose_goldens_all_rejected :
    is exercised by no golden (all redeemer indices here are ≥ 0); the
    `remainingProgCSDelta` `perror` branches (:1767, :1768) are not reached by any
    golden. -/
-/-- `(validRewardingContext ctx, txInfoFee == 0)` for a golden. -/
+/-- `(validRewardingContext ctx, 0 < txInfoFee)` for a golden. -/
 def validityAndFee (d : Data) : Option (Bool × Bool) :=
   match ctxOf d with
-  | some c => some (validRewardingContext c, c.scriptContextTxInfo.txInfoFee == 0)
+  | some c => some (validRewardingContext c, decide (0 < c.scriptContextTxInfo.txInfoFee))
   | none => none
 
-theorem goldens_fail_validRewardingContext_on_fee :
-    validityAndFee Terms.programmableSeize_seize_1_input_ctx = some (false, true) ∧
+/-- The two ACCEPTING seize goldens satisfy `validRewardingContext` verbatim, and
+all three pay a positive fee.  The rejecting one fails, on `isBalanced` alone —
+intrinsic to its tamper, which deletes the residual output (see
+`WSC/Goldens/Audit.lean`'s
+`fail_seize_1_input_missing_residual_output_REJECT`). -/
+theorem accepting_seize_goldens_satisfy_validRewardingContext :
+    validityAndFee Terms.programmableSeize_seize_1_input_ctx = some (true, true) ∧
     validityAndFee Terms.programmableSeize_seize_2_inputs_partial_with_noise_ctx
-      = some (false, true) ∧
+      = some (true, true) ∧
     validityAndFee Terms.programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx
       = some (false, true) := by
   native_decide

@@ -161,20 +161,24 @@ theorem ctx_post :
     credentialInWithdrawals globalCred ctx.scriptContextTxInfo.txInfoWdrl = true := by
   native_decide
 
-/-! ## HONEST SCOPE CAVEAT (do not delete)
+/-! ## SCOPE: the caveat is now DISCHARGED
 
-The golden context does **NOT** satisfy `validSpendingContext`, so it cannot be
-substituted into `P3_base_requires_global_or_seize` to re-derive `ctx_post`.
-The single failing conjunct is `txInfoFee > 0`: the benchmark harness that built
-this context sets `txInfoFee = 0`, while a real Cardano transaction always pays
-a positive fee.  Every other conjunct of `validSpendingContext` holds
-(`WSC/LR-CTX-AUDIT.md`, row 1).  The witness above is therefore a witness about
-the BYTECODE's accept behaviour — which is all a non-vacuity witness has to be —
-and the audit is where the precondition question is settled. -/
-theorem ctx_fails_validSpendingContext_only_on_fee :
-    validSpendingContext ctx = false ∧
+This module used to carry an honest caveat here: the golden context failed
+`validSpendingContext` on its `txInfoFee > 0` conjunct, because the wsc-poc
+benchmark harness that built it charged no fee.  That was a harness artifact, not
+a fact about the chain, and it has been **fixed upstream** — the harness now
+charges a positive fee and balances against it, emits `txInfoWdrl` in the
+ledger's own `Credential` order, and attaches min-UTxO ada to every output.
+
+So the golden now satisfies `validSpendingContext` **outright, with every
+conjunct checked verbatim** (no relaxation).  P3's non-vacuity therefore no
+longer rests only on the bytecode accept fact: this context can be substituted
+into `P3_base_requires_global_or_seize` to re-derive `ctx_post`, which is what
+LR-CTX (ADDENDUM E5) was supposed to buy and previously could not. -/
+theorem ctx_satisfies_validSpendingContext :
+    validSpendingContext ctx = true ∧
     relaxedVerdict golden = some true ∧
-    ctx.scriptContextTxInfo.txInfoFee = 0 := by
+    0 < ctx.scriptContextTxInfo.txInfoFee := by
   native_decide
 
 /-! ## FOLLOW-UP (parallel agents Y1/Y2)

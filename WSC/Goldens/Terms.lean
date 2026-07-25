@@ -53,7 +53,7 @@ def programmableLogicBase_base_spend_no_global_or_seize_invoked_REJECT_ctx : Dat
             ]
           , Data.Map
             [ (Data.B (ByteString.mk ""), Data.Map
-               [ (Data.B (ByteString.mk ""), Data.I 4000000)
+               [ (Data.B (ByteString.mk ""), Data.I 8000000)
                ])
             ]
           , Data.Constr 0 []
@@ -170,14 +170,14 @@ def programmableLogicBase_base_spend_no_global_or_seize_invoked_REJECT_ctx : Dat
           ]
         , Data.Map
           [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 2000000)
+             [ (Data.B (ByteString.mk ""), Data.I 5500000)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map
       [ (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
          [ (Data.B (ByteString.mk "0c"), Data.I 1)
@@ -429,23 +429,8 @@ def programmableLogicBase_base_spend_transfer_tx_ctx : Data :=
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
-      , Data.Constr 0
-        [ Data.Constr 0
-          [ Data.Constr 0
-            [ Data.B (ByteString.mk "deadbeef")
-            ]
-          , Data.Constr 1 []
-          ]
-        , Data.Map
-          [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 2000000)
-             ])
-          ]
-        , Data.Constr 0 []
-        , Data.Constr 1 []
-        ]
       ]
-    , Data.I 0
+    , Data.I 2000000
     , Data.Map []
     , Data.List []
     , Data.Map
@@ -677,23 +662,8 @@ def programmableLogicGlobal_transfer_containment_violation_REJECT_ctx : Data :=
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
-      , Data.Constr 0
-        [ Data.Constr 0
-          [ Data.Constr 0
-            [ Data.B (ByteString.mk "deadbeef")
-            ]
-          , Data.Constr 1 []
-          ]
-        , Data.Map
-          [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 2000000)
-             ])
-          ]
-        , Data.Constr 0 []
-        , Data.Constr 1 []
-        ]
       ]
-    , Data.I 0
+    , Data.I 2000000
     , Data.Map []
     , Data.List []
     , Data.Map
@@ -960,23 +930,8 @@ def programmableLogicGlobal_transfer_member_single_policy_ctx : Data :=
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
-      , Data.Constr 0
-        [ Data.Constr 0
-          [ Data.Constr 0
-            [ Data.B (ByteString.mk "deadbeef")
-            ]
-          , Data.Constr 1 []
-          ]
-        , Data.Map
-          [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 2000000)
-             ])
-          ]
-        , Data.Constr 0 []
-        , Data.Constr 1 []
-        ]
       ]
-    , Data.I 0
+    , Data.I 2000000
     , Data.Map []
     , Data.List []
     , Data.Map
@@ -1360,14 +1315,14 @@ def programmableLogicGlobal_transfer_mixed_many_policies_ctx : Data :=
           ]
         , Data.Map
           [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 5000000)
+             [ (Data.B (ByteString.mk ""), Data.I 4500000)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map []
     , Data.List []
     , Data.Map
@@ -1643,14 +1598,14 @@ def programmableLogicGlobal_transfer_nonmember_covering_node_ctx : Data :=
           ]
         , Data.Map
           [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 5000000)
+             [ (Data.B (ByteString.mk ""), Data.I 4500000)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map []
     , Data.List []
     , Data.Map
@@ -1769,6 +1724,27 @@ def programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx : Data :=
           , Data.Constr 1 []
           ]
         ]
+      , Data.Constr 0
+        [ Data.Constr 0
+          [ Data.B (ByteString.mk "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\xfe")
+          , Data.I 0
+          ]
+        , Data.Constr 0
+          [ Data.Constr 0
+            [ Data.Constr 0
+              [ Data.B (ByteString.mk "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01")
+              ]
+            , Data.Constr 1 []
+            ]
+          , Data.Map
+            [ (Data.B (ByteString.mk ""), Data.Map
+               [ (Data.B (ByteString.mk ""), Data.I 10000000)
+               ])
+            ]
+          , Data.Constr 0 []
+          , Data.Constr 1 []
+          ]
+        ]
       ]
     , Data.List
       [ Data.Constr 0
@@ -1867,16 +1843,31 @@ def programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx : Data :=
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
+      , Data.Constr 0
+        [ Data.Constr 0
+          [ Data.Constr 0
+            [ Data.B (ByteString.mk "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01")
+            ]
+          , Data.Constr 1 []
+          ]
+        , Data.Map
+          [ (Data.B (ByteString.mk ""), Data.Map
+             [ (Data.B (ByteString.mk ""), Data.I 7500000)
+             ])
+          ]
+        , Data.Constr 0 []
+        , Data.Constr 1 []
+        ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map []
     , Data.List []
     , Data.Map
       [ (Data.Constr 1
-         [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+         [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
          ], Data.I 0)
       , (Data.Constr 1
-         [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
+         [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
          ], Data.I 0)
       ]
     , Data.Constr 0
@@ -1899,6 +1890,11 @@ def programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx : Data :=
          ], Data.Constr 0 [])
       , (Data.Constr 2
          [ Data.Constr 1
+           [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
+           ]
+         ], Data.Constr 0 [])
+      , (Data.Constr 2
+         [ Data.Constr 1
            [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
            ]
          ], Data.Constr 1
@@ -1909,13 +1905,8 @@ def programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx : Data :=
          , Data.I 0
          , Data.I 1
          , Data.I 0
-         , Data.I 1
+         , Data.I 0
          ])
-      , (Data.Constr 2
-         [ Data.Constr 1
-           [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
-           ]
-         ], Data.Constr 0 [])
       ]
     , Data.Map []
     , Data.B (ByteString.mk "deadbeef")
@@ -1932,7 +1923,7 @@ def programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx : Data :=
     , Data.I 0
     , Data.I 1
     , Data.I 0
-    , Data.I 1
+    , Data.I 0
     ]
   , Data.Constr 2
     [ Data.Constr 1
@@ -1950,7 +1941,7 @@ def programmableSeize_seize_1_input_missing_residual_output_REJECT_redeemer : Da
   , Data.I 0
   , Data.I 1
   , Data.I 0
-  , Data.I 1
+  , Data.I 0
   ]
 
 def programmableSeize_seize_1_input_missing_residual_output_REJECT_params : List Data :=
@@ -1987,6 +1978,27 @@ def programmableSeize_seize_1_input_ctx : Data :=
                ])
             , (Data.B (ByteString.mk "\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b"), Data.Map
                [ (Data.B (ByteString.mk "0c"), Data.I 1)
+               ])
+            ]
+          , Data.Constr 0 []
+          , Data.Constr 1 []
+          ]
+        ]
+      , Data.Constr 0
+        [ Data.Constr 0
+          [ Data.B (ByteString.mk "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\xfe")
+          , Data.I 0
+          ]
+        , Data.Constr 0
+          [ Data.Constr 0
+            [ Data.Constr 0
+              [ Data.B (ByteString.mk "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01")
+              ]
+            , Data.Constr 1 []
+            ]
+          , Data.Map
+            [ (Data.B (ByteString.mk ""), Data.Map
+               [ (Data.B (ByteString.mk ""), Data.I 10000000)
                ])
             ]
           , Data.Constr 0 []
@@ -2105,23 +2117,41 @@ def programmableSeize_seize_1_input_ctx : Data :=
             ]
           ]
         , Data.Map
-          [ (Data.B (ByteString.mk "\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b"), Data.Map
+          [ (Data.B (ByteString.mk ""), Data.Map
+             [ (Data.B (ByteString.mk ""), Data.I 2000000)
+             ])
+          , (Data.B (ByteString.mk "\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b"), Data.Map
              [ (Data.B (ByteString.mk "0c"), Data.I 1)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
+      , Data.Constr 0
+        [ Data.Constr 0
+          [ Data.Constr 0
+            [ Data.B (ByteString.mk "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01")
+            ]
+          , Data.Constr 1 []
+          ]
+        , Data.Map
+          [ (Data.B (ByteString.mk ""), Data.Map
+             [ (Data.B (ByteString.mk ""), Data.I 7500000)
+             ])
+          ]
+        , Data.Constr 0 []
+        , Data.Constr 1 []
+        ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map []
     , Data.List []
     , Data.Map
       [ (Data.Constr 1
-         [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+         [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
          ], Data.I 0)
       , (Data.Constr 1
-         [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
+         [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
          ], Data.I 0)
       ]
     , Data.Constr 0
@@ -2144,6 +2174,11 @@ def programmableSeize_seize_1_input_ctx : Data :=
          ], Data.Constr 0 [])
       , (Data.Constr 2
          [ Data.Constr 1
+           [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
+           ]
+         ], Data.Constr 0 [])
+      , (Data.Constr 2
+         [ Data.Constr 1
            [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
            ]
          ], Data.Constr 1
@@ -2154,13 +2189,8 @@ def programmableSeize_seize_1_input_ctx : Data :=
          , Data.I 0
          , Data.I 1
          , Data.I 0
-         , Data.I 1
+         , Data.I 0
          ])
-      , (Data.Constr 2
-         [ Data.Constr 1
-           [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
-           ]
-         ], Data.Constr 0 [])
       ]
     , Data.Map []
     , Data.B (ByteString.mk "deadbeef")
@@ -2177,7 +2207,7 @@ def programmableSeize_seize_1_input_ctx : Data :=
     , Data.I 0
     , Data.I 1
     , Data.I 0
-    , Data.I 1
+    , Data.I 0
     ]
   , Data.Constr 2
     [ Data.Constr 1
@@ -2195,7 +2225,7 @@ def programmableSeize_seize_1_input_redeemer : Data :=
   , Data.I 0
   , Data.I 1
   , Data.I 0
-  , Data.I 1
+  , Data.I 0
   ]
 
 def programmableSeize_seize_1_input_params : List Data :=
@@ -2268,6 +2298,27 @@ def programmableSeize_seize_2_inputs_partial_with_noise_ctx : Data :=
                ])
             , (Data.B (ByteString.mk "\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e"), Data.Map
                [ (Data.B (ByteString.mk "np2"), Data.I 5)
+               ])
+            ]
+          , Data.Constr 0 []
+          , Data.Constr 1 []
+          ]
+        ]
+      , Data.Constr 0
+        [ Data.Constr 0
+          [ Data.B (ByteString.mk "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\xfe")
+          , Data.I 0
+          ]
+        , Data.Constr 0
+          [ Data.Constr 0
+            [ Data.Constr 0
+              [ Data.B (ByteString.mk "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01")
+              ]
+            , Data.Constr 1 []
+            ]
+          , Data.Map
+            [ (Data.B (ByteString.mk ""), Data.Map
+               [ (Data.B (ByteString.mk ""), Data.I 10000000)
                ])
             ]
           , Data.Constr 0 []
@@ -2416,23 +2467,41 @@ def programmableSeize_seize_2_inputs_partial_with_noise_ctx : Data :=
             ]
           ]
         , Data.Map
-          [ (Data.B (ByteString.mk "\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b"), Data.Map
+          [ (Data.B (ByteString.mk ""), Data.Map
+             [ (Data.B (ByteString.mk ""), Data.I 2000000)
+             ])
+          , (Data.B (ByteString.mk "\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b\x1b"), Data.Map
              [ (Data.B (ByteString.mk "0c"), Data.I 4)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
+      , Data.Constr 0
+        [ Data.Constr 0
+          [ Data.Constr 0
+            [ Data.B (ByteString.mk "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01")
+            ]
+          , Data.Constr 1 []
+          ]
+        , Data.Map
+          [ (Data.B (ByteString.mk ""), Data.Map
+             [ (Data.B (ByteString.mk ""), Data.I 7500000)
+             ])
+          ]
+        , Data.Constr 0 []
+        , Data.Constr 1 []
+        ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map []
     , Data.List []
     , Data.Map
       [ (Data.Constr 1
-         [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+         [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
          ], Data.I 0)
       , (Data.Constr 1
-         [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
+         [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
          ], Data.I 0)
       ]
     , Data.Constr 0
@@ -2461,6 +2530,11 @@ def programmableSeize_seize_2_inputs_partial_with_noise_ctx : Data :=
          ], Data.Constr 0 [])
       , (Data.Constr 2
          [ Data.Constr 1
+           [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
+           ]
+         ], Data.Constr 0 [])
+      , (Data.Constr 2
+         [ Data.Constr 1
            [ Data.B (ByteString.mk "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
            ]
          ], Data.Constr 1
@@ -2472,13 +2546,8 @@ def programmableSeize_seize_2_inputs_partial_with_noise_ctx : Data :=
          , Data.I 0
          , Data.I 2
          , Data.I 0
-         , Data.I 1
+         , Data.I 0
          ])
-      , (Data.Constr 2
-         [ Data.Constr 1
-           [ Data.B (ByteString.mk "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14")
-           ]
-         ], Data.Constr 0 [])
       ]
     , Data.Map []
     , Data.B (ByteString.mk "deadbeef")
@@ -2496,7 +2565,7 @@ def programmableSeize_seize_2_inputs_partial_with_noise_ctx : Data :=
     , Data.I 0
     , Data.I 2
     , Data.I 0
-    , Data.I 1
+    , Data.I 0
     ]
   , Data.Constr 2
     [ Data.Constr 1
@@ -2515,7 +2584,7 @@ def programmableSeize_seize_2_inputs_partial_with_noise_redeemer : Data :=
   , Data.I 0
   , Data.I 2
   , Data.I 0
-  , Data.I 1
+  , Data.I 0
   ]
 
 def programmableSeize_seize_2_inputs_partial_with_noise_params : List Data :=
@@ -2548,7 +2617,7 @@ def programmableTokenMinting_mint_burnonly_ctx : Data :=
             ]
           , Data.Map
             [ (Data.B (ByteString.mk ""), Data.Map
-               [ (Data.B (ByteString.mk ""), Data.I 10000000)
+               [ (Data.B (ByteString.mk ""), Data.I 12000000)
                ])
             , (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
                [ (Data.B (ByteString.mk "0c"), Data.I 2)
@@ -2660,7 +2729,7 @@ def programmableTokenMinting_mint_burnonly_ctx : Data :=
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 2000000
     , Data.Map
       [ (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
          [ (Data.B (ByteString.mk "0c"), Data.I (-1))
@@ -2783,7 +2852,7 @@ def programmableTokenMinting_mint_delegate_transfer_topup_ctx : Data :=
             ]
           , Data.Map
             [ (Data.B (ByteString.mk ""), Data.Map
-               [ (Data.B (ByteString.mk ""), Data.I 6000000)
+               [ (Data.B (ByteString.mk ""), Data.I 8000000)
                ])
             , (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
                [ (Data.B (ByteString.mk "0c"), Data.I 5)
@@ -2919,7 +2988,7 @@ def programmableTokenMinting_mint_delegate_transfer_topup_ctx : Data :=
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 2000000
     , Data.Map
       [ (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
          [ (Data.B (ByteString.mk "0c"), Data.I 5)
@@ -3048,7 +3117,7 @@ def programmableTokenMinting_mint_local_empty_withdrawals_REJECT_ctx : Data :=
             ]
           , Data.Map
             [ (Data.B (ByteString.mk ""), Data.Map
-               [ (Data.B (ByteString.mk ""), Data.I 4000000)
+               [ (Data.B (ByteString.mk ""), Data.I 8000000)
                ])
             ]
           , Data.Constr 0 []
@@ -3165,14 +3234,14 @@ def programmableTokenMinting_mint_local_empty_withdrawals_REJECT_ctx : Data :=
           ]
         , Data.Map
           [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 2000000)
+             [ (Data.B (ByteString.mk ""), Data.I 5500000)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map
       [ (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
          [ (Data.B (ByteString.mk "0c"), Data.I 1)
@@ -3268,7 +3337,7 @@ def programmableTokenMinting_mint_local_registered_by_ref_ctx : Data :=
             ]
           , Data.Map
             [ (Data.B (ByteString.mk ""), Data.Map
-               [ (Data.B (ByteString.mk ""), Data.I 4000000)
+               [ (Data.B (ByteString.mk ""), Data.I 8000000)
                ])
             ]
           , Data.Constr 0 []
@@ -3385,14 +3454,14 @@ def programmableTokenMinting_mint_local_registered_by_ref_ctx : Data :=
           ]
         , Data.Map
           [ (Data.B (ByteString.mk ""), Data.Map
-             [ (Data.B (ByteString.mk ""), Data.I 2000000)
+             [ (Data.B (ByteString.mk ""), Data.I 5500000)
              ])
           ]
         , Data.Constr 0 []
         , Data.Constr 1 []
         ]
       ]
-    , Data.I 0
+    , Data.I 500000
     , Data.Map
       [ (Data.B (ByteString.mk "\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19\x19"), Data.Map
          [ (Data.B (ByteString.mk "0c"), Data.I 1)

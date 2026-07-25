@@ -4,6 +4,102 @@
 claim below is a `native_decide` theorem there; the tables are generated from the
 same functions, so prose and code cannot drift).**
 
+> ## ⚠ UPDATE — TASK Z5: THE THREE **HARNESS ARTIFACTS** ARE FIXED TOO — ALL 9 ACCEPTING GOLDENS NOW PASS
+>
+> With Z1's CLAB-side fix (below) AND the wsc-poc-side fix recorded here, the
+> headline of this document is reversed:
+>
+> **All 9 ACCEPTING goldens satisfy their matching `validXContext` with every
+> conjunct checked verbatim — no relaxation. 10 of 13 overall are TRUE; the only
+> 3 FALSE are the tamper-intrinsic ones (T1/T2, §4).** Section 6 action 3 is done.
+> Machine-checked in `WSC/Goldens/Audit.lean` by
+> `every_accepting_golden_satisfies_its_precondition`,
+> `verdicts_are_exactly_as_tabulated` and
+> `remaining_failures_are_tamper_intrinsic`.
+>
+> ### What changed in wsc-poc
+>
+> A new entry point `buildLedgerShapedScriptContext` in
+> `ProgrammableTokens.Test.ScriptContext.Builder`, used by the whole benchmark
+> catalogue (and therefore by these goldens):
+>
+> | artifact | fix |
+> |---|---|
+> | **A1** `txInfoFee = 0` (13/13) | `defaultBalancedTxFee = 500_000`, taken out of the change output so value conservation still holds. A sub-min-UTxO leftover is folded into the fee — what a real coin selector does, since the ledger would reject such a change output — so some goldens show 2 ada. |
+> | **A2** descending script withdrawal credentials (3/13) | `canonicaliseWdrl` / `compareCredentialLedger`: `txInfoWdrl` in the LEDGER's `Credential` order (`ScriptHashObj < KeyHashObj`, then bytewise). `comparePurposeLedger` gained the matching equal-kind tiebreak, which fixes the `(Rewarding, Rewarding)` pair in `txInfoRedeemers` at the same time. |
+> | **A3** lovelace-free residual outputs (2/13) | `ensureMinAda`: every non-empty output value gets `minAdaPerTxOut = 2_000_000` if it has no lovelace entry. The seize scenarios gained a pubkey funding input to pay for it — they could not take it from the seized inputs, because the seize validator's corresponding-output check (`pvalueEqualsDeltaCurrencySymbol`) requires every non-seized policy, ada included, to be preserved exactly. |
+>
+> It is a SEPARATE entry point from `buildBalancedScriptContext` on purpose: a
+> positive fee moves lovelace, the canonical withdrawal order moves withdrawal
+> INDEXES, and min-UTxO ada adds a value entry, so every redeemer that witnesses a
+> withdrawal index has to be written against them. wsc-poc's 67 unit tests build
+> precise hand-balanced contexts against the legacy behaviour and keep using
+> `buildBalancedScriptContext`; all 67 still pass.
+>
+> `buildLedgerShapedScriptContext` also **errors** rather than emit a context no
+> ledger could produce (negative leftover, or token-carrying change below
+> min-UTxO). That check found three benchmark scenarios whose inputs exactly
+> matched their outputs; they were funded properly.
+>
+> Two redeemer-level consequences, visible in `redeemerHex`:
+>
+> * the three seize goldens now carry `issuerWdrlIdx = 0`, not `1` — the issuer
+>   credential `0x14..` sorts before the seize credential `0x40..` in the ledger's
+>   order (`WSC/Goldens/RedeemerGate.lean` updated to match);
+> * the `seize-1-input-missing-residual-output-REJECT` tamper now drops the
+>   SECOND-to-last output. The seize contexts carry a balancing change output at
+>   the end, so "drop the last output" would have removed the change and left a
+>   context the seize validator still ACCEPTS — a silently false negative control.
+>
+> ### Re-measured RESULT A (replaces §3's table)
+>
+> All 13 still decode and round-trip byte-identically.
+>
+> | # | golden | accepts | **verdict** | failing conjuncts |
+> |---|---|:--:|:--:|---|
+> | 1 | `programmableLogicBase.base-spend-transfer-tx` | yes | **TRUE** | — |
+> | 2 | `programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT` | no | FALSE | `validScriptInfo`, `scriptInfo.redeemerConsistent`, `scriptInfo.purposeWellFormed` (T2 tamper) |
+> | 3 | `programmableTokenMinting.mint-local-registered-by-ref` | yes | **TRUE** | — |
+> | 4 | `programmableTokenMinting.mint-burnonly` | yes | **TRUE** | — (needed BOTH the D1 and the A1 fix) |
+> | 5 | `programmableTokenMinting.mint-delegate-transfer-topup` | yes | **TRUE** | — (ditto) |
+> | 6 | `programmableTokenMinting.mint-local-empty-withdrawals-REJECT` | no | **TRUE** | — (clean negative control) |
+> | 7 | `programmableSeize.seize-1-input` | yes | **TRUE** | — (was 4 failing conjuncts) |
+> | 8 | `programmableSeize.seize-2-inputs-partial-with-noise` | yes | **TRUE** | — (was 4) |
+> | 9 | `programmableSeize.seize-1-input-missing-residual-output-REJECT` | no | FALSE | `isBalanced` (T1 tamper) |
+> | 10 | `programmableLogicGlobal.transfer-member-single-policy` | yes | **TRUE** | — |
+> | 11 | `programmableLogicGlobal.transfer-nonmember-covering-node` | yes | **TRUE** | — |
+> | 12 | `programmableLogicGlobal.transfer-mixed-many-policies` | yes | **TRUE** | — |
+> | 13 | `programmableLogicGlobal.transfer-containment-violation-REJECT` | no | FALSE | `isBalanced` (T1 tamper) |
+>
+> ### What this changes for the proofs
+>
+> * **§5.1 row 3 is no longer FALSE.** The blocker was A1. All 9 accepting
+>   goldens can now be substituted into a `validXContext`-carrying P-theorem.
+> * **P3**: `WSC/Goldens/Witnesses.lean` proves `ctx_satisfies_validSpendingContext`
+>   (verbatim), replacing `ctx_fails_validSpendingContext_only_on_fee`.
+> * **P4/P4a/P2′**: `WSC/Props/P4_Minting.lean` proves
+>   `ctx_satisfies_validMintingContext`. `validMintingContext` is demonstrably
+>   SATISFIABLE by a real programmable-token mint, so the minting-purpose theorems
+>   are no longer vacuous on their target class. This needed Z1's D1 fix *and* A1.
+> * **P2 (seize)**: `WSC/Model/SeizeDiff.lean` proves
+>   `accepting_seize_goldens_satisfy_validRewardingContext`; its "HONEST SCOPE
+>   CAVEAT 1" is discharged.
+> * **`WSC/STATUS.md` §3 defect D3 is CLOSED.**
+> * **LR-CTX (E5) is still an axiom.** These contexts are harness-built — now
+>   ledger-shaped as far as `validXContext` can tell, but still not node-captured.
+>   §6 action 2 stands, and is now the highest-value fidelity step remaining.
+>
+> ### Benchmark consequence
+>
+> A3 mattered for cost, not just shape: the seize benchmarks were under-counting a
+> real seize's value-parsing work. `programmableLogicGlobal.SeizeAct1` primary CPU
+> rises 51,571,527 → 60,231,630 (+16.8%); full-transaction cost of the 100- and
+> 150-input seizes rises +14.2%. Two unrelated **arity** bugs in the same benchmark
+> catalogue were also fixed (`programmableLogicBase` 560,100 → 4,525,794 CPU;
+> `protocolParamsMinting` 992,100 → 53,932,564) — both were measuring a
+> partially-applied lambda. wsc-poc branch
+> `fix/benchmark-arity-and-ctx-builder`.
+
 > ## ⚠ UPDATE — TASK Z1: DEFECT **D1 IS FIXED**, AND **D2** WITH IT
 >
 > This document's central finding was that CLAB's `validRedeemerMap` used the
@@ -45,7 +141,7 @@ same functions, so prose and code cannot drift).**
 > **JUSTIFIED** and its `CLABMapOrderAgrees` side condition on `LR_CTX` has been
 > **deleted** (a hypothesis nobody could discharge is exactly what hides
 > vacuity); `WSC/Props/P4_Minting.lean`'s golden caveat theorem is now
-> `ctx_fails_validMintingContext_on_exactly_one_conjunct` — the real minting
+> `ctx_satisfies_validMintingContext` — the real minting
 > golden is a single harness artifact (the zero fee) away from satisfying
 > `validMintingContext` verbatim. The prose below is kept in its original form,
 > with `[Z1]` notes where it has been overtaken, because the record of what was

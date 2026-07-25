@@ -99,149 +99,211 @@ theorem bridge_is_faithful :
 
 /-! ## Step 1 — RESULT A, the verdicts
 
-`auditVerdict v = some false` reads: decoded successfully, matching
-`validXContext` is FALSE.  `failingConjuncts v` names exactly which clauses of
-`validScriptContext` fail, in source order. -/
+`auditVerdict v = some true` reads: decoded successfully, and the matching
+`validXContext` HOLDS.  `failingConjuncts v` names exactly which clauses of
+`validScriptContext` fail, in source order (`some []` = none of them).
 
-/-- **The headline: not one of the 13 real golden contexts satisfies the
-precondition our theorems assume.** -/
-theorem all_goldens_fail_the_precondition : allContextsValid = false := by
+**UPDATED (task Z5): the three HARNESS artifacts are fixed too.**  Z1 fixed
+CLAB's side (D1/D2, see the UPDATE in the module header); the wsc-poc side has now
+been fixed as well, in
+`ProgrammableTokens.Test.ScriptContext.Builder.buildLedgerShapedScriptContext`:
+
+* **A1** — a positive fee (`defaultBalancedTxFee`), balanced against the change
+  output so value conservation still holds;
+* **A2** — `txInfoWdrl` emitted in the LEDGER's `Credential` order
+  (`canonicaliseWdrl` / `compareCredentialLedger`), which fixes the `Rewarding`
+  entries of `txInfoRedeemers` at the same time;
+* **A3** — min-UTxO ada on every output (`ensureMinAda`), so the seize residual
+  seized-token UTxO is no longer lovelace-free.
+
+These goldens were re-dumped from the fixed builder and re-verified against the
+prod-exported scripts at PV11 (all 9 accepting → accept, all 4 rejecting →
+reject).  The pre-fix JSONs are kept under `WSC/goldens/pre-fix/`.
+
+**With both sides fixed, 10 of the 13 goldens satisfy their matching
+`validXContext` OUTRIGHT, and every one of the 9 ACCEPTING goldens does.**  The
+only three failures left are intrinsic to how the REJECTING goldens were
+tampered.  LR-CTX (ADDENDUM E5) therefore has direct empirical support, with no
+relaxation, for all four validator shapes. -/
+
+/-- `allContextsValid` is still `false`, but now for a completely different
+reason: only the three tamper-broken REJECTING goldens fail.  See
+`every_accepting_golden_satisfies_its_precondition`. -/
+theorem not_all_goldens_satisfy_the_precondition : allContextsValid = false := by
   native_decide
 
-/-- Stronger and per-golden: every one of the 13 is `some false` (decoded, and
-the predicate is false) — not a single `none` (decode failure) and not a single
-`some true`. -/
-theorem every_verdict_is_false :
-    all.all (fun v => auditVerdict v == some false) = true := by
+/-- **The headline.** Every ACCEPTING golden satisfies its matching
+`validXContext` with every conjunct checked verbatim — no relaxation, no
+artifacts.  This is what LR-CTX asserts, measured on the real
+off-chain-produced transactions for all four validators. -/
+theorem every_accepting_golden_satisfies_its_precondition :
+    all.all (fun v => !v.accepts || auditVerdict v == some true) = true := by
+  native_decide
+
+/-- Per-golden verdicts: all 13 decode (no `none`), and exactly the three
+tamper-broken rejecting goldens are `some false`. -/
+theorem verdicts_are_exactly_as_tabulated :
+    all.all (fun v =>
+      auditVerdict v ==
+        some (!(v.scenario == "base-spend-no-global-or-seize-invoked-REJECT"
+                || v.scenario == "transfer-containment-violation-REJECT"
+                || v.scenario == "seize-1-input-missing-residual-output-REJECT")))
+      = true := by
+  native_decide
+
+/-- **Every remaining failure is tamper-intrinsic.** Not one is a CLAB clause
+that a real ledger transaction violates, and not one is a harness artifact. -/
+theorem remaining_failures_are_tamper_intrinsic :
+    all.all (fun v =>
+      match failingConjuncts v with
+      | none => false
+      | some fc =>
+          fc == []
+            -- deleting an output from a balanced tx unbalances it
+            || fc == ["isBalanced"]
+            -- grafting a spending purpose onto a minting TxInfo
+            || fc == ["validScriptInfo", "scriptInfo.redeemerConsistent",
+                      "scriptInfo.purposeWellFormed"]) = true := by
   native_decide
 
 /-! ### The exact failing conjuncts, golden by golden
 
-These are the "walk the predicate's components" details the task demands for a
-FALSE verdict.  Sub-conjunct names prefixed `scriptInfo.` are the two halves of
-`validScriptInfo` (`CardanoLedgerApi/V3/Contexts.lean:1001-1002`). -/
+Sub-conjunct names prefixed `scriptInfo.` are the two halves of
+`validScriptInfo` (`CardanoLedgerApi/V3/Contexts.lean`). -/
 
-/-- `programmableLogicBase.base-spend-transfer-tx` (ACCEPTING) — the single
-failing conjunct is the zero fee. -/
+/-- `programmableLogicBase.base-spend-transfer-tx` (ACCEPTING) — **clean**.  It is
+P3's witness, so `WSC/Goldens/Witnesses.lean` can now prove
+`ctx_satisfies_validSpendingContext` outright where it previously had to carry a
+zero-fee caveat. -/
 theorem fail_base_spend_transfer_tx :
     failingConjuncts programmableLogicBase_base_spend_transfer_tx
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
 /-- `programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT`
-(rejecting) — besides the fee, `validScriptInfo` fails in BOTH halves: this
-golden grafts a `SpendingScript` purpose onto the minting transaction's `TxInfo`
-(`sourceTest`), so (i) there is no `Spending` entry in `txInfoRedeemers` to match
-and (ii) the claimed own-input `TxOutRef` is not among `txInfoInputs`.  NOTE for
-the negative-control story: this rejecting golden is therefore not a well-formed
-ledger context at all, so it exercises the bytecode's reject path but cannot be
-used as a `validSpendingContext`-carrying counterexample. -/
+(rejecting) — `validScriptInfo` fails in BOTH halves, intrinsic to the tamper:
+this golden grafts a `SpendingScript` purpose onto the minting transaction's
+`TxInfo` (`sourceTest`), so (i) there is no `Spending` entry in `txInfoRedeemers`
+to match and (ii) the claimed own-input `TxOutRef` is not among `txInfoInputs`.
+NOTE for the negative-control story: this golden is therefore still not a
+well-formed ledger context, so it exercises the bytecode's reject path but cannot
+serve as a `validSpendingContext`-carrying counterexample. -/
 theorem fail_base_spend_no_global_or_seize_invoked_REJECT :
     failingConjuncts programmableLogicBase_base_spend_no_global_or_seize_invoked_REJECT
       = some ["validScriptInfo", "scriptInfo.redeemerConsistent",
-              "scriptInfo.purposeWellFormed", "txInfoFee > 0"] := by
+              "scriptInfo.purposeWellFormed"] := by
   native_decide
 
-/-- `programmableTokenMinting.mint-local-registered-by-ref` (ACCEPTING). -/
+/-- `programmableTokenMinting.mint-local-registered-by-ref` (ACCEPTING) —
+clean. -/
 theorem fail_mint_local_registered_by_ref :
     failingConjuncts programmableTokenMinting_mint_local_registered_by_ref
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
-/-- `programmableTokenMinting.mint-local-empty-withdrawals-REJECT` (rejecting):
-its tamper (`txInfoWdrl := []`) does NOT break well-formedness, so like the
-accepting goldens only the fee fails. -/
+/-- `programmableTokenMinting.mint-local-empty-withdrawals-REJECT` (rejecting) —
+**clean**: its tamper (`txInfoWdrl := []`) does not break well-formedness, so it
+is a genuinely ledger-shaped context that the bytecode rejects — the suite's
+clean negative control. -/
 theorem fail_mint_local_empty_withdrawals_REJECT :
     failingConjuncts programmableTokenMinting_mint_local_empty_withdrawals_REJECT
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
-/-- `programmableTokenMinting.mint-burnonly` (ACCEPTING) — the fee (A1) is now the
-ONLY failing conjunct.  Before the D1 fix this golden also failed
-`validRedeemerMap` at its `(Spending, Minting)` pair; its redeemer order was the
-ledger's all along and CLAB's order was wrong (task Z1). -/
+/-- `programmableTokenMinting.mint-burnonly` (ACCEPTING) — **clean, and this is
+the one that mattered most.**  It needed BOTH repairs: Z1's `ltScriptPurpose` fix
+(D1, its `Spending`-before-`Minting` order is the ledger's) and the harness fee
+fix (A1).  `validMintingContext` is now satisfiable on P4/P4a/P2′'s target class,
+so those theorems are no longer vacuous where they are supposed to bite. -/
 theorem fail_mint_burnonly :
     failingConjuncts programmableTokenMinting_mint_burnonly
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
-/-- `programmableTokenMinting.mint-delegate-transfer-topup` (ACCEPTING) — likewise
-fee-only since the D1 fix. -/
+/-- `programmableTokenMinting.mint-delegate-transfer-topup` (ACCEPTING) — clean,
+same two repairs. -/
 theorem fail_mint_delegate_transfer_topup :
     failingConjuncts programmableTokenMinting_mint_delegate_transfer_topup
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
-/-- `programmableSeize.seize-1-input` (ACCEPTING) — the worst case: lovelace-free
-residual output (A3), zero fee (A1), and the descending script-credential pair
-breaking BOTH `validWithdrawals` and `validRedeemerMap` (A2 — note this is A2, not
-D1: the violating redeemer pair is `(Rewarding script, Rewarding script)`, inside
-one purpose kind, where CLAB and the ledger agree).  All harness artifacts;
-`isBalanced`, `validInputs`, `validReferenceInputs` and `validScriptInfo` all
-HOLD. -/
+/-- `programmableSeize.seize-1-input` (ACCEPTING) — **clean**, the biggest single
+change: it previously failed FOUR conjuncts (`validOutputs`, `txInfoFee > 0`,
+`validWithdrawals`, `validRedeemerMap`) from three separate harness artifacts.
+The harness now attaches min-UTxO ada to the residual seized-token output, charges
+a fee, and emits the two script withdrawal credentials ascending in the ledger's
+`Credential` order — which fixes the `Rewarding` pair in `txInfoRedeemers` too. -/
 theorem fail_seize_1_input :
     failingConjuncts programmableSeize_seize_1_input
-      = some ["validOutputs", "txInfoFee > 0", "validWithdrawals",
-              "validRedeemerMap"] := by
+      = some [] := by
   native_decide
 
-/-- `programmableSeize.seize-2-inputs-partial-with-noise` (ACCEPTING) — same four
-clauses, same three causes. -/
+/-- `programmableSeize.seize-2-inputs-partial-with-noise` (ACCEPTING) — clean,
+same three repairs. -/
 theorem fail_seize_2_inputs_partial_with_noise :
     failingConjuncts programmableSeize_seize_2_inputs_partial_with_noise
-      = some ["validOutputs", "txInfoFee > 0", "validWithdrawals",
-              "validRedeemerMap"] := by
+      = some [] := by
   native_decide
 
 /-- `programmableSeize.seize-1-input-missing-residual-output-REJECT` (rejecting)
-— the tamper DELETES the residual output, so `isBalanced` genuinely fails (and,
-the deleted output being the lovelace-free one, `validOutputs` now passes). -/
+— `isBalanced` fails, intrinsic to the tamper (it DELETES the residual output).
+The tamper had to be re-pointed upstream: the seize contexts now carry a
+balancing change output as their LAST output, so the residual is the
+second-to-last, and "drop the last output" would have removed the change output
+and left a context the seize validator still ACCEPTS. -/
 theorem fail_seize_1_input_missing_residual_output_REJECT :
     failingConjuncts programmableSeize_seize_1_input_missing_residual_output_REJECT
-      = some ["txInfoFee > 0", "validWithdrawals", "validRedeemerMap",
-              "isBalanced"] := by
+      = some ["isBalanced"] := by
   native_decide
 
-/-- `programmableLogicGlobal.transfer-member-single-policy` (ACCEPTING). -/
+/-- `programmableLogicGlobal.transfer-member-single-policy` (ACCEPTING) —
+clean. -/
 theorem fail_transfer_member_single_policy :
     failingConjuncts programmableLogicGlobal_transfer_member_single_policy
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
 /-- `programmableLogicGlobal.transfer-nonmember-covering-node` (ACCEPTING) —
-the cheapest accepting global run (K = 1,554) and P5's subject shape. -/
+clean; the cheapest accepting global run and P5's subject shape. -/
 theorem fail_transfer_nonmember_covering_node :
     failingConjuncts programmableLogicGlobal_transfer_nonmember_covering_node
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
-/-- `programmableLogicGlobal.transfer-mixed-many-policies` (ACCEPTING). -/
+/-- `programmableLogicGlobal.transfer-mixed-many-policies` (ACCEPTING) —
+clean. -/
 theorem fail_transfer_mixed_many_policies :
     failingConjuncts programmableLogicGlobal_transfer_mixed_many_policies
-      = some ["txInfoFee > 0"] := by
+      = some [] := by
   native_decide
 
 /-- `programmableLogicGlobal.transfer-containment-violation-REJECT` (rejecting)
-— the tamper deletes a base output holding 3 of 5 programmable tokens, so
-`isBalanced` genuinely fails. -/
+— `isBalanced` fails, intrinsic to the tamper (it deletes a base output holding
+3 of 5 programmable tokens). -/
 theorem fail_transfer_containment_violation_REJECT :
     failingConjuncts programmableLogicGlobal_transfer_containment_violation_REJECT
-      = some ["txInfoFee > 0", "isBalanced"] := by
+      = some ["isBalanced"] := by
   native_decide
 
-/-! ## Step 2 — root causes, pinned as facts
+/-! ## Step 2 — the artifacts are GONE, pinned as facts
 
-Each artifact class is asserted directly, so the audit narrative is checked and
-not merely asserted in prose. -/
+The first run of this audit asserted each artifact class as a positive fact
+(`A1_every_golden_has_zero_fee`, `A3_only_seize_has_lovelace_free_outputs`, and a
+withdrawal-order violation in every seize golden).  Their negations are asserted
+here in the same style, so a regression in either component breaks this build
+with the artifact named. -/
 
 def feeOf (v : Vector) : Option Integer :=
   (ctxOfHex v.scriptContextHex).map fun c => c.scriptContextTxInfo.txInfoFee
 
-/-- **A1.** Every one of the 13 goldens has `txInfoFee = 0`.  This is the single
-universal obstruction, and the reason the 9 accepting goldens cannot be
-substituted into a `validXContext`-carrying theorem as-is. -/
-theorem A1_every_golden_has_zero_fee :
-    all.all (fun v => feeOf v == some 0) = true := by
+/-- **A1 FIXED.** Every golden now pays a strictly positive fee.  This was the
+universal obstruction and the reason no accepting golden could be substituted
+into a `validXContext`-carrying theorem. -/
+theorem A1_every_golden_has_a_positive_fee :
+    all.all (fun v =>
+      match feeOf v with
+      | none => false
+      | some f => decide (0 < f)) = true := by
   native_decide
 
 /-- Number of outputs carrying no lovelace entry. -/
@@ -250,21 +312,39 @@ def lovelaceFreeOutputs (v : Vector) : Option Nat :=
     (c.scriptContextTxInfo.txInfoOutputs.filter
       (fun o => !hasAdaEntry o.txOutValue)).length
 
-/-- **A3.** Exactly the two accepting seize goldens carry a lovelace-free output
-(the residual seized-token UTxO); every other golden has none. -/
-theorem A3_only_seize_has_lovelace_free_outputs :
-    all.all (fun v =>
-      lovelaceFreeOutputs v ==
-        some (if v.scenario == "seize-1-input"
-                 || v.scenario == "seize-2-inputs-partial-with-noise"
-              then 1 else 0)) = true := by
+/-- **A3 FIXED.** No golden carries a lovelace-free output any more, including
+the two accepting seize goldens whose residual seized-token UTxO was the only
+offender.  Cardano's min-UTxO rule forbids a zero-lovelace UTxO, so this also
+means the seize BENCHMARKS were under-counting a real seize's value-parsing
+work. -/
+theorem A3_no_golden_has_lovelace_free_outputs :
+    all.all (fun v => lovelaceFreeOutputs v == some 0) = true := by
   native_decide
 
-/-- **A2 is a pure ORDER failure.** Canonically re-sorting the withdrawal map and
-the redeemer map — a permutation that touches no value — makes both clauses hold
-in every golden.  Post-Z1 this re-sort is a NO-OP on the two minting goldens
-(their redeemer maps are already in CLAB's = the ledger's order), so it is now
-only doing work on the mis-ordered seize contexts. -/
+/-- **A2 FIXED.** No golden's withdrawal map is mis-ordered any more: the harness
+sorts `txInfoWdrl` by the LEDGER's `Credential` order. -/
+theorem A2_no_withdrawal_order_violations :
+    all.all (fun v =>
+      match ctxOfHex v.scriptContextHex with
+      | none => false
+      | some ctx => firstWithdrawalOrderViolation ctx == none) = true := by
+  native_decide
+
+/-- **No order violation of any kind remains.** With CLAB's `ltScriptPurpose` /
+`ltCredential` corrected (Z1's D1/D2) and the harness emitting both maps in the
+ledger's order, `txInfoRedeemers` is sorted in all 13 goldens too. -/
+theorem no_order_violations_remain :
+    all.all (fun v =>
+      match ctxOfHex v.scriptContextHex with
+      | none => false
+      | some ctx =>
+          firstRedeemerOrderViolation ctx == none
+          && firstWithdrawalOrderViolation ctx == none) = true := by
+  native_decide
+
+/-- Retained from the pre-fix audit: canonically re-sorting both maps is a no-op
+now, which is the same statement as `no_order_violations_remain` from the other
+direction. -/
 theorem order_failures_are_order_only :
     all.all (fun v =>
       match ctxOfHex v.scriptContextHex with
@@ -277,68 +357,25 @@ theorem order_failures_are_order_only :
                c.scriptContextTxInfo.txInfoRedeemers) = true := by
   native_decide
 
-/-- **A2 is now the ONLY order cause (D1 is fixed).** For each golden, the
-adjacent pair that breaks `validRedeemerMap` (`none` = the check passes):
-
-* the three SEIZE goldens break at
-  `("Rewarding(script)", "Rewarding(script)")` — inside one kind, where CLAB and
-  the ledger agree, i.e. harness artifact **A2**;
-* **all ten others are sorted**, including the two accepting MINTING goldens,
-  which before task Z1's fix broke at `("Spending", "Minting")` — a purpose-KIND
-  boundary where CLAB's order, not the transaction, was wrong (defect D1).  That
-  `none` is the machine-checked payoff of the fix: no purpose-KIND violation
-  survives anywhere in the suite.
-
-The withdrawal-map violations are all `("script", "script")`, confirming A2's
-attribution there too — and they are unchanged by the D2 fix precisely because
-both credentials are script credentials, the case where the old and new orders
-agree. -/
-theorem order_violations_are_all_A2 :
-    all.all (fun v =>
-      match ctxOfHex v.scriptContextHex with
-      | none => false
-      | some ctx =>
-          (firstRedeemerOrderViolation ctx ==
-            (if v.validator == "programmableSeize"
-             then some ("Rewarding(script)", "Rewarding(script)")
-             else none))
-          && (firstWithdrawalOrderViolation ctx ==
-                (if v.validator == "programmableSeize"
-                 then some ("script", "script") else none))) = true := by
-  native_decide
-
-/-- No golden's redeemer map has a violation at a purpose-KIND boundary any more:
-every surviving violation is `Rewarding`-vs-`Rewarding`.  This is the sharpest
-statement of "D1 is gone from the suite". -/
-theorem no_purpose_kind_order_violation_remains :
-    all.all (fun v =>
-      match ctxOfHex v.scriptContextHex with
-      | none => false
-      | some ctx =>
-          match firstRedeemerOrderViolation ctx with
-          | none => true
-          | some (a, b) => a == b) = true := by
-  native_decide
-
 /-! ## Step 3 — the interpretation, machine-checked
 
-The task's reading of an all-TRUE result would have been "the preconditions are
-not over-strong".  We got all-FALSE, so the honest question becomes: *is any
-failure evidence that CLAB's predicate excludes a REAL ledger transaction?*  The
-theorem below answers no, as sharply as this golden suite permits: once the four
-harness artifacts are accounted for — and with `isBalanced` and every other
-conjunct still checked verbatim — all 9 accepting goldens satisfy the predicate.
+The question this audit exists to answer is: *is any failure evidence that CLAB's
+predicate excludes a REAL ledger transaction?*  With both components repaired the
+answer is **no, in every clause**: all 9 accepting goldens satisfy their matching
+`validXContext` verbatim (`every_accepting_golden_satisfies_its_precondition`),
+and the 3 remaining FALSE verdicts are all tamper-intrinsic.
 
-What remains unresolved, and is stated as such in `WSC/LR-CTX-AUDIT.md`: these
-contexts are harness-built, so this is evidence about a ledger-SHAPED context
-generator, not about the Cardano ledger's own `ScriptContext` construction.
-Only contexts captured from a running node (or from `cardano-ledger`'s own
-`ScriptContext` builder) can settle E5 outright. -/
+What is still NOT established is LR-CTX itself in full generality: these contexts
+are built by wsc-poc's benchmark harness, not captured from a node.  They are now
+ledger-shaped as far as `validXContext` can tell, which is a much stronger
+statement than before, but only contexts produced by `cardano-ledger`'s own
+`ScriptContext` builder can settle E5 outright (§6 action 2). -/
 
-/-- **The decisive result.** All 9 ACCEPTING goldens satisfy their matching
-`validXContext` modulo the four named harness artifacts (A1 fee dropped, A3
-min-ada relaxed, A2/A2′ canonically re-sorted; `isBalanced` and everything else
-checked verbatim). -/
+/-- Retained: the relaxed predicate also passes on all 9 accepting goldens.
+Since the fixes this is strictly weaker than
+`every_accepting_golden_satisfies_its_precondition` above, and is kept only so a
+regression shows up as "fails verbatim but passes relaxed" rather than as a bare
+failure. -/
 theorem accepting_goldens_pass_modulo_artifacts :
     acceptingContextsValidRelaxed = true := by
   native_decide

@@ -188,18 +188,20 @@ theorem transfer_mixed_many_policies :
   native_decide
 
 /-- `seize-1-input`: MANIFEST records the Haskell helper call
-`mkSeizeActRedeemerFromAbsoluteInputIdxs 1 [0] 0 0 1`, i.e.
+`mkSeizeActRedeemerFromAbsoluteInputIdxs 1 [0] 0 0 0`, i.e.
 `SeizeAct dirNodeIdx=1 inputIdxs=[0] outputsStartIdx=0 lengthInputIdxs=1
-seizeParamsRefIdx=0 issuerWdrlIdx=1` (the helper computes `lengthInputIdxs`
+seizeParamsRefIdx=0 issuerWdrlIdx=0` (issuerWdrlIdx is 0, not 1, since the
+harness now emits `txInfoWdrl` in the ledger's own Credential order, which puts
+the issuer credential `0x14..` before the seize credential `0x40..`) (the helper computes `lengthInputIdxs`
 from the list, which is why the wire form has six fields for five arguments).
 Exercises tag 1 and all six fields. -/
 theorem seize_1_input :
     mirrorRoundTrip PLGRedeemer
       programmableSeize_seize_1_input.redeemerHex = some true ∧
-    encodesTo (PLGRedeemer.SeizeAct 1 [0] 0 1 0 1)
+    encodesTo (PLGRedeemer.SeizeAct 1 [0] 0 1 0 0)
       programmableSeize_seize_1_input.redeemerHex = true ∧
     decodesToValue PLGRedeemer programmableSeize_seize_1_input.redeemerHex
-      (IsData.toData (PLGRedeemer.SeizeAct 1 [0] 0 1 0 1)) = true := by
+      (IsData.toData (PLGRedeemer.SeizeAct 1 [0] 0 1 0 0)) = true := by
   native_decide
 
 /-- `seize-1-input-missing-residual-output-REJECT`: same redeemer (the tamper
@@ -207,7 +209,7 @@ deletes an output). -/
 theorem seize_1_input_missing_residual_REJECT :
     mirrorRoundTrip PLGRedeemer
       programmableSeize_seize_1_input_missing_residual_output_REJECT.redeemerHex = some true ∧
-    encodesTo (PLGRedeemer.SeizeAct 1 [0] 0 1 0 1)
+    encodesTo (PLGRedeemer.SeizeAct 1 [0] 0 1 0 0)
       programmableSeize_seize_1_input_missing_residual_output_REJECT.redeemerHex = true := by
   native_decide
 
@@ -219,11 +221,11 @@ encoding (documented at `WSC/Redeemer.lean:104-107`). -/
 theorem seize_2_inputs_partial_with_noise :
     mirrorRoundTrip PLGRedeemer
       programmableSeize_seize_2_inputs_partial_with_noise.redeemerHex = some true ∧
-    encodesTo (PLGRedeemer.SeizeAct 1 [0, 0] 0 2 0 1)
+    encodesTo (PLGRedeemer.SeizeAct 1 [0, 0] 0 2 0 0)
       programmableSeize_seize_2_inputs_partial_with_noise.redeemerHex = true ∧
     decodesToValue PLGRedeemer
       programmableSeize_seize_2_inputs_partial_with_noise.redeemerHex
-      (IsData.toData (PLGRedeemer.SeizeAct 1 [0, 0] 0 2 0 1)) = true := by
+      (IsData.toData (PLGRedeemer.SeizeAct 1 [0, 0] 0 2 0 0)) = true := by
   native_decide
 
 /-! ## COVERAGE GAP, stated honestly

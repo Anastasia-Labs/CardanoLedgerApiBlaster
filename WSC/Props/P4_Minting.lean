@@ -541,14 +541,17 @@ prep is what makes it usable: the follow-up note in WSC/Goldens/Witnesses.lean
 records that the minting golden could not carry a witness against a 600-step
 prep, and that is now fixed.
 
-WEAKER: the golden does NOT satisfy `validMintingContext`. Since task Z1 fixed
-CLAB defect D1 (`ltScriptPurpose` now uses the ledger's `ConwayPlutusPurpose`
-order) its SINGLE failing conjunct is `txInfoFee > 0` — the emulator golden pays
-no fee — recorded as a theorem below rather than waved away. So the golden
-certifies that the BYTECODE accepts inside 900 steps
-(which is what non-vacuity of the budget needs), while the hand-built
-`P4Witness` is the one that additionally satisfies the theorems' stated
-hypothesis exactly (`P4Witness.ctx_valid`). Together they cover both jobs.
+NO LONGER WEAKER: the golden now satisfies `validMintingContext` OUTRIGHT. It
+took both repairs — task Z1's `ltScriptPurpose` fix (defect D1) on the CLAB side,
+and task Z5's harness fix (a positive, balanced fee) on the wsc-poc side. So this
+REAL, off-chain-produced minting transaction certifies BOTH jobs at once: the
+bytecode accepts it inside 900 steps (non-vacuity of the budget) AND it satisfies
+the theorems' stated hypothesis verbatim. The hand-built `P4Witness` remains as
+an independent, minimal witness (`P4Witness.ctx_valid`).
+
+This is the fact that un-blocks the minting class: `validMintingContext` is
+demonstrably SATISFIABLE by a real programmable-token mint, so a theorem of the
+form `validMintingContext ctx → accept → POST` is not vacuous where it bites.
 -/
 
 namespace P4Golden
@@ -595,23 +598,29 @@ theorem ctx_pins_the_golden :
 theorem ownCS_pins_the_purpose : ownCurrencySymbol ctx = some ownCS := by
   native_decide
 
-/-- **The honest caveat, as a theorem.** The golden fails
-`validMintingContext` on EXACTLY ONE conjunct: `txInfoFee > 0` (the emulator
-golden pays no fee).  Stating it this way means the gap cannot silently widen.
+/-- **The caveat is fully DISCHARGED, as a theorem.** The golden satisfies
+`validMintingContext` with NO failing conjunct.
 
-NARROWED BY TASK Z1: this list used to be
-`["txInfoFee > 0", "validRedeemerMap"]`.  The second entry was CLAB defect D1 —
-`ltScriptPurpose` ordered purposes by the PLUTUS constructor tags
-(`Minting < Spending`) instead of the ledger's `ConwayPlutusPurpose AsIx` tags
-(`Spending < Minting`), so no transaction that both spends and mints could
-satisfy `validRedeemerMap` and every `validMintingContext`-hypothesised theorem
-was VACUOUS on its own target class.  With `ltScriptPurpose` corrected
-(`CardanoLedgerApi/V3/Contexts.lean`, ledger citations in its docstring) this
-real, chain-shaped minting context is a single HARNESS artifact — the zero fee —
-away from satisfying the hypothesis verbatim. -/
-theorem ctx_fails_validMintingContext_on_exactly_one_conjunct :
-    validMintingContext ctx = false ∧
-    failingConjuncts golden = some ["txInfoFee > 0"] := by
+History, because the two-step repair is the finding.  This list was originally
+`["txInfoFee > 0", "validRedeemerMap"]`:
+
+* `validRedeemerMap` was CLAB defect **D1** — `ltScriptPurpose` ordered purposes
+  by the PLUTUS constructor tags (`Minting < Spending`) instead of the ledger's
+  `ConwayPlutusPurpose AsIx` tags (`Spending < Minting`), so NO transaction that
+  both spends and mints could satisfy `validRedeemerMap`, and every
+  `validMintingContext`-hypothesised theorem was VACUOUS on its own target class.
+  Fixed by task Z1 in `CardanoLedgerApi/V3/Contexts.lean` (ledger citations in its
+  docstring).
+* `txInfoFee > 0` was a wsc-poc HARNESS artifact — the benchmark
+  `ScriptContext` builder charged no fee.  Fixed by task Z5 in
+  `ProgrammableTokens.Test.ScriptContext.Builder.buildLedgerShapedScriptContext`,
+  which charges `defaultBalancedTxFee` and balances against it; these goldens were
+  re-dumped from the fixed builder and re-verified at PV11.
+
+Stated as an equality against the empty list so the gap cannot silently reopen. -/
+theorem ctx_satisfies_validMintingContext :
+    validMintingContext ctx = true ∧
+    failingConjuncts golden = some [] := by
   native_decide
 
 /-! ### The witness proper -/

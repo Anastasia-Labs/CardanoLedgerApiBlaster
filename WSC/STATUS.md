@@ -152,7 +152,7 @@ strong as reality permits. Effects, all machine-checked: both accepting minting
 goldens now PASS `validRedeemerMap` (their only failing conjunct is the zero fee);
 `WSC/Honest.lean` audit rows L and M are JUSTIFIED and its `CLABMapOrderAgrees`
 quarantine on `LR_CTX` is DELETED; `WSC/Props/P4_Minting.lean`'s caveat theorem is
-now `ctx_fails_validMintingContext_on_exactly_one_conjunct`. **`validMintingContext`
+now `ctx_satisfies_validMintingContext`. **`validMintingContext`
 is satisfiable on P4's target class again, so the minting theorems are no longer
 vacuous by construction** — what still blocks a verdict on P4a is the Z3 search
 wall, not vacuity: re-measured post-fix at budget 900, both the vacuity probe and
@@ -176,8 +176,28 @@ golden withdrawal credential is a script credential — which confirms that the
 seize goldens' `validWithdrawals` failure is a harness artifact (A2), not a CLAB
 defect.
 
-**D3 — no golden satisfies `validXContext`, so the golden suite cannot supply an
-anti-vacuity witness.** All 13 golden contexts were CBOR-decoded into Lean and
+**D3 — ~~no golden satisfies `validXContext`~~ — FIXED (task Z5). All 9 ACCEPTING
+goldens now satisfy `validXContext` verbatim; the golden suite IS the anti-vacuity
+witness set.** The three builder artifacts below were repaired upstream in
+wsc-poc's
+`ProgrammableTokens.Test.ScriptContext.Builder.buildLedgerShapedScriptContext`
+(positive balanced fee; `txInfoWdrl` in the ledger's `Credential` order, which also
+fixes the `Rewarding` entries of `txInfoRedeemers`; min-UTxO ada on every output),
+the 13 goldens were re-dumped and re-verified at PV11, and the pre-fix JSONs are
+kept under `WSC/goldens/pre-fix/`. Post-fix, **10 of 13 goldens are TRUE** and the
+only 3 FALSE are tamper-intrinsic (2x `isBalanced` from output-deleting tampers,
+1x `validScriptInfo` from the cross-grafted purpose). Machine-checked by
+`WSC/Goldens/Audit.lean`'s `every_accepting_golden_satisfies_its_precondition`,
+`A1_every_golden_has_a_positive_fee`, `A2_no_withdrawal_order_violations`,
+`A3_no_golden_has_lovelace_free_outputs` and `no_order_violations_remain`.
+Downstream caveats discharged: `WSC/Goldens/Witnesses.lean`
+(`ctx_satisfies_validSpendingContext`), `WSC/Props/P4_Minting.lean`
+(`ctx_satisfies_validMintingContext`) and `WSC/Model/SeizeDiff.lean`
+(`accepting_seize_goldens_satisfy_validRewardingContext`). Historical description
+of the defect follows.
+
+**D3 (historical) — no golden satisfied `validXContext`, so the golden suite could
+not supply an anti-vacuity witness.** All 13 golden contexts were CBOR-decoded into Lean and
 every `validTxInfo` conjunct evaluated: all 13 have `txInfoFee = 0`, so
 `txInfoFee > 0` (`Contexts.lean:1201`) fails. This is a builder artifact — the
 goldens are produced by the repo's `ScriptContext.Builder`, not captured from a
@@ -192,7 +212,8 @@ fault, D3 is the builder's: post-fix **8 of the 13 goldens fail on the fee ALONE
 plus `mint-local-empty-withdrawals-REJECT`), up from 6 before the fix, so a single
 builder change (a positive fee with the balance adjusted) would turn each of them
 into a genuine `validXContext` witness. Fix: give the golden builder a positive
-fee, sorted withdrawals and min-ada on every output, then re-dump.
+fee, sorted withdrawals and min-ada on every output, then re-dump. **Done in task
+Z5 — see the FIXED note above.**
 
 **D4 — CLAB does not assert the PV11 rule `txInfoInputs ∩ txInfoReferenceInputs = ∅`**
 (`Conway/TxInfo.hs:492, 811-822`). This is a *missing* conjunct, i.e. the
@@ -245,7 +266,7 @@ bytecode" claim for the global validator carries that caveat.
    question remains. Then either produce a **shape-coverage argument** or publish
    the shaped layer explicitly as a bounded-model-checking tier and record in
    `WSC/Honest.lean` which axioms it replaces ON THOSE SHAPES ONLY.
-4. Fix D3 so the golden suite can act as the anti-vacuity witness set.
+4. ~~Fix D3 so the golden suite can act as the anti-vacuity witness set.~~ **DONE (Z5).** Next fidelity step is now §6 action 2 of `WSC/LR-CTX-AUDIT.md`: capture a context from `cardano-ledger`'s own `ScriptContext` builder, since LR-CTX still rests on harness-built (if now ledger-shaped) contexts.
 5. **U10** — `mkDirectoryNodeMP` at UPLC, discharging `DirWF`. Highest assurance
    ROI: it is the only escape-critical assumption.
 6. For P1 and P2, stop attempting fully-symbolic preps and decide between shaped

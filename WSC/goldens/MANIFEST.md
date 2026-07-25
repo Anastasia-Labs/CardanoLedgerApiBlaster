@@ -1,5 +1,31 @@
 # WSC golden ScriptContexts (task W1)
 
+> **RE-DUMPED after the upstream ScriptContext-builder fix (task Z5).** These 13
+> JSONs (and `applied/*.flat`) were regenerated from a wsc-poc worktree in which
+> `ProgrammableTokens.Test.ScriptContext.Builder` grew a new
+> `buildLedgerShapedScriptContext` entry point enforcing three ledger invariants
+> the benchmark catalogue previously violated: a positive, balanced `txInfoFee`;
+> `txInfoWdrl` (and the matching `Rewarding` redeemer entries) in
+> `cardano-ledger`'s own `Credential` order; and min-UTxO ada on every output.
+> The benchmark catalogue now builds every context through it. See the UPDATE section at the top of
+> `WSC/LR-CTX-AUDIT.md` for the full list and the re-measured verdicts —
+> **8 of 13 now satisfy CLAB's `validXContext` outright, where previously 0 did.**
+>
+> Two redeemer-level consequences worth calling out, because they are visible in
+> `redeemerHex`:
+>
+> * the three seize goldens now carry `issuerWdrlIdx = 0` (not `1`): the issuer
+>   credential `0x14..` sorts before the seize credential `0x40..` in the ledger's
+>   order, so `mkSeizeActRedeemerFromAbsoluteInputIdxs 1 … 0 0 0`;
+> * the `seize-1-input-missing-residual-output-REJECT` tamper now drops the
+>   SECOND-to-last output, not the last: the seize contexts carry a balancing
+>   change output at the end, so dropping the last output would have removed the
+>   change and left a context the seize validator still ACCEPTS.
+>
+> The pre-fix JSONs and flats are preserved verbatim under `pre-fix/` (they are
+> deliberately in a subdirectory: `WSC/Goldens/gen-vectors.py` globs
+> `WSC/goldens/*.json` and asserts exactly 13).
+
 Concrete (validator, params, redeemer, ScriptContext) vectors for the four WSC
 validators, each VERIFIED by executing the ACTUAL production-exported unapplied
 script — byte-identical to the flats imported in `WSC/flats/` (sha256 table in
@@ -26,9 +52,11 @@ script — byte-identical to the flats imported in `WSC/flats/` (sha256 table in
   (`src/programmable-tokens-test/exe/BenchmarkOnchainScripts.hs`), which builds
   ledger-shaped `PlutusLedgerApi.V3.ScriptContext` values through
   `ProgrammableTokens.Test.ScriptContext.Builder`
-  (`buildBalancedScriptContext`: canonical ada-first sorted values via
+  (`buildLedgerShapedScriptContext`: canonical ada-first sorted values via
   `normalizeValue`, inputs/reference-inputs insertion-sorted by `TxOutRef`,
-  value-balancing change output). These are NOT captured from a running
+  redeemer map in `cardano-ledger`'s `ConwayPlutusPurpose AsIx` order,
+  withdrawal map in the ledger's `Credential` order, min-UTxO ada on every
+  output, a positive fee, and a value-balancing change output). These are NOT captured from a running
   mockchain; per the W1 fidelity bar, each dumped ctx is instead verified by
   re-running the actual compiled script on the dumped ctx (below). Rejecting
   variants are single-field tampers of accepting ctxs (described per golden in
