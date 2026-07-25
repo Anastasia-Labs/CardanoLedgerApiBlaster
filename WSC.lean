@@ -76,3 +76,22 @@ import WSC.Shaped.GlobalShaped
 import WSC.Props.Shaped.P4Shaped
 import WSC.Props.Shaped.P4ShapedIdx
 import WSC.Props.Shaped.P5Shaped
+-- ── P1 (CONTAINMENT) AT UPLC, task V1 ───────────────────────────────────────
+-- The central property: "when the global validator accepts a transfer, no
+-- registered programmable token can leave or vanish from the mini-ledger",
+-- in the SIGNED form `outAtBase ≥ inAtBase + mintOf`.  Previously recorded as
+-- NOT-REACHABLE-AT-UPLC (symbolic prep at the required budget extrapolated at
+-- 7-182 YEARS, WSC/goldens/K-MEASUREMENTS.md §5.2) and proved only on the
+-- source model behind `WSC.Model.globalModel_faithful`.  Shaped prep is
+-- budget-independent, so it is now PROVED against the real compiled bytecode at
+-- budget 4400 over four shapes (T1/T2/T6/T7) with NO faithfulness axiom —
+-- `#print axioms` audit in WSC/Shaped/Probe/P1Axioms.lean.  Bounded twice (budget
+-- AND shape) like the rest of the shaped layer; read the SCOPE block at the top
+-- of WSC/Props/Shaped/P1Shaped.lean before quoting anything from it, including
+-- which of the three containment dispatch paths is covered (Path A only, and why).
+import WSC.Shaped.GlobalShapedP1
+import WSC.Shaped.GlobalShapedP1Prep
+import WSC.Shaped.GlobalShapedP1MintPrep
+import WSC.Shaped.GlobalShapedP1Out
+import WSC.Shaped.GlobalShapedP1OutPrep
+import WSC.Props.Shaped.P1Shaped
