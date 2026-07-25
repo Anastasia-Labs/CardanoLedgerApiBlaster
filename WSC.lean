@@ -259,3 +259,26 @@ import WSC.Props.Shaped.RealizableShapes
 -- (`realizable_inhabitant`, 0 project axioms) — the exact contrast with
 -- `ShapeRealizability.t1VacuousLeaves`, whose class is proved EMPTY.
 import WSC.Props.Shaped.RealizableLeaves
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TASK E1 — the LAST leaf hypothesis removed, and one composed result PER
+-- PURPOSE FAMILY (audit F1 → N = 0).
+-- ═══════════════════════════════════════════════════════════════════════════
+-- §10 of `RealizableLeaves.lean` measures the question C4 left open and answers
+-- it the honest way round: `p2` is NOT vacuous over `T1RShape`, because SHAPE
+-- T1R's SECOND script withdrawal `w1` is free and `WSC.Deployed` is opaque, so
+-- nothing says the deployment's seize credential is not it.  The smallest honest
+-- variant adds ONE decidable conjunct about the transaction —
+-- `NoSeizeWdrl` : the seize credential is not in `txInfoWdrl` — over which `p2`
+-- is discharged BY THE SHAPE + the ledger rule (`validScriptInfo`'s rewarding
+-- clause: a rewarding script runs only where the transaction withdraws), with
+-- the acceptance hypothesis unused and bound as `_`.
+-- `containment_on_realizable_class` is then the top claim with NO leaf
+-- hypothesis at all, over a class that still contains the certified
+-- node-realizable SHAPE-T1R witness — at the SAME 28 project axioms.
+-- `RealizableLeavesS1R.lean` is the seize-purpose counterpart, where the ratio
+-- is the same but the LOAD-BEARING LEAF IS THE OTHER ONE: `p2` from the
+-- production `programmableSeize` bytecode at 3800 (`bridge_S1R` +
+-- `WSC.LR_BUDGET_seize`, the first use of that bridge anywhere), `p1`/`p4`/
+-- `nopre` by the shape.  ONE of four leaves is bytecode on each side.
+import WSC.Props.Shaped.RealizableLeavesS1R
