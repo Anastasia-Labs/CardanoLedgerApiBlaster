@@ -221,7 +221,7 @@ and, for a reviewer, the most important artifact in the campaign.
   — refuted at SHAPE T1R's own size, by three witnesses that differ from the certified
   inhabitant in **exactly one** `Data`-skeleton feature each (two signatories; a third
   reference input; an `always` validity range) with every leaf scalar untouched. All
-  three are `validRewardingContext ∧ redeemersExact`, all three are **accepted** by
+  three are `validRewardingContext ∧ redeemersExactAllPlutus`, all three are **accepted** by
   `Runs.globalRun 4400`, and all three cost **exactly 2,603 steps** —
   `missed_transactions_cost_exactly_2603_steps`, byte-identical to `K_T1R_is_2603`.
   **0 project axioms, no `sorryAx`.**
@@ -297,7 +297,7 @@ strengthens nothing (see F18).
 | **F20** | MEDIUM | **NEW, PROCESS** | One stage-11 unit (E2) delivered **nothing**; a second (E3) produced correct work but left it uncommitted in scratch, with two dangling cross-references. The canonical repo's most damning caveat stayed open despite having been solved. E5 landed it. |
 | **D11 / F17** | was MEDIUM | **ANSWERED, NOT LANDED** | SHAPE M2R's witness **is** accepted by the real bytecode, **K = 784**, 0 project axioms — measured at E5 (`AUDIT.md` §7.5). Two theorems remain to be pasted into `P4ShapedRIdx.lean`. |
 | **F19** | LOW | OPEN | SHAPE **L2 not re-cut**; `P4_local_noEscape_shapedIdx` still ranges over a class proved empty. Must not be quoted. |
-| **D12 / F18** | LOW | RECORDED, untouched | CLAB's `redeemerCoverage` is strictly stronger than the ledger rule (it cannot express `isNativeScript`). Positive uses are conservative; the *negative* uses — the retired shapes' emptiness — inherit the all-Plutus reading. "Unconditional" in those docstrings means "no `RedeemerCoverage` hypothesis", not "no assumption". |
+| **D12 / F18** | LOW | **RESOLVED (task G2)** | The faithful rule is **not expressible** in `TxInfo` — it needs `isNativeScript`, a predicate on a script BODY, and `TxInfo` carries only hashes (the companion `scriptsProvided` filter is a no-op, guaranteed by `babbageMissingScripts`). So: predicates renamed `…AllPlutus` at every use site; the true rule stated modulo a language oracle with the two directions now THEOREMS (`redeemerCoverageModNative_of_allPlutus` positive; `coveredByNonNative_strictly_weaker` / `noExtra_not_conservative` negative, all at `[propext, Quot.sound]`); every negative use audited one by one (`ShapeRealizability.lean` §2.3) — **6 unaffected** (spending route), **6 downgraded** to an explicit `¬ isNative w` side condition now carried in the TYPE via `RedeemerCoverageAt w`, **1 measurement** whose interpretation only is downgraded. `g6_class_is_empty_nonNative` is the axiom-free true-rule form of the one unconditional negative result. Positive results, leaves and both composed containment theorems are untouched. |
 | **`SeizeWdrlOfScoped`** | MEDIUM | OPEN, newly tractable | `LR5` does not entail `seizeCred ∈ txInfoWdrl`. The same rule in the other direction is now audit row S, and is what discharges the shape leaves in §3. |
 | **`ValueAlgebra`/`LedgerCanon`** | MEDIUM | OPEN | Uninstantiated, so `LR_BALANCE_SLOT` stays an axiom. `valueOf` is not additive over `merge` without canonicity (machine-checked counterexample). ~330 lines. |
 | **F5** | MEDIUM | **CLOSED** | Prep-cost table was ~47× pessimistic (`lake env lean` without `--load-dynlib`). Re-measured; `K-MEASUREMENTS.md` §5.1a carries correct figures. |

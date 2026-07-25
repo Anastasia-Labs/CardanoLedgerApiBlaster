@@ -285,12 +285,19 @@ No stanza is unaccounted for and none is skipped.
 
 Conway `hasExactSetOfRedeemers` was read at cardano-ledger `cd8b7fab8` and transcribed
 into CLAB. It reproduces the node on 13/13 goldens; the re-cut witnesses all satisfy
-it; all 5 retired witnesses provably fail it. **Known limitation (F18):** CLAB's
-predicate omits the `not (isNativeScript …)` and `scriptsProvided` filters because
-`TxInfo` expresses neither, so it is *strictly stronger* than the ledger rule.
-Positive uses are conservative; the **negative** uses — the retired shapes' emptiness
-proofs — inherit an all-Plutus reading. This weakens the library's self-criticism,
-never its claims.
+it; all 5 retired witnesses provably fail it. **Known limitation (F18), RESOLVED as
+far as it can be:** CLAB's predicate omits the `not (isNativeScript …)` filter because
+`TxInfo` cannot express it — the filter tests a script BODY and `TxInfo` carries only
+hashes — so the predicate is *strictly stronger* than the ledger rule. (The companion
+`scriptsProvided` filter is a no-op: `babbageMissingScripts` already forces every
+needed hash to be provided.) The predicates are therefore named `…AllPlutus`, the
+faithful rule is stated modulo a language oracle, and both directions are theorems:
+positive uses are conservative (`redeemerCoverageModNative_of_allPlutus`), negative
+uses are not (`coveredByNonNative_strictly_weaker`). Every negative use is audited
+individually in `WSC/Props/Shaped/ShapeRealizability.lean` §2.3 — six survive, six
+are downgraded to an explicit non-native side condition carried in their type, one is
+a measurement whose interpretation only is downgraded. This weakens the library's
+self-criticism, never its claims.
 
 ### 4.8 What a skeptic should still refuse to take on trust
 

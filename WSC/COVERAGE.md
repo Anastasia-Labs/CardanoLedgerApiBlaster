@@ -17,7 +17,7 @@ earlier hope is closed off, with a proof.
 Coverage is now **stated in Lean** (`Coverage.Covers`), and it is **false** for
 the twelve node-realizable shapes of tasks C1/C2 — not at some larger
 transaction size, but at **SHAPE T1R's own size**. Three witnesses prove it, each
-of which is (i) `validRewardingContext` **and** `redeemersExact`, i.e. realizable
+of which is (i) `validRewardingContext` **and** `redeemersExactAllPlutus`, i.e. realizable
 at exactly the bar `WSC.t1R_realizable` meets, (ii) **accepted by the real
 compiled `programmableLogicGlobal` bytecode**, and (iii) halting in **exactly
 2,603 CEK steps — byte-identical to the shape's own certified inhabitant**. They
@@ -246,7 +246,7 @@ parameter to an existing shape, because none is a leaf scalar.
 ### 4.3 Why the counterexamples bite — three measurements
 
 1. **Realizable at exactly the campaign's own bar.** `RealizableRewarding`
-   = `validRewardingContext ∧ redeemersExact` — the two conjuncts
+   = `validRewardingContext ∧ redeemersExactAllPlutus` — the two conjuncts
    `WSC.t1R_realizable` quotes for `ctxOk`. `native_decide`, no solver.
 2. **Accepted by the production bytecode.** `isSuccessful (Runs.globalRun 4400
    ppCS ·)` for all three — the same term `WSC.LR_BUDGET_global` names and the

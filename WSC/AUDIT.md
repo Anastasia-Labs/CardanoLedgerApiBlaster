@@ -36,7 +36,11 @@ PlutusCoreBlaster by local path at rev `9f9ca8c76baf3b5efdb63c33ca0091efa606b474
    bytecode accepts in exactly the certified witness's 2,603 steps.
 4. **One stage-11 unit delivered nothing at all** (§7.2, finding **F20**), so F17,
    F18 and F19 were all still open when this audit began. F17 is now **measured and
-   answered** here, though not landed as a theorem.
+   answered** here, though not landed as a theorem. **F18 is RESOLVED by task G2** —
+   see §8: the faithful rule is not expressible in `TxInfo`, so the predicates are
+   renamed `…AllPlutus`, the direction of the error is now a pair of theorems rather
+   than a comment, and every negative use is audited individually (6 unaffected,
+   6 downgraded with the side condition in the type, 1 measurement re-read).
 
 ---
 
@@ -490,9 +494,9 @@ this is finding **F18**, restated in §8 with stage 11's disposition.
 
 The rule reproduces the real node on **13/13** goldens
 (`#redeemers = #script-inputs + #mint-policies + #script-withdrawals` exactly, with
-the purpose multiset matching), all 13 satisfy `redeemerCoverage`, all 9 accepting
-goldens satisfy `redeemersExact`, and `all_old_witnesses_fail_c3_coverage` proves
-`redeemerCoverage = false` at all 5 pre-C2 witnesses. **The flip is machine-checked
+the purpose multiset matching), all 13 satisfy `redeemerCoverageAllPlutus`, all 9 accepting
+goldens satisfy `redeemersExactAllPlutus`, and `all_old_witnesses_fail_c3_coverage` proves
+`redeemerCoverageAllPlutus = false` at all 5 pre-C2 witnesses. **The flip is machine-checked
 in both directions.**
 
 ### 4c. ARE THE CLASSES REALLY NON-EMPTY?
@@ -506,13 +510,13 @@ class."* That warning was correct then and is why this section exists.
   Both retained, as the picture of what failure looks like.
 * **Transfer side.** `realizable_inhabitant_NS` proves, with **0 project axioms and
   no `sorryAx`**, that `P1RShapedWitness.ctxOk` is (i) a member of `T1RShapeNS
-  witnessParams`, (ii) `validRewardingContext`, (iii) `redeemersExact`. The
+  witnessParams`, (ii) `validRewardingContext`, (iii) `redeemersExactAllPlutus`. The
   refinement did **not** empty the class: `witnessParams.seizeLogicCred = SEIZE ∉
   {GLOBAL, TLS}`, by `rfl`, no axioms (`witness_noSeizeWdrl`). The real compiled
   bytecode accepts it in **2,603** steps.
 * **Seize side.** `s1RShape_witness` proves `P2RWitness.ctxAccept` satisfies
   `S1RCore ∧ NoGlobalWdrl` by `rfl` with **no axioms**; `realizable_inhabitant_S1R`
-  adds `validRewardingContext` and Conway `redeemersExact`; and
+  adds `validRewardingContext` and Conway `redeemersExactAllPlutus`; and
   `inhabitant_accepted_by_bytecode` shows the restrictions do not empty the *accept*
   class — `isSuccessful (Runs.seizeRun 3800 ppCS ctxAccept)`, exact K = **3,004**,
   pinned two-sided by `K_is_3004_and_3328`. **0 project axioms, no `sorryAx`.**
@@ -870,23 +874,86 @@ committed.
 SHAPE M2R's witness **is** accepted by the real bytecode, at exactly **K = 784**, with
 0 project axioms. Two theorems remain to be pasted into `P4ShapedRIdx.lean`.
 
-### F18 — LOW, OPEN, NEITHER RESOLVED NOR RELABELLED
+### F18 — **RESOLVED by task G2** (stage 11). Not expressible; renamed, bounded, and audited use by use
 
-E2 did not touch it, so it stands exactly as C4 recorded it. `Contexts.redeemerCoverage`
-omits `hasExactSetOfRedeemers`'s `not (isNativeScript …)` and `scriptsProvided`
-filters, because `TxInfo` expresses neither. **Positive** uses (the 12 realizability
-theorems, and E4's three counterexample-realizability results) are conservative and
-fine. **Negative** uses — `LR_REDEEMER_COVERAGE` and the `RedeemerCoverage`
-hypotheses that prove the RETIRED shapes empty — assume an all-Plutus reading; a
-retired shape could in principle be realizable if one of its script withdrawals were
-a native timelock. **This weakens the library's self-criticism, never its claims.**
-"Unconditional" in those docstrings means "no `RedeemerCoverage` hypothesis", not "no
-assumption".
+**Verdict on expressibility: NOT EXPRESSIBLE in PlutusV3 `TxInfo`, and now proved so
+by construction.** The ledger's `redeemersNeeded` keeps a needed `(purpose, hash)`
+pair only if `Map.lookup hash scriptsProvided` succeeds AND the script found there
+satisfies `not (isNativeScript script)`
+(`Alonzo/Rules/Utxow.hs:245-262`, `isNativeScript = isJust . getNativeScript`,
+`cardano-ledger-core/src/Cardano/Ledger/Core.hs:586-587`). Of the two filters:
+
+* the `scriptsProvided` filter is a **no-op** on any transaction that reaches the
+  rule — `babbageMissingScripts` (`Babbage/Rules/Utxow.hs:191-206`, run at `:344`)
+  already rejects unless every needed hash is provided, so the lookup always
+  succeeds. Dropping it costs nothing;
+* the `isNativeScript` filter is **not recoverable**. Every needed script HASH is
+  derivable from `TxInfo`, but `isNativeScript` is a predicate on the script BODY,
+  and `TxInfo` carries no script bodies and no language tags — its only
+  script-shaped field is `TxOut.txOutReferenceScript : Option ScriptHash`
+  (`CardanoLedgerApi/V2/Tx.lean:78-83`), a bare `ByteString`
+  (`V1/Scripts.lean:15-16`); the witness script set has no `TxInfo` field at all.
+  **The missing information is exactly one bit per needed script, and `TxInfo` does
+  not contain it.**
+
+**What G2 landed** (`CardanoLedgerApi/V3/Contexts.lean`,
+`WSC/Props/Shaped/ShapeRealizability.lean` §2.2/§2.3, `WSC/Realizability.lean`,
+`WSC/Honest.lean`, `WSC/Props/Shaped/GlobalRealizability.lean` §4):
+
+1. **Renamed at every use site.** `redeemerCoverage` → `redeemerCoverageAllPlutus`,
+   `noExtraRedeemers` → `noExtraRedeemersAllPlutus`, `redeemersExact` →
+   `redeemersExactAllPlutus`, the `Prop` `RedeemerCoverage` →
+   `RedeemerCoverageAllPlutus`, and the three consequence lemmas to
+   `…_of_coverageAllPlutus`. `LR_REDEEMER_COVERAGE` keeps its name (renaming an
+   axiom would renumber the census) but its statement now literally reads
+   `redeemerCoverageAllPlutus` and its docstring carries the over-strength warning.
+2. **The faithful rule is stated, modulo an oracle**, and the direction claims are
+   now THEOREMS rather than commentary — all six at `[propext, Quot.sound]`, no
+   project axioms, no `sorryAx`: `coveredByNonNative`, `redeemerCoverageModNative`,
+   `noExtraRedeemersModNative`, with `redeemerCoverageModNative_allPlutus` (ours is
+   the `fun _ => false` instance), `redeemerCoverageModNative_of_allPlutus` (**the
+   positive direction: ours implies the true rule for EVERY language assignment**),
+   `coveredByNonNative_strictly_weaker` and `noExtra_not_conservative` (**the two
+   negative directions, by explicit counterexample**).
+3. **Every negative use audited individually** — the table is
+   `ShapeRealizability.lean` §2.3. Result: **6 of 13 unaffected** (all the
+   SPENDING-route ones: `t1_class_is_empty`, `t1Shape_is_empty`,
+   `t1_leafSet_is_vacuous`, `t2/t6/t7_class_is_empty` — they use
+   `LR_SPEND_RUNS_VALIDATOR` + `validScriptInfo`'s first conjunct, never
+   `scriptsNeeded`, and `Deployed` pins the script to a compiled Plutus V3
+   validator); **6 downgraded** to an explicit non-native side condition
+   (L1/DT1/M1 on `w0`, G1/S1/T1-withdrawal-route on `w1`, DS1 on both) because in
+   every one of those shapes the witness credential is a FREE `ByteString`
+   parameter that nothing pins to a Plutus script; **1 measurement**
+   (`all_old_witnesses_fail_c3_coverage`) whose statement survives verbatim and
+   whose *interpretation* as "unrealizable" is downgraded.
+4. **The downgrade is in the types, not only the prose.** The six conditional
+   emptiness theorems now take `RedeemerCoverageAt w` — coverage at the ONE
+   credential the proof turns on — which is strictly weaker than before and has
+   two visible suppliers: `RedeemerCoverageAt_of_allPlutus` (over-strong) and
+   `RedeemerCoverageAt_of_true` (the true rule + `¬ isNative w`).
+   `WSC.g6_class_is_empty`, the one negative result that was stated
+   UNCONDITIONALLY via the axiom, is joined by `g6_class_is_empty_nonNative`,
+   which carries `¬ isNative w1` explicitly and whose census is
+   `[propext, Classical.choice, Quot.sound, WSC.OnChain]` — **no
+   `LR_REDEEMER_COVERAGE`.**
+
+**Residual risk: LOW, and now bounded.** Nothing positive changes — no
+realizability inhabitant, no leaf, and neither composed containment theorem
+consumes any `*_under_coverage` theorem or `g6_class_is_empty`. What is weaker is
+the JUSTIFICATION for retiring the pre-C2 shapes: "empty" becomes "empty unless
+the uncovered withdrawal is witnessed by a native timelock". **This weakens the
+library's self-criticism, never its claims.** "Unconditional" in the surviving
+docstrings now means what it says only for the six spending-route results.
+
+Verified green at 431 jobs, **159 verdicts (102 ✅ Valid + 57 ✅ Expected
+Falsified), 0 errors, 20 sorry warnings, 5 unused-variable — delta 0 against the
+sealed baseline**, since G2 added no `blaster`/`solve` invocation.
 
 ### F19 — LOW, OPEN. SHAPE L2 was never re-cut
 
 `P4_local_noEscape_shapedIdx` still ranges over SHAPE L2, whose class is **proved
-empty** under `RedeemerCoverage`. C2 marked it as such rather than passing over it.
+empty** under `RedeemerCoverageAllPlutus`. C2 marked it as such rather than passing over it.
 Its value was the index-dependence measurement, which the withdrawal map does not
 affect — so the loss is small, but the library contains one headline-adjacent theorem
 over a class known to be empty, and **it must not be quoted.**

@@ -13,7 +13,7 @@ witness with no redeemer-map entry:
 * SHAPE T1 — UNCONDITIONALLY (`t1_class_is_empty`): it spends an input at
   `ScriptCredential plc`, so `LR_SPEND_RUNS_VALIDATOR` + `LR_CTX` demand a
   `Spending` entry in a map that holds one `Rewarding` entry;
-* SHAPES G1/L1/M1/S1/DT1 — under `RedeemerCoverage`, the `Prop` form of Conway
+* SHAPES G1/L1/M1/S1/DT1 — under `RedeemerCoverageAllPlutus`, the `Prop` form of Conway
   UTXOW's `MissingRedeemers` rule stated there (§2).
 
 This module does the converse for the six RE-CUT global shapes of
@@ -24,7 +24,7 @@ This module does the converse for the six RE-CUT global shapes of
    script-payment-credential input, a `Rewarding` entry per script-credential
    withdrawal, a `Minting` entry per minted policy. This is `RedeemerCovered`,
    stated below with all three clauses; its withdrawal clause is exactly the
-   consequent of `ShapeRealizability.RedeemerCoverage`, so no member of these
+   consequent of `ShapeRealizability.RedeemerCoverageAllPlutus`, so no member of these
    classes can be refuted the way the old ones were.
 2. **§3 point level** — a CONCRETE context of each shape which is
    `validRewardingContext = true`, `RedeemerCovered`, and ACCEPTED by the real
@@ -48,17 +48,17 @@ concrete member of each class.
 COORDINATION WITH TASK C3 — DONE, NOT DEFERRED. C3 landed the rule itself while
 this unit was in flight (canonical HEAD 7174e3d): CLAB now has
 `scriptPurposesWitnessed` (the `scriptsNeeded` transcription over all six
-sources), `redeemerCoverage`, `noExtraRedeemers` and `redeemersExact`
+sources), `redeemerCoverageAllPlutus`, `noExtraRedeemersAllPlutus` and `redeemersExactAllPlutus`
 (`CardanoLedgerApi/V3/Contexts.lean`), and `WSC/Honest.lean` has LR-CTX audit row
 S plus the axiom `LR_REDEEMER_COVERAGE` with its corollary
-`redeemerCoverage_wdrl`. This module was re-stated against them:
+`redeemerCoverageAllPlutus_wdrl`. This module was re-stated against them:
 
-* **§2b** proves `redeemerCoverage … = true` for every leaf assignment of every
+* **§2b** proves `redeemerCoverageAllPlutus … = true` for every leaf assignment of every
   re-cut shape — the class-level statement in CLAB's own ledger vocabulary;
-* **§3** adds `redeemersExact … = true` (BOTH halves of the Conway rule) at each
+* **§3** adds `redeemersExactAllPlutus … = true` (BOTH halves of the Conway rule) at each
   concrete witness;
 * **§4**'s SHAPE G6 emptiness is now UNCONDITIONAL, discharged from
-  `redeemerCoverage_wdrl` instead of a `RedeemerCoverage` hypothesis.
+  `redeemerCoverageAllPlutus_wdrl` instead of a `RedeemerCoverageAllPlutus` hypothesis.
 
 `RedeemerCovered` (§1) is KEPT because it is the ∀-form the emptiness proofs
 consume directly and it makes each shape's three live arms readable one by one;
@@ -86,7 +86,7 @@ open PlutusCore.Integer (Integer)
 open PlutusCore.UPLC.Utils (isSuccessful)
 -- task C3 landed the Conway MissingRedeemers/ExtraRedeemers rule in CLAB itself;
 -- §2b below states the class-level coverage in ITS vocabulary.
-open CardanoLedgerApi.V3.Contexts (redeemerCoverage noExtraRedeemers redeemersExact
+open CardanoLedgerApi.V3.Contexts (redeemerCoverageAllPlutus noExtraRedeemersAllPlutus redeemersExactAllPlutus
                                    coveredBy scriptPurposesWitnessed
                                    spendingPurposesWitnessed rewardingPurposesWitnessed
                                    certifyingPurposesWitnessed certifyingPurposesWitnessedFrom
@@ -102,7 +102,7 @@ redeemer-map entry:
 * clause 1 — every SPENT input whose payment credential is a script hash has a
   `Spending` entry keyed by its `TxOutRef`;
 * clause 2 — every SCRIPT-credential withdrawal has a `Rewarding` entry (this is
-  exactly the consequent of `ShapeRealizability.RedeemerCoverage`, the rule the
+  exactly the consequent of `ShapeRealizability.RedeemerCoverageAllPlutus`, the rule the
   emptiness proofs use);
 * clause 3 — every policy occurring in the mint field has a `Minting` entry.
 
@@ -431,12 +431,12 @@ theorem t7R_class_covered
     rw [mintOne_hasCurrencySymbol c cs tn q hc]
     exact p1RMint_minting_covered cs w0 w1 rBase rMint rTls p1ShapedRedeemerMint
 
-/-! # §2b THE SAME, IN CLAB'S OWN LEDGER VOCABULARY (task C3's `redeemerCoverage`)
+/-! # §2b THE SAME, IN CLAB'S OWN LEDGER VOCABULARY (task C3's `redeemerCoverageAllPlutus`)
 
 Task C3 landed Conway UTXOW's `MissingRedeemers` / `ExtraRedeemers` rule inside
 CLAB (`CardanoLedgerApi/V3/Contexts.lean`: `scriptPurposesWitnessed` transcribes
-`scriptsNeeded` over all SIX sources, `redeemerCoverage` is the coverage half,
-`redeemersExact` both halves) and assumed the coverage half in
+`scriptsNeeded` over all SIX sources, `redeemerCoverageAllPlutus` is the coverage half,
+`redeemersExactAllPlutus` both halves) and assumed the coverage half in
 `WSC/Honest.lean` as `LR_REDEEMER_COVERAGE` (LR-CTX audit row S). The six
 theorems below are the strongest class-level statement available: for EVERY leaf
 assignment, the re-cut shape satisfies CLAB's own transcription of the rule that
@@ -453,11 +453,11 @@ theorem g1R_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 : ByteString) (a0 rMint fee : Integer) :
-    redeemerCoverage
+    redeemerCoverageAllPlutus
       (globalRShapedCtx cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
         dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 rMint
         fee).scriptContextTxInfo = true := by
-  simp [redeemerCoverage, scriptPurposesWitnessed, spendingPurposesWitnessed,
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
         rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
         votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
         certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
@@ -476,11 +476,11 @@ theorem g6R_class_coverage
     (pHash pCS pTn : ByteString) (pAda pQty : Integer)
     (dirCS plc glc slc : ByteString)
     (w0 : ByteString) (a0 rMint fee : Integer) :
-    redeemerCoverage
+    redeemerCoverageAllPlutus
       (memberRShapedCtx cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
         pHash pCS pTn pAda pQty dirCS plc glc slc w0 a0 rMint fee).scriptContextTxInfo
       = true := by
-  simp [redeemerCoverage, scriptPurposesWitnessed, spendingPurposesWitnessed,
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
         rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
         votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
         certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
@@ -501,11 +501,11 @@ theorem t1R_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 rBase rTls fee : Integer) :
-    redeemerCoverage
+    redeemerCoverageAllPlutus
       (p1RShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee).scriptContextTxInfo = true := by
-  simp [redeemerCoverage, scriptPurposesWitnessed, spendingPurposesWitnessed,
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
         rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
         votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
         certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
@@ -529,12 +529,12 @@ theorem t2R_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 rBase rMint rTls fee : Integer) :
-    redeemerCoverage
+    redeemerCoverageAllPlutus
       (p1RShapedMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee).scriptContextTxInfo
       = true := by
-  simp [redeemerCoverage, scriptPurposesWitnessed, spendingPurposesWitnessed,
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
         rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
         votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
         certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
@@ -562,11 +562,11 @@ theorem t6R_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 rBase rTls fee : Integer) :
-    redeemerCoverage
+    redeemerCoverageAllPlutus
       (p1ROutCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee).scriptContextTxInfo = true := by
-  simp [redeemerCoverage, scriptPurposesWitnessed, spendingPurposesWitnessed,
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
         rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
         votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
         certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
@@ -591,12 +591,12 @@ theorem t7R_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 rBase rMint rTls fee : Integer) :
-    redeemerCoverage
+    redeemerCoverageAllPlutus
       (p1ROutMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee).scriptContextTxInfo
       = true := by
-  simp [redeemerCoverage, scriptPurposesWitnessed, spendingPurposesWitnessed,
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
         rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
         votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
         certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
@@ -620,7 +620,7 @@ Each theorem below packages three facts about ONE concrete context of the shape:
 
 * it satisfies `validRewardingContext` — the strongest ledger-normalization
   predicate CLAB offers, and the hypothesis of the corresponding P-theorem;
-* it satisfies CLAB's `redeemersExact` — **BOTH halves** of Conway UTXOW's
+* it satisfies CLAB's `redeemersExactAllPlutus` — **BOTH halves** of Conway UTXOW's
   `hasExactSetOfRedeemers` (`MissingRedeemers` AND `ExtraRedeemers`, task C3's
   transcription): every needed script has an entry AND no entry names a purpose
   the transaction does not need. Machine-checked by `native_decide`;
@@ -635,7 +635,7 @@ That is the acceptance criterion of task C1. -/
 /-- **SHAPE G1R IS REALIZABLE** (P5's shape). Budget 1600, witness K = 1541. -/
 theorem g1R_realizable :
     validRewardingContext P5RShapedWitness.ctx = true
-    ∧ redeemersExact P5RShapedWitness.ctx.scriptContextTxInfo = true
+    ∧ redeemersExactAllPlutus P5RShapedWitness.ctx.scriptContextTxInfo = true
     ∧ RedeemerCovered P5RShapedWitness.ctx
     ∧ isSuccessful
         (appliedGlobalShapedG1R.exec P5RShapedWitness.ppCS
@@ -657,7 +657,7 @@ theorem g1R_realizable :
 /-- **SHAPE G6R IS REALIZABLE** (P6's shape). Budget 3300, witness K = 2837. -/
 theorem g6R_realizable :
     validRewardingContext P6RShapedWitness.ctx = true
-    ∧ redeemersExact P6RShapedWitness.ctx.scriptContextTxInfo = true
+    ∧ redeemersExactAllPlutus P6RShapedWitness.ctx.scriptContextTxInfo = true
     ∧ RedeemerCovered P6RShapedWitness.ctx
     ∧ isSuccessful
         (appliedGlobalMemberShapedG6R.exec P6ShapedWitness.ppCS
@@ -677,7 +677,7 @@ theorem g6R_realizable :
 proved empty UNCONDITIONALLY. Budget 4400, witness K = 2603. -/
 theorem t1R_realizable :
     validRewardingContext P1RShapedWitness.ctxOk = true
-    ∧ redeemersExact P1RShapedWitness.ctxOk.scriptContextTxInfo = true
+    ∧ redeemersExactAllPlutus P1RShapedWitness.ctxOk.scriptContextTxInfo = true
     ∧ RedeemerCovered P1RShapedWitness.ctxOk
     ∧ isSuccessful
         (appliedGlobalShapedT1R.exec P1ShapedWitness.ppCS
@@ -703,7 +703,7 @@ theorem t1R_realizable :
 context that refutes the `mintPos` form. Budget 4400, witness K = 3572. -/
 theorem t2R_realizable :
     validRewardingContext P1RShapedWitness.ctxBurn = true
-    ∧ redeemersExact P1RShapedWitness.ctxBurn.scriptContextTxInfo = true
+    ∧ redeemersExactAllPlutus P1RShapedWitness.ctxBurn.scriptContextTxInfo = true
     ∧ RedeemerCovered P1RShapedWitness.ctxBurn
     ∧ isSuccessful
         (appliedGlobalShapedT2R.exec P1ShapedWitness.ppCS
@@ -729,7 +729,7 @@ theorem t2R_realizable :
 witness K = 3150. -/
 theorem t6R_realizable :
     validRewardingContext P1RShapedWitness.ctxOut = true
-    ∧ redeemersExact P1RShapedWitness.ctxOut.scriptContextTxInfo = true
+    ∧ redeemersExactAllPlutus P1RShapedWitness.ctxOut.scriptContextTxInfo = true
     ∧ RedeemerCovered P1RShapedWitness.ctxOut
     ∧ isSuccessful
         (appliedGlobalShapedT6R.exec P1ShapedWitness.ppCS
@@ -755,7 +755,7 @@ theorem t6R_realizable :
 burn witness. Budget 4400, witness K = 3572. -/
 theorem t7R_realizable :
     validRewardingContext P1RShapedWitness.ctxOutBurn = true
-    ∧ redeemersExact P1RShapedWitness.ctxOutBurn.scriptContextTxInfo = true
+    ∧ redeemersExactAllPlutus P1RShapedWitness.ctxOutBurn.scriptContextTxInfo = true
     ∧ RedeemerCovered P1RShapedWitness.ctxOutBurn
     ∧ isSuccessful
         (appliedGlobalShapedT7R.exec P1ShapedWitness.ppCS
@@ -780,24 +780,39 @@ theorem t7R_realizable :
 /-! # §4 THE SHAPES THIS TASK RETIRES — their emptiness, proved
 
 `ShapeRealizability.lean` proves T1 (unconditionally) and G1 (under
-`RedeemerCoverage`). The three shapes below carry the other P1/P6 dimensions this
+`RedeemerCoverageAllPlutus`). The three shapes below carry the other P1/P6 dimensions this
 task re-cuts, and their emptiness was not stated anywhere. Proving it here is
 what makes the before/after table's "old verdict" column evidence rather than
 extrapolation. -/
 
-open ShapeRealizability (RedeemerCoverage empty_of_uncovered_wdrl
+open ShapeRealizability (RedeemerCoverageAllPlutus empty_of_uncovered_wdrl
+                         RedeemerCoverageTrue RedeemerCoverageAt_of_true
+                         empty_of_uncovered_wdrl_at
                          rewarding_singleton_covers_only_itself
                          not_onChain_of_no_redeemer)
 
 /-- **SHAPE G6 (P6's shape) — EMPTY, UNCONDITIONALLY.** Withdrawal entry 1 is
 `ScriptCredential w1` and the one-entry redeemer map covers only `Rewarding w0`,
 so Conway's `MissingRedeemers` excludes the whole class. When
-`ShapeRealizability.lean` was written this needed its local `RedeemerCoverage`
+`ShapeRealizability.lean` was written this needed its local `RedeemerCoverageAllPlutus`
 `Prop` as a hypothesis; task C3 has since landed the rule as
 `WSC.LR_REDEEMER_COVERAGE` (LR-CTX audit row S) with the ready-made corollary
-`WSC.redeemerCoverage_wdrl`, so the statement is now unconditional — this is the
+`WSC.redeemerCoverageAllPlutus_wdrl`, so the statement is now unconditional — this is the
 first shape-emptiness result to use it. (`w0 ≠ w1` is forced by
-`validWithdrawals`, audit row L.) -/
+`validWithdrawals`, audit row L.)
+
+**F18 DOWNGRADE (task G2). The word UNCONDITIONALLY above is conditional on an
+over-strong axiom.** `LR_REDEEMER_COVERAGE` asserts the ALL-PLUTUS reading of
+`MissingRedeemers`; Conway keeps only needed scripts with
+`not (isNativeScript script)` (`Alonzo/Rules/Utxow.hs:247-251`), and `w1` here is
+a free `ByteString` parameter of `memberShapedCtx` — nothing pins it to a Plutus
+script. Under the TRUE rule this class is empty only for members whose
+withdrawal at `w1` is not a native timelock. `g6_class_is_empty_nonNative` below
+is that statement, with the side condition explicit; this theorem is retained
+because it is what the library's axiom set actually proves, and the census entry
+`#print axioms WSC.g6_class_is_empty` is where the dependence on
+`LR_REDEEMER_COVERAGE` is visible. See `ShapeRealizability.lean` §2.3 for the
+full per-use audit. -/
 theorem g6_class_is_empty
     (ctx : ScriptContext) (hoc : OnChain ctx)
     (cs tn : ByteString) (q : Integer) (owner : ByteString) (inAda : Integer)
@@ -811,7 +826,36 @@ theorem g6_class_is_empty
       (memberShapedCtx cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
         pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee).scriptContextTxInfo) :
     False := by
-  refine redeemerCoverage_wdrl ctx w1 a1 hoc ?_ ?_
+  refine redeemerCoverageAllPlutus_wdrl ctx w1 a1 hoc ?_ ?_
+  · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
+  · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
+
+/-- **SHAPE G6 — EMPTY UNDER THE TRUE CONWAY RULE, with the F18 side condition
+made explicit.** Identical to `g6_class_is_empty` except that the coverage rule
+is `ShapeRealizability.RedeemerCoverageTrue`, i.e. the rule with the ledger's
+`not (isNativeScript …)` filter restored, and the argument therefore has to be
+told that the shape's second withdrawal credential `w1` is not a native script.
+
+This is the honest statement of what retiring SHAPE G6 rests on. Note what it
+does NOT need: no axiom at all — `isNative` is an arbitrary predicate and `rc`
+is a hypothesis, so this theorem's axiom census is empty where
+`g6_class_is_empty`'s carries `LR_REDEEMER_COVERAGE`. -/
+theorem g6_class_is_empty_nonNative {isNative : ByteString → Prop}
+    (rc : RedeemerCoverageTrue isNative)
+    (ctx : ScriptContext) (hoc : OnChain ctx)
+    (cs tn : ByteString) (q : Integer) (owner : ByteString) (inAda : Integer)
+    (ob0 : ByteString) (outAda0 qq0 : Integer)
+    (ob1 : ByteString) (outAda1 qq1 : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (hne : w1 ≠ w0)
+    (hnn : ¬ isNative w1)
+    (hsh : ctx.scriptContextTxInfo =
+      (memberShapedCtx cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
+        pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee).scriptContextTxInfo) :
+    False := by
+  refine empty_of_uncovered_wdrl_at (RedeemerCoverageAt_of_true rc hnn) ctx a1 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
   · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
 
@@ -934,6 +978,9 @@ counterparts do. -/
 #print axioms WSC.t6R_realizable
 #print axioms WSC.t7R_realizable
 #print axioms WSC.g6_class_is_empty
+-- F18: the true-rule form of the same result. Its census must be EMPTY of
+-- project axioms — that is the point of stating it.
+#print axioms WSC.g6_class_is_empty_nonNative
 #print axioms WSC.t2_class_is_empty
 #print axioms WSC.t6_class_is_empty
 #print axioms WSC.t7_class_is_empty

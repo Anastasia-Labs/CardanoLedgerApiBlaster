@@ -17,7 +17,7 @@ exactly why every shape in the pre-C2 library is an empty class of ledger
 transactions.
 
 `redeemerCovered` below is that missing clause, spelled out as a `Bool` so a
-concrete witness can discharge it by `native_decide`, and `RedeemerCoverage`
+concrete witness can discharge it by `native_decide`, and `RedeemerCoverageAllPlutus`
 (the `Prop` form, restated here from `ShapeRealizability` so the shape modules
 do not have to import the whole composition) is the hypothesis under which the
 old shapes are provably empty.
@@ -25,11 +25,11 @@ old shapes are provably empty.
 **COORDINATION WITH C3 — RESOLVED, and the two predicates agree.** Task C3 landed
 the rule on the CLAB side while this was being written
 (`CardanoLedgerApi/V3/Contexts.lean`, commit `755d75e`): `scriptPurposesWitnessed`
-(the six-source `getConwayScriptsNeeded`), `redeemerCoverage`, `noExtraRedeemers`,
-`redeemersExact`, plus `LR_REDEEMER_COVERAGE` as row **S** of `WSC/Honest.lean`'s
+(the six-source `getConwayScriptsNeeded`), `redeemerCoverageAllPlutus`, `noExtraRedeemersAllPlutus`,
+`redeemersExactAllPlutus`, plus `LR_REDEEMER_COVERAGE` as row **S** of `WSC/Honest.lean`'s
 LR-CTX table. This module survives as the WSC-local, `Bool`-shaped statement the
 C2 shape proofs are written against, and §5 pins the relationship: **every re-cut
-witness satisfies C3's `redeemersExact` — BOTH halves of `hasExactSetOfRedeemers`,
+witness satisfies C3's `redeemersExactAllPlutus` — BOTH halves of `hasExactSetOfRedeemers`,
 not merely the coverage half this module checks** (`WSC/Props/Shaped/
 RealizableShapes.lean` §4). The two definitions are independent transcriptions of
 the same Conway rule and they agree on all 12 witnesses tested, which is a
@@ -40,6 +40,44 @@ why that is deliberate rather than an omission: the ledger filters `scriptsNeede
 to non-native scripts (`Alonzo/Rules/Utxow.hs:247-251`) and `TxInfo` does not
 record a script's language, so a coverage CONJUNCT would be over-strong. Nothing
 here is an axiom and nothing here strengthens any assumption.
+
+════════════════════════════════════════════════════════════════════════════
+THE ALL-PLUTUS READING, AND WHY THIS MODULE IS ON THE SAFE SIDE OF IT (F18)
+════════════════════════════════════════════════════════════════════════════
+Everything below — `spendingCovered`, `mintingCovered`, `rewardingCovered`,
+`otherCovered`, `redeemerCovered`, `WdrlCovered`, `SpendCovered`, `MintCovered`,
+`Realizable`, `RealizableExact` — transcribes `scriptsNeeded` WITHOUT the
+ledger's phase-2 filter, exactly as CLAB's `redeemerCoverageAllPlutus` does, and
+for the same unavoidable reason: `TxInfo` carries script HASHES but no script
+bodies and no language tags, so `isNativeScript` (`Cardano/Ledger/Core.hs:586`)
+cannot be evaluated here. Audit finding **F18** is that this reading is STRICTLY
+STRONGER than Conway's `MissingRedeemers`
+(`CardanoLedgerApi.V3.Contexts.coveredByNonNative_strictly_weaker`), so the
+direction of the error has to be checked at every use site.
+
+**EVERY USE OF EVERY PREDICATE IN THIS MODULE IS POSITIVE**, and that is the
+conservative direction. The module's whole job is to state a bar that a CONCRETE
+re-cut witness then clears by `native_decide` (`RealizableShapes.lean`,
+`RealizableLeaves.lean`, `RealizableLeavesS1R.lean`) or that a shaped CLASS then
+clears at every leaf assignment (`WSC/Shaped/*R.lean`'s `*_wdrl_covered`,
+`*_spend_covered`, `*_mint_covered`). Demanding a redeemer entry for a purpose
+the ledger might have excused makes the bar HIGHER, never lower:
+`redeemerCoverageModNative_of_allPlutus` proves that clearing it implies
+`MissingRedeemers` for EVERY assignment of languages to the witness's scripts.
+No theorem anywhere ASSUMES one of these predicates about an arbitrary on-chain
+transaction, and no emptiness proof is stated against them — the negative uses
+all live in `WSC/Props/Shaped/ShapeRealizability.lean`, whose §2.3 audits them
+one by one. That is why the names here are NOT suffixed `AllPlutus`: the suffix
+marks a predicate whose over-strength can hurt you, and these cannot.
+
+The one caveat that does bite, and it bites `RealizableExact` only: the
+`ExtraRedeemers` half (`redeemersExactAllPlutus`'s second conjunct) is WEAKER
+than the ledger rule, not stronger (`noExtra_not_conservative`), because a native
+needed script SHRINKS the ledger's needed set. `RealizableExact ctx` is therefore
+evidence of node-acceptability under the all-Plutus instantiation of `ctx`'s
+scripts — which an EXISTENTIAL realizability claim is free to choose, and which
+the WSC deployment makes anyway (all four validators are Plutus V3). Stated here
+so no reader has to reconstruct it.
 
 ════════════════════════════════════════════════════════════════════════════
 THE RULE, AND ITS SOURCE
@@ -204,7 +242,12 @@ def otherCovered (ctx : ScriptContext) : Bool :=
 predicate on a `ScriptContext`. `validScriptContext ctx && redeemerCovered ctx` is
 strictly stronger than `validScriptContext ctx` alone —
 `WSC/Props/Shaped/ShapeRealizability.lean` §5 exhibits a witness satisfying the
-first conjunct and provably NOT the second. -/
+first conjunct and provably NOT the second.
+
+ALL-PLUTUS READING (F18): like every predicate in this module it omits the
+ledger's `not (isNativeScript …)` filter, which `TxInfo` cannot express. Used
+only POSITIVELY — discharged at concrete witnesses — so the omission raises the
+bar rather than lowering it; see the module header. -/
 def redeemerCovered (ctx : ScriptContext) : Bool :=
   spendingCovered ctx && mintingCovered ctx && rewardingCovered ctx && otherCovered ctx
 
@@ -260,13 +303,13 @@ def Realizable (ctx : ScriptContext) : Prop :=
 /-! ## §5 The STRONGER form, against C3's CLAB predicate
 
 `Realizable` checks the `MissingRedeemers` half against this module's own
-transcription. `RealizableExact` additionally demands C3's `redeemersExact`, i.e.
+transcription. `RealizableExact` additionally demands C3's `redeemersExactAllPlutus`, i.e.
 **both** halves of Conway's `hasExactSetOfRedeemers` — no needed script without an
 entry AND no entry without a needed script — measured against CLAB's independent
 six-source `scriptPurposesWitnessed`. The C2 shapes are cut to hit the count
 exactly, so they satisfy it; `WSC/Props/Shaped/RealizableShapes.lean` §4 proves it
 for every re-cut witness. -/
 def RealizableExact (ctx : ScriptContext) : Prop :=
-  Realizable ctx ∧ CardanoLedgerApi.V3.Contexts.redeemersExact ctx.scriptContextTxInfo = true
+  Realizable ctx ∧ CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus ctx.scriptContextTxInfo = true
 
 end WSC.Realizability

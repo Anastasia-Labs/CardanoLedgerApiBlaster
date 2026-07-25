@@ -525,7 +525,7 @@ and both understated the consequence. Task A2 measured it:
   `WSC.LR_CTX` (axioms this library already has), no `sorryAx`. SHAPE T1 spends an
   input at the base credential, which requires a `Spending` redeemer entry; T1's map
   holds one `Rewarding` entry.
-* L1 / DT1 / M1 / G1 / S1 / DS1 — empty under `RedeemerCoverage`, the Conway
+* L1 / DT1 / M1 / G1 / S1 / DS1 — empty under `RedeemerCoverageAllPlutus`, the Conway
   `MissingRedeemers` rule, stated as a `Prop` and **not** as an axiom. The witness
   is a script-credential WITHDRAWAL with no `Rewarding` entry: all five shaped
   withdrawal maps are `[(.ScriptCredential w0, a0), (.ScriptCredential w1, a1)]`, and

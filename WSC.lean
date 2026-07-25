@@ -290,7 +290,7 @@ import WSC.Props.Shaped.RealizableLeavesS1R
 -- shapes to cover all transactions of a bounded size (`Covers`), and then
 -- refutes it for the twelve node-realizable shapes of C1/C2 — at SHAPE T1R's
 -- OWN size — with three machine-checked witnesses that are
---   * `validRewardingContext` AND `redeemersExact` (the campaign's own bar),
+--   * `validRewardingContext` AND `redeemersExactAllPlutus` (the campaign's own bar),
 --   * ACCEPTED by the production `programmableLogicGlobal` bytecode, and
 --   * halting in exactly 2,603 CEK steps, i.e. indistinguishable from the
 --     shape's own certified inhabitant by the machine.

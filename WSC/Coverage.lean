@@ -36,7 +36,7 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
    reference inputs, ≤2 outputs, ≤2 withdrawals, 0 mint entries), which is
    *exactly SHAPE T1R's own size*. Two independent witnesses.
 2. `not_covers_with_three_reference_inputs` — likewise at `SizeBound 2 3 2 2 0`.
-3. Each witness is `validRewardingContext` **and** `redeemersExact` — the two
+3. Each witness is `validRewardingContext` **and** `redeemersExactAllPlutus` — the two
    conjuncts `WSC.t1R_realizable` quotes for the campaign's own certified
    inhabitant — and each is ACCEPTED by the real compiled global validator in
    `Runs.globalRun 4400`, by `native_decide` on the CEK machine (§5).
@@ -59,7 +59,7 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
   enumeration route is not affordable. A different, larger family could cover a
   smaller bound; nothing here rules that out.
 * The three counterexample contexts meet the campaign's own realizability bar
-  (`validRewardingContext ∧ redeemersExact`), which `WSC/Realizability.lean`
+  (`validRewardingContext ∧ redeemersExactAllPlutus`), which `WSC/Realizability.lean`
   states is **NECESSARY, NOT SUFFICIENT** for node acceptance — fees, witness-set
   agreement and the UTxO set are unmodelled. They are exactly as realizable as
   `P1RShapedWitness.ctxOk`, no more. The comparison is apples to apples, and it
@@ -122,7 +122,7 @@ open CardanoLedgerApi.V3 (Credential CurrencySymbol ScriptContext ScriptHash Tok
                           TxInInfo TxOutRef Withdrawals
                           validScriptContext validRewardingContext validSpendingContext
                           credentialInWithdrawals)
-open CardanoLedgerApi.V3.Contexts (redeemersExact)
+open CardanoLedgerApi.V3.Contexts (redeemersExactAllPlutus)
 open PlutusCore.Data (Data)
 open PlutusCore.ByteString (ByteString)
 open PlutusCore.Integer (Integer)
@@ -184,7 +184,7 @@ AND both halves of Conway's exact-redeemer rule. These are the two conjuncts
 `WSC.t1R_realizable` quotes; §5's witnesses satisfy the same two, and nothing
 more is claimed for them. -/
 def RealizableRewarding (ctx : ScriptContext) : Prop :=
-  validRewardingContext ctx = true ∧ redeemersExact ctx.scriptContextTxInfo = true
+  validRewardingContext ctx = true ∧ redeemersExactAllPlutus ctx.scriptContextTxInfo = true
 
 /-! ════════════════════════════════════════════════════════════════════════
 ## §2 THE TWELVE SHAPE RANGES
@@ -499,7 +499,7 @@ differ from a context the library DOES reason about only in a dimension no
 `SizeBound` mentions and no shape can parameterise over. -/
 
 /-- `ctxOk` plus a second required signer. Sorted (`"OWNER" < "SIGNER2"`), so
-`validSigners` still holds; adds no needed script, so `redeemersExact` still
+`validSigners` still holds; adds no needed script, so `redeemersExactAllPlutus` still
 holds; changes no value, so the balance is untouched. -/
 def ctxTwoSigners : ScriptContext :=
   { P1RShapedWitness.ctxOk with
@@ -544,7 +544,7 @@ def ctxAlwaysRange : ScriptContext :=
 
 /-! ### §5.1 All three are realizable, at exactly the campaign's own bar
 
-`validRewardingContext ∧ redeemersExact` — the two conjuncts `WSC.t1R_realizable`
+`validRewardingContext ∧ redeemersExactAllPlutus` — the two conjuncts `WSC.t1R_realizable`
 quotes. `native_decide`; no solver, no project axiom. -/
 
 theorem ctxTwoSigners_realizable : RealizableRewarding ctxTwoSigners := by

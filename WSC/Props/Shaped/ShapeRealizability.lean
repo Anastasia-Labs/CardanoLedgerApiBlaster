@@ -24,7 +24,7 @@ transaction a node would accept.
 
 For SHAPE T1 this is provable **from the axioms already in this library, with no new
 assumption at all** (§1). For the other shapes it needs the `MissingRedeemers` rule,
-which `WSC/Honest.lean` does not state; §2 states it as a `Prop` — `RedeemerCoverage`,
+which `WSC/Honest.lean` does not state; §2 states it as a `Prop` — `RedeemerCoverageAllPlutus`,
 NOT an axiom — and proves the emptiness conditionally on it, shape by shape.
 
 ════════════════════════════════════════════════════════════════════════════
@@ -73,7 +73,7 @@ LR-CTX table). Neither predicate has a clause for "every script this transaction
 needs has an entry", so every shaped witness is `validXContext = true` while being
 unrealizable. §5 states that as a theorem against a witness the library already has,
 and the LR-CTX audit table has no row for the `MissingRedeemers` rule — that missing
-row is exactly `RedeemerCoverage` below.
+row is exactly `RedeemerCoverageAllPlutus` below.
 
 WHAT WOULD FIX IT, sized: re-shape with a ledger-realistic redeemer map. Adding the
 missing entries changes the `Data` skeleton, so each affected shape needs a new
@@ -90,7 +90,12 @@ for the base input may be enough. That experiment is NOT run here.
 LAYOUT
 ════════════════════════════════════════════════════════════════════════════
 * §1 SHAPE T1 — emptiness, UNCONDITIONAL (`WSC.LR_SPEND_RUNS_VALIDATOR` + `LR_CTX`)
-* §2 `RedeemerCoverage` and the conditional emptiness of L1 / M1 / G1 / S1 / DT1 / DS1
+* §2 `RedeemerCoverageAllPlutus` and the conditional emptiness of L1 / M1 / G1 / S1 / DT1 / DS1
+* §2.2 the TRUE Conway rule (`RedeemerCoverageTrue`) and `RedeemerCoverageAt` —
+  audit finding **F18**: the all-Plutus reading is strictly stronger than the
+  ledger, so every §2 result now carries its non-native side condition in its type
+* §2.3 the F18 audit table: every NEGATIVE use of the rule in the library, one by
+  one, with its verdict under the TRUE rule
 * §3 the VACUOUS `LeafSet` at SHAPE T1, built and labelled as such
 * §5 the CLAB-fidelity corollary: the witnesses pass `validRewardingContext` anyway
 * §4 axiom census
@@ -215,17 +220,106 @@ not carry a redeemer for a needed script (`Alonzo/Rules/Utxow.hs`); the Plutus
 `txInfoRedeemers` map IS that redeemer set (`Babbage/TxInfo.hs:217-221`, audit row B).
 It is the same rule `WSC.LR_WDRL_RUNS_VALIDATOR` relies on to conclude that the
 global/seize validator RAN — stated here about the redeemer MAP instead of about
-acceptance. -/
-def RedeemerCoverage : Prop :=
+acceptance.
+
+**IT IS STRONGER THAN THE LEDGER RULE — audit finding F18, and the reason for
+the `AllPlutus` suffix.** Conway keeps only the needed `(purpose, hash)` pairs
+whose provided script satisfies `not (isNativeScript script)`
+(`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:247-251`,
+`cardano-ledger` @ `cd8b7fab8`). A withdrawal at a NATIVE-script credential
+needs no redeemer entry, and by the `ExtraRedeemers` half must not have one. So
+a genuine on-chain transaction can falsify this `Prop`. Because every use below
+is NEGATIVE — the `Prop` is ASSUMED and a contradiction derived — the error runs
+against us, and §2.2 records what each shape's emptiness really rests on. -/
+def RedeemerCoverageAllPlutus : Prop :=
   ∀ (ctx : ScriptContext) (h : ScriptHash) (n : Integer),
     WSC.OnChain ctx →
     (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl →
       findRedeemer (.Rewarding (.ScriptCredential h))
         ctx.scriptContextTxInfo.txInfoRedeemers ≠ none
 
+/-! ### §2.2 THE TRUE RULE, and what each retired shape really needs (F18)
+
+Every emptiness proof in §2 turns on ONE withdrawal credential — the shape's
+`w0` or `w1` — and nothing else. So the hypothesis they need is not the full
+`RedeemerCoverageAllPlutus` but `RedeemerCoverageAt w`, coverage at that single
+credential; that is what they are stated with below, which makes each of them
+strictly more general than before AND makes the F18 question local and visible.
+
+`RedeemerCoverageAt w` has exactly two suppliers:
+
+* `RedeemerCoverageAt_of_allPlutus` — from the ALL-PLUTUS reading, i.e. from
+  `RedeemerCoverageAllPlutus` or from the axiom `WSC.LR_REDEEMER_COVERAGE`.
+  **Over-strong (F18).**
+* `RedeemerCoverageAt_of_true` — from the TRUE rule
+  (`RedeemerCoverageTrue isNative`) PLUS the side condition `¬ isNative w`, i.e.
+  "the script witnessing this withdrawal is not a native timelock". **Faithful,
+  and the side condition is the honest cost.**
+
+`isNative` is left an arbitrary predicate on hashes: nothing here assumes
+anything about it, and `TxInfo` cannot decide it (`CardanoLedgerApi/V3/
+Contexts.lean`, expressibility verdict — `TxInfo` carries script HASHES but no
+script bodies and no language tags). No shape below pins its witness credential
+to a deployed WSC validator hash: in `localShapedCtx` / `dtShapedCtx` /
+`mintShapedCtx` / `globalShapedCtx` / `p1ShapedCtx` / `seizeShapedCtx` /
+`memberShapedCtx` the credentials `w0`, `w1` are FREE `ByteString` parameters.
+So none of them can be re-established outright, and every one carries a
+non-native side condition. The full per-use table is in §2.3. -/
+
+/-- Coverage AT ONE CREDENTIAL. The only instance any §2 emptiness proof uses. -/
+def RedeemerCoverageAt (w : ScriptHash) : Prop :=
+  ∀ (ctx : ScriptContext) (n : Integer),
+    WSC.OnChain ctx →
+    (Credential.ScriptCredential w, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl →
+      findRedeemer (.Rewarding (.ScriptCredential w))
+        ctx.scriptContextTxInfo.txInfoRedeemers ≠ none
+
+/-- **THE TRUE CONWAY RULE**, relative to a language oracle on script hashes:
+only a NON-NATIVE needed script requires a redeemer entry. -/
+def RedeemerCoverageTrue (isNative : ScriptHash → Prop) : Prop :=
+  ∀ (ctx : ScriptContext) (h : ScriptHash) (n : Integer),
+    WSC.OnChain ctx →
+    (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl →
+    ¬ isNative h →
+      findRedeemer (.Rewarding (.ScriptCredential h))
+        ctx.scriptContextTxInfo.txInfoRedeemers ≠ none
+
+/-- Supplier 1 — the ALL-PLUTUS reading. **Over-strong (F18).** -/
+theorem RedeemerCoverageAt_of_allPlutus (rc : RedeemerCoverageAllPlutus)
+    (w : ScriptHash) : RedeemerCoverageAt w :=
+  fun ctx n hoc hw => rc ctx w n hoc hw
+
+/-- Supplier 2 — the TRUE rule plus the explicit non-native side condition. -/
+theorem RedeemerCoverageAt_of_true {isNative : ScriptHash → Prop}
+    (rc : RedeemerCoverageTrue isNative) {w : ScriptHash} (hnn : ¬ isNative w) :
+    RedeemerCoverageAt w :=
+  fun ctx n hoc hw => rc ctx w n hoc hw hnn
+
+/-- The all-Plutus `Prop` IS the `isNative = fun _ => False` instance of the true
+rule — the precise sense in which it reads the rule at an all-Plutus
+transaction. -/
+theorem redeemerCoverageAllPlutus_iff_true_allPlutus :
+    RedeemerCoverageAllPlutus ↔ RedeemerCoverageTrue (fun _ => False) :=
+  ⟨fun rc ctx h n hoc hw _ => rc ctx h n hoc hw,
+   fun rc ctx h n hoc hw => rc ctx h n hoc hw (fun h => h.elim)⟩
+
 /-- The shape-independent shell: a transaction whose withdrawal map contains a
-script credential with no `Rewarding` redeemer entry cannot exist. -/
-theorem empty_of_uncovered_wdrl (rc : RedeemerCoverage) (ctx : ScriptContext)
+script credential with no `Rewarding` redeemer entry cannot exist.
+
+Stated at `RedeemerCoverageAt w`, so the caller decides — visibly — whether it
+is paying with the over-strong all-Plutus reading or with the true rule plus a
+non-native side condition. -/
+theorem empty_of_uncovered_wdrl_at {w : ScriptHash} (rcw : RedeemerCoverageAt w)
+    (ctx : ScriptContext) (n : Integer) (hoc : WSC.OnChain ctx)
+    (hw : (Credential.ScriptCredential w, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl)
+    (hr : findRedeemer (.Rewarding (.ScriptCredential w))
+      ctx.scriptContextTxInfo.txInfoRedeemers = none) : False :=
+  rcw ctx n hoc hw hr
+
+/-- The original shell, kept because `WSC/Props/Shaped/GlobalRealizability.lean`
+`open`s it. `RedeemerCoverageAllPlutus` is over-strong (F18); prefer
+`empty_of_uncovered_wdrl_at`. -/
+theorem empty_of_uncovered_wdrl (rc : RedeemerCoverageAllPlutus) (ctx : ScriptContext)
     (h : ScriptHash) (n : Integer) (hoc : WSC.OnChain ctx)
     (hw : (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl)
     (hr : findRedeemer (.Rewarding (.ScriptCredential h))
@@ -236,13 +330,13 @@ theorem empty_of_uncovered_wdrl (rc : RedeemerCoverage) (ctx : ScriptContext)
 theorem minting_map_covers_no_rewarding (ownCS : CurrencySymbol) (c : Credential) (r : Data) :
     findRedeemer (.Rewarding c) [(ScriptPurpose.Minting ownCS, r)] = none := rfl
 
-/-- **SHAPE L1 (P4's `Local` arm, budget 2500) — EMPTY under `RedeemerCoverage`.**
+/-- **SHAPE L1 (P4's `Local` arm, budget 2500) — EMPTY under `RedeemerCoverageAllPlutus`.**
 Its withdrawal entry 0 is `ScriptCredential w0` and its redeemer map is the single
 `Minting ownCS` entry. (Its OWN theorem `WSC.P4a_local_shaped` proves that an
 accepted L1 mint has `ScriptCredential mlh` in that withdrawal map — so the
 uncovered script withdrawal is not an artefact of the shape, it is what the arm
 requires.) -/
-theorem l1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+theorem l1_class_is_empty_under_coverage
     (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
     (ownCS tn : ByteString) (q : Integer)
     (owner : ByteString) (inAda qIn : Integer)
@@ -253,18 +347,19 @@ theorem l1_class_is_empty_under_coverage (rc : RedeemerCoverage)
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (rc : RedeemerCoverageAt w0)
     (hsh : ctx.scriptContextTxInfo =
       (localShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
     False := by
-  refine empty_of_uncovered_wdrl rc ctx w0 a0 hoc ?_ ?_
+  refine empty_of_uncovered_wdrl_at rc ctx a0 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_self ..
   · rw [hsh]; exact minting_map_covers_no_rewarding _ _ _
 
 /-- **SHAPE DT1 (P4's `DelegateTransfer` arm, budget 2500) — EMPTY under
-`RedeemerCoverage`.** Same skeleton and the same singleton `Minting` map. -/
-theorem dt1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+`RedeemerCoverageAllPlutus`.** Same skeleton and the same singleton `Minting` map. -/
+theorem dt1_class_is_empty_under_coverage
     (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
     (ownCS tn : ByteString) (q : Integer)
     (owner : ByteString) (inAda qIn : Integer)
@@ -275,19 +370,20 @@ theorem dt1_class_is_empty_under_coverage (rc : RedeemerCoverage)
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 fee : Integer)
+    (rc : RedeemerCoverageAt w0)
     (hsh : ctx.scriptContextTxInfo =
       (dtShapedCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
     False := by
-  refine empty_of_uncovered_wdrl rc ctx w0 a0 hoc ?_ ?_
+  refine empty_of_uncovered_wdrl_at rc ctx a0 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_self ..
   · rw [hsh]; exact minting_map_covers_no_rewarding _ _ _
 
-/-- **SHAPE M1 (P4's `BurnOnly` arm, budget 900) — EMPTY under `RedeemerCoverage`.**
+/-- **SHAPE M1 (P4's `BurnOnly` arm, budget 900) — EMPTY under `RedeemerCoverageAllPlutus`.**
 The one shape whose leaf the composition can reach at the PUBLISHED `K_mint = 900`,
 and its class is empty too. -/
-theorem m1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+theorem m1_class_is_empty_under_coverage
     (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
     (ownCS tn : ByteString) (q : Integer)
     (owner : ByteString) (inAda qIn : Integer)
@@ -295,11 +391,12 @@ theorem m1_class_is_empty_under_coverage (rc : RedeemerCoverage)
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (fee : Integer) (txid : ByteString) (oidx : Integer)
     (lo hi : Integer) (tid : ByteString)
+    (rc : RedeemerCoverageAt w0)
     (hsh : ctx.scriptContextTxInfo =
       (mintShapedCtx ownCS tn q owner inAda qIn dest outAda qOut
         w0 w1 a0 a1 fee txid oidx lo hi tid).scriptContextTxInfo) :
     False := by
-  refine empty_of_uncovered_wdrl rc ctx w0 a0 hoc ?_ ?_
+  refine empty_of_uncovered_wdrl_at rc ctx a0 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_self ..
   · rw [hsh]; exact minting_map_covers_no_rewarding _ _ _
 
@@ -325,10 +422,10 @@ theorem rewarding_singleton_covers_only_itself (w0 w1 : ByteString) (r : Data)
   rw [rewarding_purpose_beq_false w0 w1 hne]
   simp
 
-/-- **SHAPE G1 (P5, budget 1600) — EMPTY under `RedeemerCoverage`.** Withdrawal
+/-- **SHAPE G1 (P5, budget 1600) — EMPTY under `RedeemerCoverageAllPlutus`.** Withdrawal
 entry 1 (`ScriptCredential w1`) has no redeemer entry: the map holds only the
 validator's OWN `Rewarding w0`. -/
-theorem g1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+theorem g1_class_is_empty_under_coverage
     (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
     (cs tn : ByteString) (q : Integer)
     (owner : ByteString) (inAda : Integer)
@@ -339,19 +436,20 @@ theorem g1_class_is_empty_under_coverage (rc : RedeemerCoverage)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 fee : Integer)
     (hne : w1 ≠ w0)
+    (rc : RedeemerCoverageAt w1)
     (hsh : ctx.scriptContextTxInfo =
       (globalShapedCtx cs tn q owner inAda dest outAda qOut
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
     False := by
-  refine empty_of_uncovered_wdrl rc ctx w1 a1 hoc ?_ ?_
+  refine empty_of_uncovered_wdrl_at rc ctx a1 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
   · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
 
-/-- **SHAPE T1 again — EMPTY under `RedeemerCoverage` TOO**, by the withdrawal route
+/-- **SHAPE T1 again — EMPTY under `RedeemerCoverageAllPlutus` TOO**, by the withdrawal route
 rather than the spending route, i.e. even a re-shaping that removed the base input
 would not rescue it. -/
-theorem t1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+theorem t1_class_is_empty_under_coverage
     (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
     (cs tn plc owner : ByteString) (inAda qIn : Integer)
     (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
@@ -362,18 +460,19 @@ theorem t1_class_is_empty_under_coverage (rc : RedeemerCoverage)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 fee : Integer)
     (hne : w1 ≠ w0)
+    (rc : RedeemerCoverageAt w1)
     (hsh : ctx.scriptContextTxInfo =
       (p1ShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
     False := by
-  refine empty_of_uncovered_wdrl rc ctx w1 a1 hoc ?_ ?_
+  refine empty_of_uncovered_wdrl_at rc ctx a1 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
   · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
 
-/-- **SHAPE S1 (P2, budget 3800) — EMPTY under `RedeemerCoverage`.** Same withdrawal
+/-- **SHAPE S1 (P2, budget 3800) — EMPTY under `RedeemerCoverageAllPlutus`.** Same withdrawal
 route as G1/T1. -/
-theorem s1_class_is_empty_under_coverage (rc : RedeemerCoverage)
+theorem s1_class_is_empty_under_coverage
     (ctx : ScriptContext) (hoc : WSC.OnChain ctx)
     (mlH inStk : ByteString) (i0Ada : Integer) (mlCS mlTn : ByteString) (i0Qty : Integer)
     (dIn : ByteString)
@@ -387,13 +486,14 @@ theorem s1_class_is_empty_under_coverage (rc : RedeemerCoverage)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 fee : Integer)
     (hne : w1 ≠ w0)
+    (rc : RedeemerCoverageAt w1)
     (hsh : ctx.scriptContextTxInfo =
       (seizeShapedCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn wallet i1Ada i1CS i1Tn i1Qty
         oStk o0Ada o0Qty dOut escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo) :
     False := by
-  refine empty_of_uncovered_wdrl rc ctx w1 a1 hoc ?_ ?_
+  refine empty_of_uncovered_wdrl_at rc ctx a1 hoc ?_ ?_
   · rw [hsh]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
   · rw [hsh]; exact rewarding_singleton_covers_only_itself w0 w1 _ hne
 
@@ -402,9 +502,13 @@ theorem s1_class_is_empty_under_coverage (rc : RedeemerCoverage)
 SHAPE DS1's map is `[(.Minting ownCS, …), (.Rewarding (.ScriptCredential sCred), …)]`
 (`WSC/Shaped/MintingDelegateShaped.lean:190-193`), i.e. it covers ONE of the two
 script withdrawals. Since `validWithdrawals` forces `w0 ≠ w1`, at least one of them
-is not `sCred`, so the class is empty under `RedeemerCoverage` for every `sCred`.
+is not `sCred`, so the class is empty under `RedeemerCoverageAllPlutus` for every `sCred`.
 Recorded here in the form the proof takes: the two cases, each with its own witness
-credential. -/
+credential.
+
+**F18 DOWNGRADE.** Which of `w0`, `w1` is the uncovered one depends on `sCred`,
+so the true-rule version of this argument needs `¬ isNative w0 ∧ ¬ isNative w1` —
+DS1 is the one retired shape whose side condition is on BOTH credentials. -/
 /-- A `[Minting ownCS, Rewarding sCred]` map covers `Rewarding w` only if `w = sCred`.
 -/
 theorem mintingRewarding_map_covers_only (ownCS : CurrencySymbol) (sCred w : ByteString)
@@ -437,6 +541,44 @@ theorem ds1_uncovered_wdrl_exists (ownCS sCred w0 w1 : ByteString) (r0 r1 : Data
   · exact Or.inr (mintingRewarding_map_covers_only ownCS sCred w1 r0 r1
       (fun hEq => hne (h.trans hEq.symm)))
   · exact Or.inl (mintingRewarding_map_covers_only ownCS sCred w0 r0 r1 h)
+
+/-! ### §2.3 THE F18 AUDIT — every NEGATIVE use of the coverage rule, one by one
+
+Task G2. `redeemerCoverageAllPlutus` / `RedeemerCoverageAllPlutus` /
+`WSC.LR_REDEEMER_COVERAGE` are the ALL-PLUTUS reading of Conway's
+`MissingRedeemers`, which is STRICTLY STRONGER than the rule
+(`CardanoLedgerApi.V3.Contexts.coveredByNonNative_strictly_weaker`). POSITIVE
+uses — the realizability inhabitants — are conservative and unaffected
+(`redeemerCoverageModNative_of_allPlutus`). NEGATIVE uses ASSUME the rule and
+derive a contradiction, so the error runs against them. Every negative use in the
+library, and what it really establishes:
+
+| emptiness theorem | route | witness the argument turns on | holds under the TRUE rule? | evidence |
+|---|---|---|---|---|
+| `t1_class_is_empty` (§1) | SPENDING, via `LR_SPEND_RUNS_VALIDATOR` + `LR_CTX` | the base input at `hp.progLogicCred` | **YES, unaffected** | never touches `scriptsNeeded`. It uses `validScriptInfo`'s FIRST conjunct: the running script's own entry. `Deployed hp` pins that script to the compiled WSC programmable-logic-base validator, a Plutus V3 script, so `isNativeScript` is irrelevant to it |
+| `t1Shape_is_empty`, `t1_leafSet_is_vacuous` (§3) | wrappers of the above | same | **YES, unaffected** | same |
+| `t2_class_is_empty`, `t6_class_is_empty`, `t7_class_is_empty` (`GlobalRealizability.lean` §4) | SPENDING, same route | same base input | **YES, unaffected** | same; `GlobalRealizability.lean:822-910` |
+| `l1_class_is_empty_under_coverage` | WITHDRAWAL, entry 0 | `w0`, a FREE `ByteString` of `localShapedCtx` | **NO — downgraded** | now stated at `RedeemerCoverageAt w0`; faithful supplier is `RedeemerCoverageAt_of_true` with `¬ isNative w0`. Nothing in the shape pins `w0` to a deployed validator hash |
+| `dt1_class_is_empty_under_coverage` | WITHDRAWAL, entry 0 | `w0` of `dtShapedCtx`, free | **NO — downgraded** | same |
+| `m1_class_is_empty_under_coverage` | WITHDRAWAL, entry 0 | `w0` of `mintShapedCtx`, free | **NO — downgraded** | same |
+| `g1_class_is_empty_under_coverage` | WITHDRAWAL, entry 1 | `w1` of `globalShapedCtx`, free (`w0` is the running rewarding credential; `w1` is not constrained) | **NO — downgraded** | now stated at `RedeemerCoverageAt w1` |
+| `s1_class_is_empty_under_coverage` | WITHDRAWAL, entry 1 | `w1` of `seizeShapedCtx`, free | **NO — downgraded** | same |
+| `t1_class_is_empty_under_coverage` | WITHDRAWAL, entry 1 | `w1` of `p1ShapedCtx`, free | **NO for this route — but the RESULT survives** | T1's emptiness is independently proved unconditionally by `t1_class_is_empty` (§1). This theorem was only the second, redundant route |
+| §2.1 DS1 (`ds1_uncovered_wdrl_exists`) | WITHDRAWAL, whichever of `w0`/`w1` is not `sCred` | BOTH `w0` and `w1`, free | **NO — downgraded, and on both credentials** | the lemma itself is a pure `findRedeemer` computation and stays true; the EMPTINESS reading of it needs `¬ isNative w0 ∧ ¬ isNative w1` |
+| `WSC.g6_class_is_empty` (`GlobalRealizability.lean` §4) | WITHDRAWAL, entry 1, via the AXIOM `LR_REDEEMER_COVERAGE` | `w1` of `memberShapedCtx`, free | **NO — downgraded**, and it is the worst case because the statement is UNCONDITIONAL | `g6_class_is_empty_nonNative` there is the true-rule form, with `¬ isNative w1` explicit |
+| `RealizableShapes.all_old_witnesses_fail_c3_coverage` | MEASUREMENT: five pre-C2 witnesses have `redeemerCoverageAllPlutus … = false` | the uncovered purposes of those five concrete contexts | **statement YES, interpretation NO** | it is a closed `native_decide` on `Bool`s and stays true verbatim. What it does NOT establish under the true rule is "these witnesses are unrealizable": a witness whose only uncovered purpose is native passes the ledger. See `RealizableShapes.lean` §4 |
+
+SUMMARY: **6 of 13 negative uses survive untouched** (all the SPENDING-route
+ones, which never consult `scriptsNeeded`), **6 are downgraded to an explicit
+non-native side condition** on one credential (DS1: two), and **1 is a
+measurement whose statement survives but whose interpretation is downgraded**.
+No POSITIVE result, no realizability inhabitant, and neither composed
+containment theorem depends on any of these — nothing in `WSC/Composition.lean`
+consumes a `*_under_coverage` theorem or `g6_class_is_empty`. What the downgrade
+costs is the strength of the JUSTIFICATION for retiring the pre-C2 shapes: it is
+now "empty unless witnessed by a native timelock" rather than "empty". The
+re-cut shapes' realizability, which is what the campaign's results actually rest
+on, is a positive claim and is unaffected. -/
 
 /-! # §3 THE VACUOUS `LeafSet` AT SHAPE T1 — built, and labelled
 
@@ -517,7 +659,7 @@ axiomatizes.** The gap is precisely the Conway `MissingRedeemers` rule —
 `validScriptInfo` checks the redeemer map for the RUNNING script only
 (`CardanoLedgerApi/V3/Contexts.lean:1035-1037`), never for the other scripts the
 transaction needs — and `WSC/Honest.lean`'s LR-CTX audit table has no row for it.
-`RedeemerCoverage` (§2) is the missing row.
+`RedeemerCoverageAllPlutus` (§2) is the missing row.
 
 This is not a criticism of the witnesses: they were built to satisfy the strongest
 ledger predicate the substrate offers, and they do. It is the reason a whole layer of

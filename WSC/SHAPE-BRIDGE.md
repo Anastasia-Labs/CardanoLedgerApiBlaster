@@ -512,7 +512,7 @@ on the transaction and `WSC.LR_CTX` then demands a `Spending` redeemer entry tha
 T1's singleton `Rewarding` map does not contain. `#print axioms t1_class_is_empty` =
 `[propext, Quot.sound, WSC.Deployed, WSC.LR_CTX, WSC.LR_SPEND_RUNS_VALIDATOR,
 WSC.NodeAcceptsBase, WSC.OnChain]` — **no `sorryAx`**. For L1 / DT1 / M1 / G1 / S1 /
-DS1 the emptiness is proved under `RedeemerCoverage`, the `MissingRedeemers` rule
+DS1 the emptiness is proved under `RedeemerCoverageAllPlutus`, the `MissingRedeemers` rule
 stated as a `Prop` and deliberately **not** as an axiom.
 
 Consequences for this document:

@@ -42,7 +42,7 @@ condition on the leaves is `w0 < w1`, which `validWithdrawals` already forces.
 | P1 mint/burn (signed form) | T2 | `✅ Valid` (`P1_T2`) | **EMPTY, unconditional** (`t2_class_is_empty`, proved in this unit) | **T2R** — + `Minting cs`, **4** redeemers | `✅ Valid` (`P1R_T2`) | **REALIZABLE** (`t2R_realizable`) | K = **3572**, budget 4400 |
 | P1 output aggregation | T6 | `✅ Valid` (`P1_T6`) | **EMPTY, unconditional** (`t6_class_is_empty`, this unit) | **T6R** — 3 redeemers | `✅ Valid` (`P1R_T6`) | **REALIZABLE** (`t6R_realizable`) | K = **3150**, budget 4400 |
 | P1 aggregation + mint (strongest) | T7 | `✅ Valid` (`P1_T7`) | **EMPTY, unconditional** (`t7_class_is_empty`, this unit) | **T7R** — 4 redeemers | `✅ Valid` (`P1R_T7`) | **REALIZABLE** (`t7R_realizable`) | K = **3572**, budget 4400 |
-| P5 covering-node (mint-side `NonMember`) | G1 — 2 script wdrl, 1 redeemer | `✅ Valid` (`P5_shaped_indexed`) | **EMPTY under `RedeemerCoverage`** (`g1_class_is_empty_under_coverage`) | **G1R** — **1** script wdrl, **2** redeemers (`Minting cs`, `Rewarding w0`) | `✅ Valid` (`P5R_shaped_indexed`) | **REALIZABLE** (`g1R_realizable`) | K = **1541**, budget 1600 |
+| P5 covering-node (mint-side `NonMember`) | G1 — 2 script wdrl, 1 redeemer | `✅ Valid` (`P5_shaped_indexed`) | **EMPTY under `RedeemerCoverageAllPlutus`** (`g1_class_is_empty_under_coverage`) | **G1R** — **1** script wdrl, **2** redeemers (`Minting cs`, `Rewarding w0`) | `✅ Valid` (`P5R_shaped_indexed`) | **REALIZABLE** (`g1R_realizable`) | K = **1541**, budget 1600 |
 | P6 `Member` self-penalization | G6 — 2 script wdrl, 1 redeemer | `✅ Valid` (`P6_shaped_member_adds_to_requirement`) | **EMPTY, UNCONDITIONAL** (`g6_class_is_empty`, this unit, via C3's `LR_REDEEMER_COVERAGE`) | **G6R** — 1 script wdrl, 2 redeemers | `✅ Valid` (`P6R_shaped_member_adds_to_requirement`) | **REALIZABLE** (`g6R_realizable`) | K = **2837**, budget 3300 |
 
 Derived forms also re-proved: `P5R_shaped_exists` (ADDENDUM E3 ∃-form),
@@ -62,18 +62,18 @@ risk ("the enlarged redeemer map re-hits the solver wall") **did not materialise
 
 C3's commits `755d75e`/`c10782a` put Conway's `MissingRedeemers`/`ExtraRedeemers`
 into CLAB (`scriptPurposesWitnessed` = the `scriptsNeeded` transcription over all
-six sources, `redeemerCoverage`, `noExtraRedeemers`, `redeemersExact`) and into
+six sources, `redeemerCoverageAllPlutus`, `noExtraRedeemersAllPlutus`, `redeemersExactAllPlutus`) and into
 `WSC/Honest.lean` (LR-CTX audit row S, axiom `LR_REDEEMER_COVERAGE`, corollary
-`redeemerCoverage_wdrl`). This unit was re-stated against them:
+`redeemerCoverageAllPlutus_wdrl`). This unit was re-stated against them:
 
-* `{g1R,g6R,t1R,t2R,t6R,t7R}_class_coverage` — **`redeemerCoverage … = true` for
+* `{g1R,g6R,t1R,t2R,t6R,t7R}_class_coverage` — **`redeemerCoverageAllPlutus … = true` for
   EVERY leaf assignment of every re-cut shape**, in CLAB's own vocabulary. This
   is the strongest class-level form of the acceptance criterion, and it also
   discharges the certificate / vote / proposal arms (empty in all six shapes).
-* each `*_realizable` theorem now also asserts **`redeemersExact … = true`** at
+* each `*_realizable` theorem now also asserts **`redeemersExactAllPlutus … = true`** at
   its witness — BOTH halves of `hasExactSetOfRedeemers`, so the witnesses carry
   no EXTRA redeemer either (`native_decide`).
-* `g6_class_is_empty` is discharged from `redeemerCoverage_wdrl`, so it is
+* `g6_class_is_empty` is discharged from `redeemerCoverageAllPlutus_wdrl`, so it is
   **unconditional** — the first shape-emptiness result to use C3's axiom rather
   than `ShapeRealizability`'s local `Prop`.
 
@@ -117,7 +117,7 @@ Undetermined** — i.e. the pre-existing 101 (66+35) plus this unit's 18 (9+9).
   axiom appears**, exactly as for their SHAPE T1/G1/G6 predecessors;
 * the four new emptiness theorems: `Deployed, LR_CTX, LR_SPEND_RUNS_VALIDATOR,
   NodeAcceptsBase, OnChain` (T2/T6/T7) and `OnChain` (G6, plus the
-  `RedeemerCoverage` hypothesis as an explicit argument) — identical trust cost to
+  `RedeemerCoverageAllPlutus` hypothesis as an explicit argument) — identical trust cost to
   `t1_class_is_empty` / `g1_class_is_empty_under_coverage`.
 
 No new `axiom` declaration anywhere (library count unchanged at 50), and no
@@ -126,8 +126,8 @@ No new `axiom` declaration anywhere (library count unchanged at 50), and no
 ## WHAT IS STILL OPEN AFTER THIS UNIT
 
 1. **`ShapeRealizability.lean`'s conditional results can now be made
-   unconditional.** Its `RedeemerCoverage` `Prop` is superseded by C3's
-   `LR_REDEEMER_COVERAGE` + `redeemerCoverage_wdrl`; `g6_class_is_empty` in this
+   unconditional.** Its `RedeemerCoverageAllPlutus` `Prop` is superseded by C3's
+   `LR_REDEEMER_COVERAGE` + `redeemerCoverageAllPlutus_wdrl`; `g6_class_is_empty` in this
    unit shows the one-line pattern. That module is not owned by C1, so
    `g1/l1/m1/s1/dt1_class_is_empty_under_coverage` were left as they are.
    **FOLLOW-UP for its owner.**

@@ -67,7 +67,7 @@ class, each stated here because each is doing work:
 
 **THE CLASS IS NOT EMPTY.** §5 re-certifies `WSC.P2RWitness.ctxAccept` — the
 SHAPE-S1R witness that satisfies `validRewardingContext`, both halves of Conway's
-`redeemersExact`, and real-CEK acceptance at K = 3004 — as a member (`mlCS = mCS
+`redeemersExactAllPlutus`, and real-CEK acceptance at K = 3004 — as a member (`mlCS = mCS
 = key = "MMM"`, withdrawals at `AASEIZE`/`ZZILS`, base `PROGLOGIC`).
 
 ════════════════════════════════════════════════════════════════════════════
@@ -533,7 +533,7 @@ theorem no_tokens_outside_mini_ledger_on_seize_class
 /-! ## §5 THE SEIZE CLASS IS NOT EMPTY
 
 `WSC.P2RWitness.ctxAccept` is the SHAPE-S1R instance task C2 certified: it
-satisfies `validRewardingContext`, both halves of Conway's `redeemersExact`, and
+satisfies `validRewardingContext`, both halves of Conway's `redeemersExactAllPlutus`, and
 is ACCEPTED by the real compiled `programmableSeize` in 3,004 CEK steps
 (`WSC.s1r_realizable`, `WSC.NonVacuity.seizeNonVacuous_at_3800`). Its leaves make
 every conjunct of §2 true: base `PROGLOGIC`, seize credential `AASEIZE`, seized
@@ -595,7 +595,7 @@ theorem realizable_inhabitant_S1R :
     S1RCore witnessParamsS1R WSC.P2RWitness.ctxAccept
     ∧ NoGlobalWdrl witnessParamsS1R WSC.P2RWitness.ctxAccept
     ∧ CardanoLedgerApi.V3.validRewardingContext WSC.P2RWitness.ctxAccept = true
-    ∧ CardanoLedgerApi.V3.Contexts.redeemersExact
+    ∧ CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus
         WSC.P2RWitness.ctxAccept.scriptContextTxInfo = true
     ∧ isSuccessful (Runs.seizeRun 3800 WSC.P2RWitness.ppCS WSC.P2RWitness.ctxAccept) :=
   ⟨s1RShape_witness.1, s1RShape_witness.2,

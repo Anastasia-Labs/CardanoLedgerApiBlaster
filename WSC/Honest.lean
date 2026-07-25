@@ -140,9 +140,9 @@ open CardanoLedgerApi.V3 (Credential CurrencySymbol TokenName Value MintValue
                           validScriptContext validRewardingContext
                           validMintingContext validSpendingContext)
 open CardanoLedgerApi.V3.Contexts (validMintValue validWithdrawals validRedeemerMap
-                          findRedeemer redeemerCoverage noExtraRedeemers redeemersExact
-                          findRedeemer_rewarding_ne_none_of_coverage
-                          findRedeemer_spending_ne_none_of_coverage)
+                          findRedeemer redeemerCoverageAllPlutus noExtraRedeemersAllPlutus redeemersExactAllPlutus
+                          findRedeemer_rewarding_ne_none_of_coverageAllPlutus
+                          findRedeemer_spending_ne_none_of_coverageAllPlutus)
 open PlutusCore.Data (Data)
 open PlutusCore.Integer (Integer)
 open PlutusCore.ByteString (ByteString)
@@ -624,7 +624,7 @@ ledger line numbers are the `cardano-ledger` checkout @ `cd8b7fab8`.
 | P | `validDatumMap`: datum witnesses ascending by hash (:1207, `V1/Contexts.lean:995-1002`) | `Map.toList` of `TxDats` (`transTxWitsDatums`, `Alonzo/Plutus/TxInfo.hs:316`) | **JUSTIFIED** |
 | Q | `validVoterMap`, `validTreasuryAmount`, `validTreasuryDonation` (:1208-1210) | `transVotingProcedures` over ordered maps (`Conway/TxInfo.hs:696-699`); treasury fields are `Maybe Coin` and `Nothing`/positive by construction (`:518-523`) | **JUSTIFIED**; unused by WSC |
 | R | `isBalanced` (:1211, :1150-1154) | Conway `UTXO` `ValueNotConservedUTxO` | **JUSTIFIED** |
-| **S** | **NOT A CONJUNCT OF `validScriptContext`** — the redeemer map covers EVERY script the transaction needs, not only the running one. CLAB states it separately as `redeemerCoverage` / `noExtraRedeemers` / `redeemersExact` (`CardanoLedgerApi/V3/Contexts.lean`, added by task C3) and it is assumed here as `LR_REDEEMER_COVERAGE` below | `hasExactSetOfRedeemers` (`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:239-262`), spec comment at `:237-238`: `dom (txrdmrs tx) = { rdptr txb sp ∣ (sp,h) ∈ scriptsNeeded utxo tx, h ↦ s ∈ txscripts txw, s ∈ Scriptph2 }`. Reached from Conway via `ConwayUTXOW.transitionRules = [Babbage.babbageUtxowTransition]` (`Conway/Rules/Utxow.hs:195`) → `Babbage/Rules/Utxow.hs:351`. **EXACT SET EQUALITY**, both halves enforced by `extSymmetricDifference` (`Utxow.hs:378-383`): `ExtraRedeemers` and `MissingRedeemers` (`:259-262`). `scriptsNeeded = getConwayScriptsNeeded` (`Conway/UTxO.hs:63-74`) quantifies over SIX sources — spending inputs at script addresses (`Alonzo/UTxO.hs:360-373`), script-credential withdrawals (`:375-384`), **every** mint policy id (`:386-394`), script-witnessed certificates (`Conway/TxCert.hs:736-758`), script-credential voters, guardrails-carrying proposals | **THE ROW THAT WAS MISSING.** Its absence is audit finding **F2**: a shape with two script-credential withdrawals and a ONE-entry redeemer map satisfies `validRewardingContext` (rows A–R) while being unbuildable, because rows B/E constrain only the RUNNING script's entry. Now stated. **NOT** folded into `validScriptContext` on purpose: the ledger filters `scriptsNeeded` to non-native scripts (`Utxow.hs:247-251`) and `TxInfo` does not record a script's language, so a coverage CONJUNCT would be over-strong — it would reject a genuine transaction witnessed by a native timelock, for which the rule requires no entry and the `ExtraRedeemers` half forbids one. See the `redeemerCoverage` section header in CLAB for the full argument |
+| **S** | **NOT A CONJUNCT OF `validScriptContext`** — the redeemer map covers EVERY script the transaction needs, not only the running one. CLAB states it separately as `redeemerCoverageAllPlutus` / `noExtraRedeemersAllPlutus` / `redeemersExactAllPlutus` (`CardanoLedgerApi/V3/Contexts.lean`, added by task C3) and it is assumed here as `LR_REDEEMER_COVERAGE` below | `hasExactSetOfRedeemers` (`eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs:239-262`), spec comment at `:237-238`: `dom (txrdmrs tx) = { rdptr txb sp ∣ (sp,h) ∈ scriptsNeeded utxo tx, h ↦ s ∈ txscripts txw, s ∈ Scriptph2 }`. Reached from Conway via `ConwayUTXOW.transitionRules = [Babbage.babbageUtxowTransition]` (`Conway/Rules/Utxow.hs:195`) → `Babbage/Rules/Utxow.hs:351`. **EXACT SET EQUALITY**, both halves enforced by `extSymmetricDifference` (`Utxow.hs:378-383`): `ExtraRedeemers` and `MissingRedeemers` (`:259-262`). `scriptsNeeded = getConwayScriptsNeeded` (`Conway/UTxO.hs:63-74`) quantifies over SIX sources — spending inputs at script addresses (`Alonzo/UTxO.hs:360-373`), script-credential withdrawals (`:375-384`), **every** mint policy id (`:386-394`), script-witnessed certificates (`Conway/TxCert.hs:736-758`), script-credential voters, guardrails-carrying proposals | **THE ROW THAT WAS MISSING.** Its absence is audit finding **F2**: a shape with two script-credential withdrawals and a ONE-entry redeemer map satisfies `validRewardingContext` (rows A–R) while being unbuildable, because rows B/E constrain only the RUNNING script's entry. Now stated. **NOT** folded into `validScriptContext` on purpose: the ledger filters `scriptsNeeded` to non-native scripts (`Utxow.hs:247-251`) and `TxInfo` does not record a script's language, so a coverage CONJUNCT would be over-strong — it would reject a genuine transaction witnessed by a native timelock, for which the rule requires no entry and the `ExtraRedeemers` half forbids one. See the `redeemerCoverageAllPlutus` section header in CLAB for the full argument |
 
 MISSING-BUT-SOUND (ledger rules CLAB does NOT assert; omitting them only
 weakens the precondition, which strengthens the theorems):
@@ -656,9 +656,9 @@ claims are listed at the end so the record is not silently rewritten.
   empirical support for all four validator shapes**, and the goldens — not only
   the hand-built `WSC.P3Witness.ctx` — now serve as `validXContext` anti-vacuity
   witnesses.
-* **Row S, re-measured (task C3).** All 13 goldens satisfy `redeemerCoverage`
+* **Row S, re-measured (task C3).** All 13 goldens satisfy `redeemerCoverageAllPlutus`
   (`every_golden_is_redeemer_covered`), and all 9 accepting goldens satisfy the
-  FULL exact-set rule `redeemersExact` — the needed-purpose multiset matches
+  FULL exact-set rule `redeemersExactAllPlutus` — the needed-purpose multiset matches
   `txInfoRedeemers` entry-for-entry, at 2–5 entries, across `Spending`,
   `Rewarding` and `Minting` purposes
   (`every_accepting_golden_has_exact_redeemers`,
@@ -772,15 +772,15 @@ Three reasons, in order of force:
    in the axiom census as one, not be absorbed into an existing name.
 
 WHAT IT IS ASSUMED FOR: `WSC/Props/Shaped/ShapeRealizability.lean` states the
-emptiness of SHAPES L1/M1/G1/S1/DT1/DS1 under a `RedeemerCoverage` HYPOTHESIS
+emptiness of SHAPES L1/M1/G1/S1/DT1/DS1 under a `RedeemerCoverageAllPlutus` HYPOTHESIS
 because no axiom supplied the rule. This axiom supplies it, so those results can
-become unconditional. `redeemerCoverage_wdrl` / `redeemerCoverage_spend` below are
+become unconditional. `redeemerCoverageAllPlutus_wdrl` / `redeemerCoverageAllPlutus_spend` below are
 the two forms those proofs consume.
 
 EMPIRICAL SUPPORT — stronger than for most rows in the table, and it is the
 check that the rule is not over-strong. All 13 goldens satisfy
-`redeemerCoverage` and all 9 ACCEPTING goldens satisfy the full exact-set rule
-`redeemersExact`, with the needed-purpose multiset matching `txInfoRedeemers`
+`redeemerCoverageAllPlutus` and all 9 ACCEPTING goldens satisfy the full exact-set rule
+`redeemersExactAllPlutus`, with the needed-purpose multiset matching `txInfoRedeemers`
 entry-for-entry (2–5 entries, `Spending`/`Rewarding`/`Minting`, all four
 validators): `WSC/Goldens/Audit.lean`'s `every_golden_is_redeemer_covered`,
 `every_accepting_golden_has_exact_redeemers`,
@@ -789,38 +789,68 @@ real contexts.
 
 SCOPE, stated as narrowly as the measurement warrants: this is the
 `MissingRedeemers` half only. The `ExtraRedeemers` half is CLAB's
-`noExtraRedeemers` and is **not** assumed here, because nothing needs it — and
+`noExtraRedeemersAllPlutus` and is **not** assumed here, because nothing needs it — and
 because it is the direction that would be WEAKER than the ledger rule in the
 presence of a native script witness, not stronger. Assume it separately if a
-proof ever wants it. -/
+proof ever wants it.
+
+**KNOWN OVER-STRENGTH — audit finding F18. READ BEFORE USING THIS AXIOM.**
+This axiom is **NOT** the Conway rule; it is the Conway rule read at an
+ALL-PLUTUS transaction, and its conclusion is literally
+`redeemerCoverageAllPlutus`, which
+`CardanoLedgerApi.V3.Contexts.coveredByNonNative_strictly_weaker` proves is
+strictly stronger than `hasExactSetOfRedeemers`' `MissingRedeemers` half. The
+ledger filters `scriptsNeeded` by `not (isNativeScript script)`
+(`Alonzo/Rules/Utxow.hs:247-251`), and `TxInfo` cannot express that filter — it
+carries no script bodies and no language tags, only hashes
+(`CardanoLedgerApi/V2/Tx.lean:78-83`, `V1/Scripts.lean:15-16`). **A real Conway
+transaction with a script-credential withdrawal witnessed by a native timelock
+satisfies `OnChain` and FALSIFIES this axiom's conclusion**, because the ledger
+requires no redeemer entry for it and the `ExtraRedeemers` half forbids one.
+
+CONSEQUENCE FOR CONSUMERS, and it splits by direction:
+* Used to DISCHARGE coverage about a transaction the campaign is constructing
+  (every realizability inhabitant) the all-Plutus reading is conservative and
+  the axiom is not needed at all — those go through `native_decide`.
+* Used to ASSUME coverage about an arbitrary on-chain transaction — which is
+  what `redeemerCoverageAllPlutus_wdrl`/`_spend` and hence
+  `WSC.g6_class_is_empty` do — the emptiness conclusion is established only for
+  members whose uncovered withdrawal/input is NON-NATIVE. The per-use audit and
+  the re-established, explicitly-conditioned versions are in
+  `WSC/Props/Shaped/ShapeRealizability.lean` §2.2.
+
+The axiom is retained under its original name (renaming it would silently
+renumber the campaign's axiom census) but its statement now reads
+`redeemerCoverageAllPlutus`, which is the point: the over-strength is visible at
+the axiom and at every use site. -/
 axiom LR_REDEEMER_COVERAGE : ∀ (ctx : ScriptContext),
-  OnChain ctx → redeemerCoverage ctx.scriptContextTxInfo
+  OnChain ctx → redeemerCoverageAllPlutus ctx.scriptContextTxInfo
 
 /-- **The form `ShapeRealizability` consumes.** A script-credential withdrawal in
 an on-chain transaction forces a `Rewarding` redeemer-map entry for that
-credential. This is literally the statement of that module's `RedeemerCoverage`
-`Prop`, so a proof that took `rc : RedeemerCoverage` can be closed by passing
-`WSC.redeemerCoverage_wdrl` instead — making the shape-emptiness results
+credential. This is literally the statement of that module's `RedeemerCoverageAllPlutus`
+`Prop`, so a proof that took `rc : RedeemerCoverageAllPlutus` can be closed by passing
+`WSC.redeemerCoverageAllPlutus_wdrl` instead — making the shape-emptiness results
 unconditional. -/
-theorem redeemerCoverage_wdrl (ctx : ScriptContext) (h : ScriptHash) (n : Integer)
+theorem redeemerCoverageAllPlutus_wdrl (ctx : ScriptContext) (h : ScriptHash) (n : Integer)
     (hoc : OnChain ctx)
     (hw : (Credential.ScriptCredential h, n) ∈ ctx.scriptContextTxInfo.txInfoWdrl) :
     findRedeemer (.Rewarding (.ScriptCredential h))
       ctx.scriptContextTxInfo.txInfoRedeemers ≠ none :=
-  findRedeemer_rewarding_ne_none_of_coverage (LR_REDEEMER_COVERAGE ctx hoc) hw
+  findRedeemer_rewarding_ne_none_of_coverageAllPlutus (LR_REDEEMER_COVERAGE ctx hoc) hw
 
 /-- Companion for the spending side: spending a script-addressed input in an
 on-chain transaction forces a `Spending` entry for that input's `TxOutRef`.
 `WSC/Props/Shaped/ShapeRealizability.lean`'s `t1_class_is_empty` reaches the same
 conclusion through `LR_SPEND_RUNS_VALIDATOR` + `LR_CTX` for the RUNNING script;
 this covers every script-addressed input, running or not. -/
-theorem redeemerCoverage_spend (ctx : ScriptContext) (t : TxInInfo) (sh : ScriptHash)
+theorem redeemerCoverageAllPlutus_spend (ctx : ScriptContext) (t : TxInInfo) (sh : ScriptHash)
     (hoc : OnChain ctx)
     (ht : t ∈ ctx.scriptContextTxInfo.txInfoInputs)
     (hsc : t.txInInfoResolved.txOutAddress.addressCredential = .ScriptCredential sh) :
     findRedeemer (.Spending t.txInInfoOutRef)
       ctx.scriptContextTxInfo.txInfoRedeemers ≠ none :=
-  findRedeemer_spending_ne_none_of_coverage (LR_REDEEMER_COVERAGE ctx hoc) ht hsc
+  findRedeemer_spending_ne_none_of_coverageAllPlutus (LR_REDEEMER_COVERAGE ctx hoc) ht hsc
 
 /-- **NONNEG (ADDENDUM E6)**: non-negativity of held amounts. Every UTxO a
 transaction touches holds a non-negative amount of every asset.

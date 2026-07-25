@@ -2087,7 +2087,7 @@ is EMPTY.** `WSC/Props/Shaped/ShapeRealizability.lean` proves it:
   `ts_genesis` because no `Reachable.step` can fire.
 * For the other shapes the same conclusion needs the `MissingRedeemers` rule, which
   `WSC/Honest.lean` does not have; it is stated there as
-  `ShapeRealizability.RedeemerCoverage` (a `Prop`, NOT an axiom) and the emptiness
+  `ShapeRealizability.RedeemerCoverageAllPlutus` (a `Prop`, NOT an axiom) and the emptiness
   is proved conditionally on it, shape by shape.
 
 So the honest options were (a) a vacuous shaped `LeafSet`, or (b) a real `LeafSet`

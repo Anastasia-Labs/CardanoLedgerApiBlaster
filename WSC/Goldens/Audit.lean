@@ -405,8 +405,8 @@ theorem relaxed_verdicts :
 `validScriptContext` does **not** contain the Conway UTXOW rule
 `hasExactSetOfRedeemers` (`Alonzo/Rules/Utxow.hs:239-262`, reached from Conway at
 `Babbage/Rules/Utxow.hs:351`); CLAB states it separately as
-`CardanoLedgerApi.V3.Contexts.redeemerCoverage` / `noExtraRedeemers` /
-`redeemersExact`, and `WSC/Honest.lean` assumes it as row **S** /
+`CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus` / `noExtraRedeemersAllPlutus` /
+`redeemersExactAllPlutus`, and `WSC/Honest.lean` assumes it as row **S** /
 `LR_REDEEMER_COVERAGE`.  Its omission is audit finding **F2**: it is exactly why
 every shaped context — two script withdrawals, one redeemer entry — satisfied
 `validRewardingContext` while being unbuildable by a node.
@@ -426,7 +426,7 @@ proposing), while `txInfoRedeemers` is in `ConwayPlutusPurpose` order
 orders are irrelevant and both predicates test membership only. -/
 
 /-- **Every golden — all 13, accepting and rejecting — satisfies
-`redeemerCoverage`.** Nothing in this suite is missing a redeemer entry for a
+`redeemerCoverageAllPlutus`.** Nothing in this suite is missing a redeemer entry for a
 script it needs.  Contrast every shape in `WSC/Shaped/`, which has two script
 withdrawals and one redeemer entry. -/
 theorem every_golden_is_redeemer_covered :
@@ -434,7 +434,7 @@ theorem every_golden_is_redeemer_covered :
       match ctxOfHex v.scriptContextHex with
       | none => false
       | some ctx =>
-          CardanoLedgerApi.V3.Contexts.redeemerCoverage ctx.scriptContextTxInfo)
+          CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus ctx.scriptContextTxInfo)
       = true := by
   native_decide
 
@@ -447,7 +447,7 @@ theorem every_accepting_golden_has_exact_redeemers :
       (match ctxOfHex v.scriptContextHex with
        | none => false
        | some ctx =>
-           CardanoLedgerApi.V3.Contexts.redeemersExact ctx.scriptContextTxInfo))
+           CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus ctx.scriptContextTxInfo))
       = true := by
   native_decide
 
@@ -463,8 +463,8 @@ theorem extra_redeemers_in_mint_local_empty_withdrawals :
      | none => false
      | some ctx =>
          ctx.scriptContextTxInfo.txInfoWdrl.length == 0
-         && CardanoLedgerApi.V3.Contexts.redeemerCoverage ctx.scriptContextTxInfo
-         && !CardanoLedgerApi.V3.Contexts.noExtraRedeemers ctx.scriptContextTxInfo)
+         && CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus ctx.scriptContextTxInfo
+         && !CardanoLedgerApi.V3.Contexts.noExtraRedeemersAllPlutus ctx.scriptContextTxInfo)
       = true := by
   native_decide
 

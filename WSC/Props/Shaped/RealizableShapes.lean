@@ -25,8 +25,8 @@ the library already had, `Realizability.redeemerCovered` is **`false`**; for eac
 re-cut shape's witness it is **`true`**, and the withdrawal/spending/mint coverage
 holds at EVERY member of the re-cut class — twice over: §2 in this task's own
 ∀-form vocabulary, and **§2c in CLAB's, i.e. task C3's
-`CardanoLedgerApi.V3.Contexts.redeemerCoverage` over all six `scriptsNeeded`
-sources**. §4 adds `redeemersExact` (BOTH halves of Conway's
+`CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus` over all six `scriptsNeeded`
+sources**. §4 adds `redeemersExactAllPlutus` (BOTH halves of Conway's
 `hasExactSetOfRedeemers`) at every witness. All of it is `native_decide` /
 ordinary Lean — no axiom, no solver, no `sorryAx`.
 
@@ -177,7 +177,7 @@ theorem s1r_residual_realizable : Realizability.Realizable WSC.P2RWitness.ctxRes
 
 §2's coverage theorems are stated with this task's `Realizability.*Covered`
 predicates. The six below say the same thing with task C3's
-`CardanoLedgerApi.V3.Contexts.redeemerCoverage`, i.e. against CLAB's own
+`CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus`, i.e. against CLAB's own
 transcription of `scriptsNeeded` over ALL SIX sources — so the certificate, vote
 and proposal arms are discharged too (empty in every shape here), and the
 statement is the class-level one: it holds for EVERY leaf assignment, not only at
@@ -188,7 +188,7 @@ theorem m1r_class_coverage
     (dest : ByteString) (outAda qOut : Integer) (w0 : ByteString) (a0 : Integer)
     (mlRed : ByteString) (fee : Integer) (txid : ByteString) (oidx lo hi : Integer)
     (tid : ByteString) :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       (WSC.mintRCtx ownCS tn q owner inAda qIn dest outAda qOut w0 a0 mlRed fee txid oidx
         lo hi tid).scriptContextTxInfo = true := by
   have h1 : CardanoLedgerApi.V3.findRedeemer
@@ -197,7 +197,7 @@ theorem m1r_class_coverage
   have h2 : CardanoLedgerApi.V3.findRedeemer
       (.Minting ownCS) (WSC.mintRRedeemerMap ownCS w0 mlRed) ≠ none := by
     rw [WSC.mintR_findMinting]; exact Option.noConfusion
-  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverage,
+  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus,
         CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.spendingPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.rewardingPurposesWitnessed,
@@ -218,7 +218,7 @@ theorem m2r_class_coverage
     (dest : ByteString) (outAda qOut : Integer) (w0 : ByteString) (a0 : Integer)
     (mlRed : ByteString) (fee : Integer) (txid : ByteString) (oidx lo hi : Integer)
     (tid : ByteString) (wIdx : Integer) :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       (WSC.mintRCtxIdx ownCS tn q owner inAda qIn dest outAda qOut w0 a0 mlRed fee txid oidx
         lo hi tid wIdx).scriptContextTxInfo = true := by
   have h1 : CardanoLedgerApi.V3.findRedeemer
@@ -227,7 +227,7 @@ theorem m2r_class_coverage
   have h2 : CardanoLedgerApi.V3.findRedeemer
       (.Minting ownCS) (WSC.mintRRedeemerMapIdx ownCS w0 mlRed wIdx) ≠ none := by
     rw [WSC.mintRIdx_findMinting]; exact Option.noConfusion
-  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverage,
+  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus,
         CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.spendingPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.rewardingPurposesWitnessed,
@@ -252,7 +252,7 @@ theorem l1r_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 : ByteString) (a0 : Integer) (mlRed : ByteString) (fee : Integer) :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       (WSC.localRCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 a0 mlRed
@@ -263,7 +263,7 @@ theorem l1r_class_coverage
   have h2 : CardanoLedgerApi.V3.findRedeemer
       (.Minting ownCS) (WSC.localRRedeemerMap ownCS w0 mlRed) ≠ none := by
     rw [WSC.localR_findMinting]; exact Option.noConfusion
-  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverage,
+  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus,
         CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.spendingPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.rewardingPurposesWitnessed,
@@ -290,7 +290,7 @@ theorem dt1r_class_coverage
     (nHash nCS nTn : ByteString) (nAda nQty : Integer)
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 : Integer) (mlRed glRed : ByteString) (fee : Integer) :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       (WSC.dtRCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 mlRed glRed
@@ -304,7 +304,7 @@ theorem dt1r_class_coverage
   have h3 : CardanoLedgerApi.V3.findRedeemer
       (.Minting ownCS) (WSC.dtRRedeemerMap ownCS w0 w1 mlRed glRed) ≠ none := by
     rw [WSC.dtR_findMinting]; exact Option.noConfusion
-  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverage,
+  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus,
         CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.spendingPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.rewardingPurposesWitnessed,
@@ -333,7 +333,7 @@ theorem ds1r_class_coverage
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 : Integer) (mlRed : ByteString) (sIdx : Integer)
     (fee : Integer) :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       (WSC.dsRCtx ownCS tn q owner inAda qIn o0h outAda0 c0 tn0 qq0 o1h outAda1
         pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 mlRed sIdx
@@ -347,7 +347,7 @@ theorem ds1r_class_coverage
   have h3 : CardanoLedgerApi.V3.findRedeemer
       (.Minting ownCS) (WSC.dsRRedeemerMap ownCS w0 w1 mlRed sIdx) ≠ none := by
     rw [WSC.dsR_findMinting]; exact Option.noConfusion
-  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverage,
+  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus,
         CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.spendingPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.rewardingPurposesWitnessed,
@@ -379,7 +379,7 @@ theorem s1r_class_coverage
     (key next tlsH ilsH gsCS : ByteString)
     (w0 w1 : ByteString) (a0 a1 : Integer)
     (spRed mtRed ilRed : ByteString) (fee : Integer) :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       (WSC.seizeRCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn wallet i1Ada i1CS i1Tn i1Qty
         oStk o0Ada o0Qty dOut escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ
         pHash pCS pTn pAda pQty dirCS plc glc slc
@@ -400,7 +400,7 @@ theorem s1r_class_coverage
   have h3 : CardanoLedgerApi.V3.findRedeemer
       (.Minting mCS) (WSC.seizeRRedeemerMap mCS w0 w1 spRed mtRed ilRed) ≠ none := by
     rw [WSC.seizeR_findMinting]; exact Option.noConfusion
-  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverage,
+  simp [CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus,
         CardanoLedgerApi.V3.Contexts.scriptPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.spendingPurposesWitnessed,
         CardanoLedgerApi.V3.Contexts.rewardingPurposesWitnessed,
@@ -425,12 +425,12 @@ Task C3 landed Conway's `hasExactSetOfRedeemers` inside CLAB while C2 was cuttin
 the shapes (`CardanoLedgerApi/V3/Contexts.lean`): `scriptPurposesWitnessed` is the
 six-source `getConwayScriptsNeeded` (spending inputs at script addresses,
 script-credential withdrawals, EVERY mint policy, script-witnessed certificates,
-script-credential voters, guardrails proposals), `redeemerCoverage` is the
-`MissingRedeemers` half and `noExtraRedeemers` the `ExtraRedeemers` half.
+script-credential voters, guardrails proposals), `redeemerCoverageAllPlutus` is the
+`MissingRedeemers` half and `noExtraRedeemersAllPlutus` the `ExtraRedeemers` half.
 
 The theorems below are the cross-check, and they are stronger than §1–§2 in two
 ways: the predicate is a DIFFERENT transcription of the rule (so agreement is
-evidence both are right), and `redeemersExact` demands the EXACT SET, not merely
+evidence both are right), and `redeemersExactAllPlutus` demands the EXACT SET, not merely
 coverage — the C2 shapes carry no redeemer entry the transaction does not need,
 which the `#red = #scriptIn + #mintPol + #scriptWdrl` count they were cut to hit
 is exactly the statement of. -/
@@ -438,28 +438,41 @@ is exactly the statement of. -/
 /-- **EVERY RE-CUT WITNESS SATISFIES CONWAY'S EXACT-SET RULE, both halves**, as
 transcribed independently by task C3 in CLAB. -/
 theorem all_recut_witnesses_redeemersExact :
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.M1RWitness.ctx.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.M2RWitness.ctx.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.L1RWitness.ctx.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.DelegateRWitness.ctxDT.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.DelegateRWitness.ctxDS.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.P2RWitness.ctxAccept.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.P2RWitness.ctxResidual.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.P2RWitness.ctxEscape.scriptContextTxInfo = true ∧
-    CardanoLedgerApi.V3.Contexts.redeemersExact WSC.P2RWitness.ctxStolen.scriptContextTxInfo = true := by
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.M1RWitness.ctx.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.M2RWitness.ctx.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.L1RWitness.ctx.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.DelegateRWitness.ctxDT.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.DelegateRWitness.ctxDS.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.P2RWitness.ctxAccept.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.P2RWitness.ctxResidual.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.P2RWitness.ctxEscape.scriptContextTxInfo = true ∧
+    CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus WSC.P2RWitness.ctxStolen.scriptContextTxInfo = true := by
   native_decide
 
 /-- **AND EVERY PRE-C2 WITNESS FAILS C3's COVERAGE HALF** — the same verdict §1
-reaches through this task's own predicate, now confirmed against CLAB's. -/
+reaches through this task's own predicate, now confirmed against CLAB's.
+
+**F18: STATEMENT SURVIVES, INTERPRETATION IS DOWNGRADED (task G2).** This is a
+closed `native_decide` about `Bool`s and it stays true verbatim. What it no
+longer licenses is the reading "therefore these five witnesses are
+unrealizable": `redeemerCoverageAllPlutus` is the ALL-PLUTUS reading of
+`MissingRedeemers` and is strictly stronger than the rule
+(`CardanoLedgerApi.V3.Contexts.coveredByNonNative_strictly_weaker`), so a
+context whose only uncovered purposes are witnessed by NATIVE scripts fails this
+predicate while passing Conway. The five witnesses' uncovered purposes are
+`Rewarding` purposes at free symbolic hashes, nothing pins them to Plutus
+scripts, so the unrealizability reading needs a non-native side condition — see
+`WSC/Props/Shaped/ShapeRealizability.lean` §2.3, last row. Nothing in the
+campaign's positive results depends on this theorem. -/
 theorem all_old_witnesses_fail_c3_coverage :
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage WSC.P4ShapedWitness.ctx.scriptContextTxInfo = false ∧
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus WSC.P4ShapedWitness.ctx.scriptContextTxInfo = false ∧
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       WSC.P4LocalShapedWitness.ctx.scriptContextTxInfo = false ∧
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       WSC.P4DelegateShapedWitness.ctxDT.scriptContextTxInfo = false ∧
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       WSC.P4DelegateShapedWitness.ctxDS.scriptContextTxInfo = false ∧
-    CardanoLedgerApi.V3.Contexts.redeemerCoverage
+    CardanoLedgerApi.V3.Contexts.redeemerCoverageAllPlutus
       WSC.P2ShapedWitness.ctxAccept.scriptContextTxInfo = false := by native_decide
 
 /-- The acceptance criterion in its STRONGEST available form, for the two shapes

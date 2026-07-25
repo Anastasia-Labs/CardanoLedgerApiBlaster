@@ -11,7 +11,7 @@ library is EMPTY as a class of ledger transactions: each bakes a ONE-entry
 withdrawal map, and for SHAPE T1 a script-credential input) that the Conway
 UTXOW rule `MissingRedeemers` requires to have redeemer entries of their own.
 For SHAPE T1 the emptiness is UNCONDITIONAL (`t1_class_is_empty`); for G1/G6 it
-holds under the `RedeemerCoverage` hypothesis (`g1_class_is_empty_under_coverage`).
+holds under the `RedeemerCoverageAllPlutus` hypothesis (`g1_class_is_empty_under_coverage`).
 
 The shapes here are the SAME transactions with a redeemer map that COVERS every
 script witness the transaction actually needs, so their classes are inhabited by
@@ -100,7 +100,7 @@ WHAT THIS MODULE DOES NOT CLAIM. A redeemer-covered transaction still has to
 have every OTHER script accept (the base spending validator on input 0 of T1R,
 the per-policy transfer-logic script at withdrawal entry 1, the issuance policy
 of a `Minting` entry). Those are separate validators and separate properties;
-`RedeemerCoverage` is the rule the emptiness proofs used, and it is the rule
+`RedeemerCoverageAllPlutus` is the rule the emptiness proofs used, and it is the rule
 these shapes satisfy. See `WSC/Props/Shaped/GlobalRealizability.lean` for the
 realizability theorems and for exactly what they do and do not assert.
 -/

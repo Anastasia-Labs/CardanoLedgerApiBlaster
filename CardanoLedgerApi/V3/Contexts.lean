@@ -1055,6 +1055,103 @@ specification comment (`:237-238`) reads
     dom (txrdmrs tx) = { rdptr txb sp | (sp, h) ∈ scriptsNeeded utxo tx,
                                         h ↦ s ∈ txscripts txw, s ∈ Scriptph2 }
 
+and whose body (`:245-262`, `cardano-ledger` @ `cd8b7fab8`) is, verbatim:
+
+```haskell
+hasExactSetOfRedeemers tx (ScriptsProvided scriptsProvided) (AlonzoScriptsNeeded scriptsNeeded) = do
+  let redeemersNeeded =
+        [ (hoistPlutusPurpose toAsIx sp, (hoistPlutusPurpose toAsItem sp, sh))
+        | (sp, sh) <- scriptsNeeded
+        , Just script <- [Map.lookup sh scriptsProvided]
+        , not (isNativeScript script)
+        ]
+      (extraRdmrs, missingRdmrs) =
+        extSymmetricDifference
+          (Map.keys $ tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL)
+          id
+          redeemersNeeded
+          fst
+  sequenceA_
+    [ failureOnNonEmpty extraRdmrs ExtraRedeemers
+    , failureOnNonEmpty (map snd missingRdmrs) MissingRedeemers
+    ]
+```
+
+**WHAT THE RULE QUANTIFIES OVER.** Not the purposes — the `(purpose, hash)`
+PAIRS of `scriptsNeeded`, each then looked up in `scriptsProvided` and kept only
+if the script found there is not native.  Precisely, with
+`N = scriptsNeeded utxo txBody :: [(PlutusPurpose AsIxItem era, ScriptHash)]`
+(`getConwayScriptsNeeded`, `Conway/UTxO.hs:63-105`) and
+`P = scriptsProvided :: Map ScriptHash (Script era)`, the rule is
+
+    dom (txrdmrs tx)  ==  { purposeOf sp | (sp, sh) <- N
+                                         , Just s <- [Map.lookup sh P]
+                                         , not (isNativeScript s) }
+
+Two filters therefore sit between `scriptsNeeded` and "needs a redeemer entry":
+
+* `Just script <- [Map.lookup sh scriptsProvided]` — the needed hash must
+  RESOLVE to a script the transaction actually provides.  In Babbage/Conway
+  `scriptsProvided = getBabbageScriptsProvided`
+  (`Conway/UTxO.hs:143` → `Babbage/UTxO.hs:139-150`) is
+  `getReferenceScripts utxo (refInputs ∪ inputs) ∪ (tx ^. witsTxL . scriptTxWitsL)`
+  — reference scripts of spent-or-referenced outputs, plus the witness set.
+* `not (isNativeScript script)` — `isNativeScript = isJust . getNativeScript`
+  (`libs/cardano-ledger-core/src/Cardano/Ledger/Core.hs:586-587`).
+
+**The first filter is a no-op on any transaction that passes the rest of UTXOW,
+the second is not.**  `babbageMissingScripts`
+(`Babbage/Rules/Utxow.hs:191-206`, run at `:344`) fails with
+`MissingScriptWitnessesUTXOW` unless
+`scriptHashesNeeded ⊆ sRefs ∪ sReceived`, i.e. unless every needed hash is
+provided; so on the transactions the rule can ever be reached with,
+`Map.lookup sh scriptsProvided` always succeeds.  Nothing anywhere forces a
+needed script to be Plutus.
+
+**WHAT THIS SECTION'S PREDICATES OMIT.**  `scriptPurposesWitnessed` below
+transcribes `N` faithfully but drops BOTH filters, and there is no way to put
+the second one back (see the expressibility verdict).  So writing `π(N)` for the
+purposes of `N` and `π₂(N)` for the ledger's `redeemersNeeded` purposes,
+
+    π₂(N)  ⊆  π(N)   with equality iff no needed script is native,
+
+and `scriptPurposesWitnessed = π(N)` is the OVER-approximation.
+
+### EXPRESSIBILITY VERDICT (audit finding F18): the faithful rule is NOT expressible in `TxInfo`
+
+`TxInfo` (`:401-430` of this file) has sixteen fields — inputs, reference
+inputs, outputs, fee, mint, certs, withdrawals, validity range, signatories,
+redeemers, datums, id, votes, proposals, treasury amount, treasury donation.
+It carries **no scripts and no script languages**:
+
+* the witness script set (`tx ^. witsTxL . scriptTxWitsL`) has no `TxInfo`
+  field at all — the SCRIPTS the transaction supplies are simply absent;
+* the only script-shaped payload anywhere in `TxInfo` is
+  `V2.TxOut.txOutReferenceScript : Option ScriptHash`
+  (`CardanoLedgerApi/V2/Tx.lean:78-83`) — a HASH, with
+  `abbrev ScriptHash := ByteString` (`CardanoLedgerApi/V1/Scripts.lean:15-16`),
+  not a script body and not a language tag;
+* `Credential.ScriptCredential : ScriptHash → Credential`
+  (`CardanoLedgerApi/V1/Credential.lean:25`) is likewise a bare hash.
+
+So every needed script hash IS recoverable from `TxInfo` (a `Rewarding`
+purpose carries its credential, a `Minting` purpose IS its policy id, a
+`Spending` purpose's hash is the payment credential of the already-resolved
+input, and the cert/vote/proposal purposes carry their credentials), but
+`isNativeScript` is a predicate on the script BODY, which `TxInfo` never sees.
+`getNativeScript` cannot be evaluated at a hash.  **The missing filter is
+exactly one bit per needed script and `TxInfo` does not contain that bit.**
+
+The consequence is that the faithful rule is expressible only MODULO an oracle.
+`redeemerCoverageModNative` / `noExtraRedeemersModNative` below take that oracle
+as a parameter, and four theorems pin the relationship exactly:
+`redeemerCoverageModNative_allPlutus` (the oracle-free predicate is the
+`fun _ => false` instance), `redeemerCoverageModNative_of_allPlutus` (the
+oracle-free predicate implies the true rule for EVERY oracle — the positive
+direction), `coveredByNonNative_strictly_weaker` and
+`noExtra_not_conservative` (the two strictness results — the negative
+directions).
+
 It is reached in Conway via
 `ConwayUTXOW.transitionRules = [Babbage.babbageUtxowTransition]`
 (`eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs:195`) →
@@ -1106,17 +1203,33 @@ never *which language* that script is written in.  So a conjunct asserting
 "every script-credential withdrawal has a `Rewarding` entry" would be
 **over-strong**: it would reject genuine node-built transactions whose script
 witness is a native timelock, for which the ledger requires no entry and — by the
-`ExtraRedeemers` half — forbids one.  Symmetrically `noExtraRedeemers` below is
+`ExtraRedeemers` half — forbids one.  Symmetrically `noExtraRedeemersAllPlutus` below is
 sound only under the same all-Plutus reading.  The honest transcription is
 therefore parameterised: `coveredBy` takes the purpose list, and the
 `isNativeScript` filter lives in the caller's choice of that list.
-`redeemerCoverage` is the ALL-PLUTUS specialisation, exact whenever the
+`redeemerCoverageAllPlutus` is the ALL-PLUTUS specialisation, exact whenever the
 transaction has no native script witnesses — which is the case for every
 transaction in the WSC deployment.
 
+### THE DIRECTION OF THE ERROR — POSITIVE vs NEGATIVE USES (audit finding F18)
+
+The all-Plutus reading is NOT uniformly conservative.  Its two uses run in
+OPPOSITE directions and every consumer must know which one it is making.
+
+| use | shape of the claim | direction | verdict |
+|---|---|---|---|
+| **POSITIVE** — "this witness is node-realizable", i.e. `redeemerCoverageAllPlutus info = true` | asserts MORE than the ledger asks | **conservative, safe** | `redeemerCoverageModNative_of_allPlutus`: the oracle-free predicate implies the true rule for EVERY language assignment.  Nothing is claimed that a node would refuse on this rule. |
+| **NEGATIVE, coverage half** — "this class is empty because coverage fails", i.e. reasoning FROM `redeemerCoverageAllPlutus info = true` to a contradiction, or FROM `… = false` to unrealizability | assumes MORE than the ledger guarantees | **UNSOUND as stated** | `coveredByNonNative_strictly_weaker`: a purpose whose script is native is covered by the true rule and uncovered by ours.  Such a proof establishes emptiness only for members whose uncovered purpose is non-native; that side condition must be carried explicitly. |
+| **POSITIVE, extra half** — `noExtraRedeemersAllPlutus info = true` | asserts LESS than the ledger asks | **NOT conservative** | `noExtra_not_conservative`: with a native needed script the ledger's needed set SHRINKS, so an entry we accept can be an `ExtraRedeemers` failure.  Sound only when the witness is instantiated all-Plutus — which is a free choice for an EXISTENTIAL realizability claim, and is what every WSC witness does. |
+
+The rule of thumb, and it is the whole of F18: **`…AllPlutus = true` may be
+assumed about a transaction you are BUILDING, and may not be assumed about a
+transaction someone else built.**
+
 Consumers that want the rule as a precondition should assume it (see
 `WSC/Honest.lean` row S / `LR_REDEEMER_COVERAGE`) rather than have
-`validScriptContext` assert it. -/
+`validScriptContext` assert it — and should read that axiom's own docstring,
+which records the same over-strength. -/
 
 /-- The script hash a credential refers to, if it is a script credential.
 Mirrors the ledger's `credScriptHash`
@@ -1242,36 +1355,153 @@ def coveredBy (redeemers : RedeemerMap) : List ScriptPurpose → Bool
   | [] => true
   | p :: ps => (findRedeemer p redeemers).isSome && coveredBy redeemers ps
 
-/-- **[LEDGER-RULE] `MissingRedeemers` (Conway UTXOW), all-Plutus reading.**
-Every script purpose this transaction's own `TxInfo` shows to need a script
-witness has a redeemer-map entry.
+/-- **[LEDGER-RULE, STRONGER THAN THE RULE] `MissingRedeemers` (Conway UTXOW),
+ALL-PLUTUS reading.**  Every script purpose this transaction's own `TxInfo` shows
+to need a script witness has a redeemer-map entry.
 
-Exact when no needed script is native; otherwise strictly stronger than the
-ledger rule (section header, property 3).  Use `coveredBy` directly with the
-phase-2 sublist when native scripts are in play. -/
-def redeemerCoverage (info : TxInfo) : Bool :=
+**THE MISSING FILTER (audit F18).**  The ledger keeps only the needed
+`(purpose, hash)` pairs with `not (isNativeScript script)` after resolving
+`hash` in `scriptsProvided` (`Alonzo/Rules/Utxow.hs:247-251`).  This definition
+drops that filter — it cannot express it, because `TxInfo` carries no script
+bodies and no language tags (section header, expressibility verdict).  It is
+therefore the `fun _ => false` instance of `redeemerCoverageModNative`, and
+
+* equals the ledger rule exactly when no needed script is native;
+* is otherwise **STRICTLY STRONGER** than the ledger rule.
+
+**DIRECTION.**  Concluding `= true` about a transaction you are BUILDING is
+conservative and safe (`redeemerCoverageModNative_of_allPlutus`).  ASSUMING
+`= true` about an arbitrary on-chain transaction, or concluding unrealizability
+from `= false`, assumes/uses more than the ledger gives
+(`coveredByNonNative_strictly_weaker`) and needs an explicit non-native side
+condition on the purpose the argument turns on.  Use `coveredByNonNative` with an
+oracle, or `coveredBy` directly against the phase-2 sublist, when native scripts
+are in play. -/
+def redeemerCoverageAllPlutus (info : TxInfo) : Bool :=
   coveredBy info.txInfoRedeemers (scriptPurposesWitnessed info)
 
-/-- **[LEDGER-RULE] `ExtraRedeemers` (Conway UTXOW), all-Plutus reading.** No
-redeemer entry names a purpose the transaction does not need.  Same fidelity
-caveat, in the opposite direction: with a native script witness present the
-ledger has FEWER needed purposes, so this is weaker than the rule, not
-stronger. -/
-def noExtraRedeemers (info : TxInfo) : Bool :=
+/-- **[LEDGER-RULE, WEAKER THAN THE RULE] `ExtraRedeemers` (Conway UTXOW),
+ALL-PLUTUS reading.** No redeemer entry names a purpose the transaction does not
+need.
+
+Same missing `isNativeScript` filter as `redeemerCoverageAllPlutus`, but the
+error runs the OTHER way: with a native needed script the ledger's needed set is
+SMALLER, so an entry this predicate accepts can still be an `ExtraRedeemers`
+failure (`noExtra_not_conservative`).  `= true` is therefore not by itself
+evidence that a node would accept — it is evidence only together with the
+all-Plutus instantiation, which an existential realizability claim is free to
+choose and which every WSC witness makes. -/
+def noExtraRedeemersAllPlutus (info : TxInfo) : Bool :=
   Recursor.all e in info.txInfoRedeemers =>
     Recursor.any p in scriptPurposesWitnessed info => p == e.1
 
-/-- Both halves of `hasExactSetOfRedeemers`, i.e. the full exact-set rule under
-the all-Plutus reading. -/
-def redeemersExact (info : TxInfo) : Bool :=
-  redeemerCoverage info && noExtraRedeemers info
+/-- Both halves of `hasExactSetOfRedeemers` under the ALL-PLUTUS reading: the
+coverage half stronger than the rule, the extra half weaker.  At an all-Plutus
+transaction — every WSC witness — it IS `hasExactSetOfRedeemers`. -/
+def redeemersExactAllPlutus (info : TxInfo) : Bool :=
+  redeemerCoverageAllPlutus info && noExtraRedeemersAllPlutus info
 
-/-- `redeemerCoverage` at a `ScriptContext`.  Note it depends on
+/-- `redeemerCoverageAllPlutus` at a `ScriptContext`.  Note it depends on
 `scriptContextTxInfo` ONLY, hence is invariant under changing the running
 purpose — which is exactly why a shaped context cannot escape it by being viewed
 at a different purpose. -/
-@[inline] def redeemerCoverageOf (ctx : ScriptContext) : Bool :=
-  redeemerCoverage ctx.scriptContextTxInfo
+@[inline] def redeemerCoverageAllPlutusOf (ctx : ScriptContext) : Bool :=
+  redeemerCoverageAllPlutus ctx.scriptContextTxInfo
+
+/-! ### The FAITHFUL rule, modulo the one bit `TxInfo` does not carry
+
+`isNativeScript` is a predicate on a script BODY.  `TxInfo` has the needed
+HASH for every purpose but never the body, so the faithful rule is expressible
+here only relative to an oracle.  Because `scriptsNeeded` pairs each purpose
+with exactly one hash, a per-PURPOSE oracle `isNativeAt : ScriptPurpose → Bool`
+loses nothing: within one transaction "the script the ledger needs for this
+purpose is native" is a function of the purpose.
+
+These definitions exist to make the section header's direction claims
+THEOREMS rather than commentary.  Nothing in the library is proved against them;
+they are the yardstick the all-Plutus predicates are measured with. -/
+
+/-- The `MissingRedeemers` direction with the ledger's phase-2 filter restored:
+a purpose whose script is native needs no entry.  `coveredBy` is the
+`fun _ => false` instance. -/
+def coveredByNonNative (isNativeAt : ScriptPurpose → Bool) (redeemers : RedeemerMap) :
+    List ScriptPurpose → Bool
+  | [] => true
+  | p :: ps =>
+      (isNativeAt p || (findRedeemer p redeemers).isSome) &&
+        coveredByNonNative isNativeAt redeemers ps
+
+/-- **The faithful `MissingRedeemers` rule, relative to a language oracle.** -/
+def redeemerCoverageModNative (isNativeAt : ScriptPurpose → Bool) (info : TxInfo) : Bool :=
+  coveredByNonNative isNativeAt info.txInfoRedeemers (scriptPurposesWitnessed info)
+
+/-- **The faithful `ExtraRedeemers` rule, relative to a language oracle**: every
+redeemer entry names a NON-NATIVE needed purpose. -/
+def noExtraRedeemersModNative (isNativeAt : ScriptPurpose → Bool) (info : TxInfo) : Bool :=
+  info.txInfoRedeemers.all fun e =>
+    ((scriptPurposesWitnessed info).filter fun p => !isNativeAt p).any fun p => p == e.1
+
+/-- `coveredBy` IS the all-Plutus instance of `coveredByNonNative`. -/
+theorem coveredByNonNative_allPlutus (r : RedeemerMap) (ps : List ScriptPurpose) :
+    coveredByNonNative (fun _ => false) r ps = coveredBy r ps := by
+  induction ps with
+  | nil => rfl
+  | cons p ps ih => simp [coveredByNonNative, coveredBy, ih]
+
+/-- Hence `redeemerCoverageAllPlutus` IS the all-Plutus instance of the faithful
+rule — the sense in which the name is exact. -/
+theorem redeemerCoverageModNative_allPlutus (info : TxInfo) :
+    redeemerCoverageModNative (fun _ => false) info = redeemerCoverageAllPlutus info :=
+  coveredByNonNative_allPlutus _ _
+
+/-- **THE POSITIVE DIRECTION, as a theorem.**  The all-Plutus coverage predicate
+implies the faithful rule for EVERY language assignment.  So a witness proved
+`redeemerCoverageAllPlutus … = true` satisfies `MissingRedeemers` whatever the
+languages of its scripts turn out to be: positive uses are conservative. -/
+theorem coveredByNonNative_of_coveredBy (isNativeAt : ScriptPurpose → Bool)
+    (r : RedeemerMap) (ps : List ScriptPurpose) (h : coveredBy r ps = true) :
+    coveredByNonNative isNativeAt r ps = true := by
+  induction ps with
+  | nil => rfl
+  | cons p ps ih =>
+      rw [coveredBy, Bool.and_eq_true] at h
+      rw [coveredByNonNative, Bool.and_eq_true]
+      exact ⟨by rw [h.1]; simp, ih h.2⟩
+
+theorem redeemerCoverageModNative_of_allPlutus (isNativeAt : ScriptPurpose → Bool)
+    (info : TxInfo) (h : redeemerCoverageAllPlutus info = true) :
+    redeemerCoverageModNative isNativeAt info = true :=
+  coveredByNonNative_of_coveredBy _ _ _ h
+
+/-- **THE NEGATIVE DIRECTION, as a theorem — this is audit finding F18.**  The
+converse FAILS: a purpose whose script is native is covered by the faithful rule
+and uncovered by `coveredBy`.  Any argument that derives a contradiction from
+"this purpose has no redeemer entry" is therefore establishing emptiness only
+for members whose uncovered purpose is NON-NATIVE.
+
+The witness is minimal on purpose: one needed purpose, an empty redeemer map,
+and an oracle that calls that purpose native. -/
+theorem coveredByNonNative_strictly_weaker :
+    ∃ (f : ScriptPurpose → Bool) (r : RedeemerMap) (ps : List ScriptPurpose),
+      coveredByNonNative f r ps = true ∧ coveredBy r ps = false :=
+  ⟨fun _ => true, [],
+   [ScriptPurpose.Rewarding ((.ScriptCredential (ByteString.mk "NATIVE") : V2.Credential))],
+   rfl, rfl⟩
+
+/-- **THE OTHER NEGATIVE DIRECTION, as a theorem.**  `noExtraRedeemersAllPlutus`
+is not conservative either: an entry it accepts, because the purpose is in the
+UNFILTERED needed list, is an `ExtraRedeemers` failure once the native purposes
+are removed.  Same shape as above, with the redeemer map now carrying the entry.
+-/
+theorem noExtra_not_conservative :
+    ∃ (f : ScriptPurpose → Bool) (r : RedeemerMap) (ps : List ScriptPurpose),
+      (r.all fun e => ps.any fun p => p == e.1) = true ∧
+      (r.all fun e => (ps.filter fun p => !f p).any fun p => p == e.1) = false :=
+  ⟨fun _ => true,
+   [(ScriptPurpose.Rewarding ((.ScriptCredential (ByteString.mk "NATIVE") : V2.Credential)),
+     Data.I 0)],
+   [ScriptPurpose.Rewarding ((.ScriptCredential (ByteString.mk "NATIVE") : V2.Credential))],
+   rfl, rfl⟩
 
 /-! ### Consequences a caller can use without unfolding anything -/
 
@@ -1288,9 +1518,9 @@ theorem isSome_findRedeemer_of_mem_coveredBy
       · exact h ▸ hcov.1
       · exact ih h hcov.2
 
-/-- Coverage, with `redeemerCoverage` already unfolded for the caller. -/
+/-- Coverage, with `redeemerCoverageAllPlutus` already unfolded for the caller. -/
 theorem isSome_findRedeemer_of_witnessed {info : TxInfo} {p : ScriptPurpose}
-    (hcov : redeemerCoverage info = true)
+    (hcov : redeemerCoverageAllPlutus info = true)
     (hmem : p ∈ scriptPurposesWitnessed info) :
     (findRedeemer p info.txInfoRedeemers).isSome = true :=
   isSome_findRedeemer_of_mem_coveredBy hmem hcov
@@ -1325,11 +1555,19 @@ theorem mem_rewardingPurposesWitnessed_of_mem_wdrl
         | ScriptCredential _ => exact List.mem_cons_of_mem _ (ih hw)
 
 /-- **The consequence the WSC realizability proofs need.** Under
-`redeemerCoverage`, a script-credential withdrawal forces a `Rewarding`
-redeemer-map entry for that credential. -/
-theorem findRedeemer_rewarding_isSome_of_coverage
+`redeemerCoverageAllPlutus`, a script-credential withdrawal forces a `Rewarding`
+redeemer-map entry for that credential.
+
+**F18 WARNING — the hypothesis is stronger than the ledger.** The true rule
+forces the entry only when the withdrawal's script is NOT native.  A caller that
+DISCHARGES `hcov` about a transaction it is building is safe; a caller that
+ASSUMES `hcov` about an arbitrary on-chain transaction — which is what every
+shape-emptiness proof in `WSC/Props/Shaped/` does — is assuming an all-Plutus
+reading, and its conclusion holds only for members whose withdrawal at `h` is
+non-native.  See `coveredByNonNative_strictly_weaker`. -/
+theorem findRedeemer_rewarding_isSome_of_coverageAllPlutus
     {info : TxInfo} {h : V2.ScriptHash} {n : Integer}
-    (hcov : redeemerCoverage info = true)
+    (hcov : redeemerCoverageAllPlutus info = true)
     (hw : ((.ScriptCredential h : V2.Credential), n) ∈ info.txInfoWdrl) :
     (findRedeemer (.Rewarding (.ScriptCredential h)) info.txInfoRedeemers).isSome = true :=
   isSome_findRedeemer_of_witnessed hcov
@@ -1337,14 +1575,14 @@ theorem findRedeemer_rewarding_isSome_of_coverage
       (mem_rewardingPurposesWitnessed_of_mem_wdrl hw))
 
 /-- Same fact in the `≠ none` form — this is literally the statement
-`WSC/Props/Shaped/ShapeRealizability.lean`'s `RedeemerCoverage` assumes. -/
-theorem findRedeemer_rewarding_ne_none_of_coverage
+`WSC/Props/Shaped/ShapeRealizability.lean`'s `RedeemerCoverageAllPlutus` assumes. -/
+theorem findRedeemer_rewarding_ne_none_of_coverageAllPlutus
     {info : TxInfo} {h : V2.ScriptHash} {n : Integer}
-    (hcov : redeemerCoverage info = true)
+    (hcov : redeemerCoverageAllPlutus info = true)
     (hw : ((.ScriptCredential h : V2.Credential), n) ∈ info.txInfoWdrl) :
     findRedeemer (.Rewarding (.ScriptCredential h)) info.txInfoRedeemers ≠ none := by
   intro hn
-  have hs := findRedeemer_rewarding_isSome_of_coverage hcov hw
+  have hs := findRedeemer_rewarding_isSome_of_coverageAllPlutus hcov hw
   rw [hn] at hs
   exact Bool.noConfusion hs
 
@@ -1368,11 +1606,15 @@ theorem mem_spendingPurposesWitnessed_of_mem_inputs
             exact List.mem_cons_of_mem _ (ih hu)
 
 /-- **The second consequence the WSC realizability proofs need.** Under
-`redeemerCoverage`, spending a script-addressed input forces a `Spending`
-redeemer-map entry for that input's `TxOutRef`. -/
-theorem findRedeemer_spending_ne_none_of_coverage
+`redeemerCoverageAllPlutus`, spending a script-addressed input forces a `Spending`
+redeemer-map entry for that input's `TxOutRef`.
+
+**F18 WARNING**, identical to the rewarding case: a script-addressed input may be
+locked by a NATIVE script, which the ledger requires no `Spending` entry for.
+Discharging `hcov` is safe; assuming it is an all-Plutus reading. -/
+theorem findRedeemer_spending_ne_none_of_coverageAllPlutus
     {info : TxInfo} {t : TxInInfo} {sh : V2.ScriptHash}
-    (hcov : redeemerCoverage info = true)
+    (hcov : redeemerCoverageAllPlutus info = true)
     (ht : t ∈ info.txInfoInputs)
     (hsc : t.txInInfoResolved.txOutAddress.addressCredential = .ScriptCredential sh) :
     findRedeemer (.Spending t.txInInfoOutRef) info.txInfoRedeemers ≠ none := by

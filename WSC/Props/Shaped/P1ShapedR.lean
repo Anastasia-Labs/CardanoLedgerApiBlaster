@@ -11,7 +11,7 @@ proves SHAPE T1's class is **EMPTY UNCONDITIONALLY** (`t1_class_is_empty`): the
 shape SPENDS an input at `ScriptCredential plc`, so `LR_SPEND_RUNS_VALIDATOR`
 plus `LR_CTX` demand a `Spending` entry in a redeemer map that holds exactly one
 `Rewarding` entry. T2/T6/T7 share that skeleton and are empty for the same reason
-(and, like T1, a second time by the withdrawal route under `RedeemerCoverage`).
+(and, like T1, a second time by the withdrawal route under `RedeemerCoverageAllPlutus`).
 
 This module re-states and re-proves the same four P1 obligations over the re-cut
 shapes of `WSC/Shaped/GlobalShapedR.lean` §3-§6, whose redeemer maps cover every

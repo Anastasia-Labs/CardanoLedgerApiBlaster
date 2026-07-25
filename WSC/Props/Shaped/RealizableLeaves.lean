@@ -481,7 +481,7 @@ shape, and it is what makes §7 worth stating at all.
 base credential `PROGLOGIC`, global logic `GLOBAL`, seize logic `SEIZE`, directory
 policy `DIRCS`. `WSC.t1R_realizable` (task C1) independently certifies that the same
 context satisfies `validRewardingContext`, satisfies **both** halves of Conway's
-`hasExactSetOfRedeemers` (`redeemersExact`), is redeemer-covered, and is ACCEPTED by
+`hasExactSetOfRedeemers` (`redeemersExactAllPlutus`), is redeemer-covered, and is ACCEPTED by
 the real compiled bytecode. -/
 
 /-- A deployment whose parameters are the witness's own leaves. -/
@@ -512,7 +512,7 @@ transcribed, and ACCEPTED by the production bytecode. -/
 theorem realizable_inhabitant :
     T1RShape witnessParams WSC.P1RShapedWitness.ctxOk
     ∧ CardanoLedgerApi.V3.validRewardingContext WSC.P1RShapedWitness.ctxOk = true
-    ∧ CardanoLedgerApi.V3.Contexts.redeemersExact
+    ∧ CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus
         WSC.P1RShapedWitness.ctxOk.scriptContextTxInfo = true :=
   ⟨t1RShape_witness, WSC.t1R_realizable.1, WSC.t1R_realizable.2.1⟩
 
@@ -713,7 +713,7 @@ under the Conway rule, and accepted by the production bytecode in 2,603 steps. -
 theorem realizable_inhabitant_NS :
     T1RShapeNS witnessParams WSC.P1RShapedWitness.ctxOk
     ∧ CardanoLedgerApi.V3.validRewardingContext WSC.P1RShapedWitness.ctxOk = true
-    ∧ CardanoLedgerApi.V3.Contexts.redeemersExact
+    ∧ CardanoLedgerApi.V3.Contexts.redeemersExactAllPlutus
         WSC.P1RShapedWitness.ctxOk.scriptContextTxInfo = true :=
   ⟨t1RShapeNS_witness, WSC.t1R_realizable.1, WSC.t1R_realizable.2.1⟩
 
