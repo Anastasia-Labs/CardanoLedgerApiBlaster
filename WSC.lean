@@ -42,3 +42,15 @@ import WSC.Model.Ground
 import WSC.Model.GlobalGoldens
 import WSC.Props.P1_Transfer
 import WSC.Props.P6_Member
+-- P2 (seize) via the SOURCE-MODEL route (B3), task Z3: seize is unreachable at
+-- UPLC (cheapest accepting run 2,570 CEK steps; prep at 2,000 unfinished in
+-- 77 min; the budgets whose prep completes have vacuity probes returning Valid),
+-- so it is proved against a source-cited transcription bridged by ONE axiom,
+-- `WSC.SeizeModel.seizeModel_faithful`.  The model's verdict equals the real
+-- bytecode's on 13/13 goldens, including the rejecting seize golden.  READ the
+-- "HOW TO READ THIS FILE" block at the top of WSC/Props/P2_Seize.lean: conjunct 1
+-- (structure preservation) is PROVEN unconditionally about the model, conjunct 2
+-- (containment) is stated + verified on the goldens but NOT proven.
+import WSC.Model.SeizeModel
+import WSC.Model.SeizeDiff
+import WSC.Props.P2_Seize
