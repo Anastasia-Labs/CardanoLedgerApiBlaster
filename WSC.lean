@@ -110,3 +110,25 @@ import WSC.Composition
 import WSC.Shaped.SeizeShaped
 import WSC.Props.Shaped.P2Shaped
 import WSC.Shaped.Probe.S1K
+-- ── task V3: the remaining P4 arms, the four-way disjunction, and P6 ─────────
+-- SHAPE L1 (Local), DT1 (DelegateTransfer), DS1 (DelegateSeize) complete the
+-- arm-by-arm coverage of P4's four-way custody disjunction at UPLC; SHAPE G6
+-- (Member) adds P6.  The headline is P4-Local: the issuance policy's OWN
+-- no-escape scan over every output is now a theorem about the real bytecode
+-- (ground-truth `noEscape`, NOT "the validator's scan returned true"), where the
+-- two delegating arms only prove that a sibling validator RUNS.
+-- Each shape's concrete witness reproduces its production golden's CEK step count
+-- exactly: L1 = 1681, DT1 = 1257 (M1 = 784).  P6's shape needed budget 3300 — at
+-- 2500 its vacuity probe was Valid, i.e. genuinely vacuous (witness K = 2837).
+-- Read WSC/status-fragments/V3.md for the full ladder including that failure.
+import WSC.Shaped.MintingLocalShaped
+import WSC.Shaped.MintingLocalShapedIdx
+import WSC.Shaped.MintingDelegateShaped
+import WSC.Shaped.GlobalMemberShaped
+import WSC.Props.Shaped.P4LocalShaped
+import WSC.Props.Shaped.P4DelegateShaped
+import WSC.Props.Shaped.P6Shaped
+-- Bridge from the shaped P6 theorem to WSC/Composition.lean's vocabulary (the two
+-- tasks defined the same two ground-truth quantities independently; the bridge is
+-- two `rfl`-style inductions and adds no trust).
+import WSC.Props.Shaped.P6Bridge
