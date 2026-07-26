@@ -802,7 +802,13 @@ parameter — two are list lengths and one is a constructor tag.**
 ### 6.1 The bytecode chain — re-verified 4/4, independently
 
 The four `.flat` files are byte-identical to the `cborHex` of the named unapplied
-production scripts at wsc-poc commit `7ae0024b185cf16f17e38c20c9ee97ae1410c51f`.
+production scripts on wsc-poc `main` at commit
+`f918ec6dcef4398952febe11e84fda089c064374` (the squash-merge of PR #110). At the
+time of this audit the check was run against the export commit
+`7ae0024b185cf16f17e38c20c9ee97ae1410c51f` on the since-deleted PR branch; the
+two commits carry the identical tree `d86b6aa15e89fa989018d08b4e4bcd08ecc66e5f`,
+so the measurement below stands verbatim and is now quotable against a ref a
+third party can fetch (`WSC/flats/PROVENANCE.md`, `WSC/REPRODUCE.md` §6.1).
 Re-run by this audit against the wsc-poc worktree, not carried over:
 
 ```
@@ -1411,7 +1417,8 @@ inherit G1's witness; G3 did not write it (not its file, and it is not a result)
     and editing two files. The branch is still unpublished.
 12. **Do believe, because it is machine-verified:** the four `.flat` files are
     byte-identical to the `cborHex` of the named unapplied production scripts at
-    wsc-poc `7ae0024` (§6.1, 4/4, re-verified here); the redeemer-coverage rule
+    wsc-poc `f918ec6` on `main` (§6.1, 4/4, re-verified here; measured at the
+    export commit `7ae0024`, identical tree); the redeemer-coverage rule
     reproduces the real node's output on 13/13 goldens (§4b); the re-cut cost zero CEK
     steps; and the substrate bundle reconstructs the pinned tree byte-identically
     (§6.2).

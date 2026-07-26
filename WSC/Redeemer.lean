@@ -4,8 +4,11 @@ datum types, with `IsData` instances that reproduce the EXACT Data encodings
 produced by the Haskell `makeIsDataIndexed` / hand-written `ToData` instances.
 
 Every constructor tag, field order and encoding shape carries a source
-citation (file:line into the wsc-poc worktree at commit
-7ae0024b185cf16f17e38c20c9ee97ae1410c51f — see WSC/flats/PROVENANCE.md).
+citation (file:line into input-output-hk/wsc-poc at commit
+f918ec6dcef4398952febe11e84fda089c064374 on main — the PR #110 squash-merge.
+The line numbers were read at the export commit
+7ae0024b185cf16f17e38c20c9ee97ae1410c51f, whose tree is identical, so they
+resolve unchanged at f918ec6; see WSC/flats/PROVENANCE.md).
 
 IsData instance style follows Tests/Scripts/SellNFT/Properties.lean.
 -/

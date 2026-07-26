@@ -41,8 +41,9 @@ concrete index and SHAPE L2R strictly contains SHAPE L1R.
 ════════════════════════════════════════════════════════════════════════════
 THE ONE SCRIPT WITHDRAWAL IS THE C1 FLOOR, NOT A CHOICE
 ════════════════════════════════════════════════════════════════════════════
-Issuance.hs at wsc-poc `7ae0024` (the commit whose export the `.flat` is byte-
-identical to — AUDIT §6):
+Issuance.hs at wsc-poc `f918ec6` on main (the ref whose export the `.flat` is
+byte-identical to — AUDIT §6). Line numbers were read at the export commit
+`7ae0024`, whose tree is identical, so they resolve unchanged at `f918ec6`:
 
 * `:136` `mintingLogicCred <- plet $ pdata $ pcon $ PScriptCredential mintingLogicHash'`
 * `:150-151` `mintingLogicInvokedAt <- plet $ plam $ \wdrlIdx ->

@@ -174,8 +174,10 @@ All six are documented in-code at the point of deviation.
   the `native_decide` tests are unaffected.
 * **The test fixture is an application's production script.**
   `ScriptEncoding/TestsFlat/programmableLogicGlobal.flat` is the *unapplied* production
-  global validator exported from `input-output-hk/wsc-poc` (regenerated there by commit
-  `7ae0024`; 6,880 hex chars, `590d6d590d6a0101…`, double-CBOR, UPLC 1.1.0). It is the
+  global validator exported from `input-output-hk/wsc-poc` — reproduce it from
+  `generated/scripts/unapplied/prod/programmableLogicGlobal.json` at
+  `f918ec6dcef4398952febe11e84fda089c064374` on `main` (6,880 hex chars,
+  `590d6d590d6a0101…`, double-CBOR, UPLC 1.1.0). It is the
   only real-world script I have that exercises tags 94–99, which is why it is here. If
   you would prefer a synthetic minimal fixture, that is a reasonable ask and I will
   build one; note the trade — a hand-built fixture cannot catch a decoder bug that only

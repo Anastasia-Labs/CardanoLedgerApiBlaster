@@ -1,16 +1,26 @@
 # WSC flat provenance (ADDENDUM E7)
 
 Extraction date: 2026-07-24.
-Source repository: `wsc-poc` worktree
-`/home/gumbo/iohk/wsc-poc/.claude/worktrees/new-session-3c417d`
-at git commit `7ae0024b185cf16f17e38c20c9ee97ae1410c51f`.
+Source repository: `input-output-hk/wsc-poc`.
+
+**Verify against commit `f918ec6dcef4398952febe11e84fda089c064374` on `main`.**
+That is the durable ref and the one every command in this file uses.
+
+The export was actually *run* at commit
+`7ae0024b185cf16f17e38c20c9ee97ae1410c51f`, on the PR #110 branch
+`feat/van-rossem-bump`, in the worktree
+`/home/gumbo/iohk/wsc-poc/.claude/worktrees/new-session-3c417d`. PR #110 was
+squash-merged to `main` as `f918ec6`, and the two commits are **byte-identical**
+— see §"Which ref to verify against, and why two are named" below. Historical
+citations of `7ae0024` elsewhere in this library (AUDIT §6.1 and others) refer
+to that same content.
 
 Each `.flat` file is the raw `cborHex` string copied verbatim out of the
 corresponding TextEnvelope JSON (`"type": "PlutusScriptV3"`). The TextEnvelope
 `cborHex` is a CBOR bytestring wrapping the CBOR-wrapped flat-encoded UPLC
 program, hence the `double_cbor_hex` decoder used by `#import_uplc`.
 
-| flat | source JSON (relative to worktree root) | sha256 of .flat file |
+| flat | source JSON (relative to the wsc-poc repo root) | sha256 of .flat file |
 |---|---|---|
 | `programmableLogicBase.flat` | `generated/scripts/unapplied/prod/programmableLogicBase.json` | `1881821b7a2c0a59668203c900aa53f5b2bca83d9226d3f83318fbe02525faf3` |
 | `programmableTokenMinting.flat` | `generated/scripts/unapplied/prod/programmableTokenMinting.json` | `7274240514ff3acdfd867abcd0e29e60f92f8f1a96f2f35bc6bfe59316feb048` |
@@ -21,23 +31,84 @@ These are the UNAPPLIED production scripts: every deployment parameter is still
 a lambda, and is supplied Lean-side by the `*Inputs` functions in
 `WSC/Imports.lean` (parameter evidence cited there per validator).
 
-## Re-verification (task C3, 2026-07-25) — both halves, independently
+## Which ref to verify against, and why two are named
 
-The table is not taken on trust. Both columns were re-derived from scratch at
-this revision and **all four match on both counts, 4/4**:
+Two SHAs appear in this library and a reader needs to know which one to use.
+
+* **`f918ec6dcef4398952febe11e84fda089c064374` — use this one.** It is the
+  squash-merge of PR #110 onto `wsc-poc` `main`, so it is reachable from `main`
+  and fetchable by anyone with a plain clone, now and after any future merge.
+* **`7ae0024b185cf16f17e38c20c9ee97ae1410c51f` — historical only.** It is the
+  commit on the PR #110 branch at which the export was run, and it is the SHA
+  recorded in the audit trail (AUDIT §6.1) because it is what was measured at
+  the time.
+
+**Why `7ae0024` is not a citable ref.** PR #110 was squash-merged, which creates
+a *new* commit whose parent is the previous `main` tip; the branch's own commits
+never enter `main`'s history, and `feat/van-rossem-bump` was deleted after the
+merge. Measured against the public repository on 2026-07-26, in a fresh clone:
 
 ```bash
+git for-each-ref --contains 7ae0024b185cf16f17e38c20c9ee97ae1410c51f   # EMPTY
+```
+
+**No branch and no tag contains it.** It cannot be reached by navigating history
+from anything the repository advertises, and it will never appear in
+`git log main`.
+
+It can nonetheless still be *obtained* today, by asking GitHub for it by name —
+both of these worked on 2026-07-26:
+
+```bash
+git fetch origin refs/pull/110/head                            # FETCH_HEAD == 7ae0024
+git fetch origin 7ae0024b185cf16f17e38c20c9ee97ae1410c51f      # fetch-by-SHA, also works
+```
+
+That is GitHub retaining the pull-request ref and serving objects that no branch
+points to. It is a hosting-side convenience with **no guarantee**: PR refs and
+unreachable objects can be pruned or repacked away, and the same SHA in a mirror,
+a self-hosted remote or an archive tarball would simply not exist. So it is not
+something a fidelity claim may rest on. **Nothing in this library depends on it** —
+that is the point of citing `f918ec6` in every command.
+
+**What the squash preserved.** Not merely the four `cborHex` strings: the two
+commits have the *identical tree* `d86b6aa15e89fa989018d08b4e4bcd08ecc66e5f`
+(`git diff 7ae0024 f918ec6` is empty). So every file:line source citation in
+this library — `Redeemer.lean`'s encoding citations, the `Issuance.hs` line
+numbers in `WSC/Shaped/MintingLocalShapedRIdx.lean`, the model docstrings —
+resolves to the same bytes on the same lines at `f918ec6`. Swapping the ref
+loses nothing.
+
+## Re-verification (task C3, 2026-07-25; re-run and re-pointed 2026-07-26)
+
+The table is not taken on trust. Both columns were re-derived from scratch and
+**all four match on both counts, 4/4** — at `7ae0024`, at `f918ec6`, and
+against the bytes on disk. This is the command a third party runs, against a
+ref they can actually fetch:
+
+```bash
+git clone https://github.com/input-output-hk/wsc-poc /tmp/wsc-poc
+W=/tmp/wsc-poc
+REF=f918ec6dcef4398952febe11e84fda089c064374     # on main; see §"Which ref"
+
 sha256sum WSC/flats/*.flat
 
-W=/home/gumbo/iohk/wsc-poc/.claude/worktrees/new-session-3c417d
 for n in programmableLogicBase programmableTokenMinting \
          programmableSeize programmableLogicGlobal; do
   git -C $W show \
-    7ae0024b185cf16f17e38c20c9ee97ae1410c51f:generated/scripts/unapplied/prod/$n.json \
+    $REF:generated/scripts/unapplied/prod/$n.json \
     | python3 -c "import sys,json;sys.stdout.write(json.load(sys.stdin)['cborHex'])" \
     | sha256sum
 done
 ```
+
+Every hash printed must appear in the table above — note the loop prints in the
+order base, minting, seize, global, while `sha256sum WSC/flats/*.flat` prints in
+filename order. (Substituting
+`REF=7ae0024b185cf16f17e38c20c9ee97ae1410c51f` after
+`git fetch origin refs/pull/110/head` reproduces the same four hashes; that is
+how the equality of the two refs was checked, and it is not needed to verify
+the table.)
 
 So "proved against production bytecode" is machine-verified rather than
 asserted: each `.flat` is byte-identical to the `cborHex` string of the named

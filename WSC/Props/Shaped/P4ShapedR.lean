@@ -17,7 +17,8 @@ AND the `MissingRedeemers` row CLAB is missing, and
 assignment, not just at the witness.
 
 Nothing else moved: same flat (`WSC/flats/programmableTokenMinting.flat`, byte
-identity with the production build at wsc-poc `7ae0024` verified in AUDIT §6),
+identity with the production build at wsc-poc `f918ec6` on main verified in
+AUDIT §6; exported at `7ae0024`, identical tree),
 same imported program object `programmableTokenMinting900`, same CEK step budget
 900, same postconditions, same ground-truth vocabulary.
 

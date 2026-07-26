@@ -199,11 +199,17 @@ The four to check by name:
 ## 6. Re-verify the bytecode provenance (independent of Lean)
 
 The four `.flat` files must be byte-identical to the `cborHex` of the named
-unapplied production scripts at wsc-poc commit `7ae0024`:
+unapplied production scripts on `wsc-poc` `main` at commit
+`f918ec6dcef4398952febe11e84fda089c064374` — the squash-merge of PR #110. Run
+this exactly; every ref in it is fetchable from a plain clone:
 
 ```bash
+git clone https://github.com/input-output-hk/wsc-poc /tmp/wsc-poc
+W=/tmp/wsc-poc
+REF=f918ec6dcef4398952febe11e84fda089c064374
+
 for n in programmableLogicBase programmableLogicGlobal programmableSeize programmableTokenMinting; do
-  git -C <wsc-poc> show 7ae0024b185cf16f17e38c20c9ee97ae1410c51f:generated/scripts/unapplied/prod/$n.json \
+  git -C $W show $REF:generated/scripts/unapplied/prod/$n.json \
     | python3 -c "import sys,json;print(json.load(sys.stdin)['cborHex'])" | tr -d '\n' | sha256sum
   sha256sum <CLAB>/WSC/flats/$n.flat
 done
@@ -217,6 +223,43 @@ ddd6f7df42789239d8a52a41404268c3b1316e59aee308dec54e201bdeb433a2  programmableLo
 289e9e8d18b865aba35d8fcab8fc84d6b1ad2f6092988113a0558df40b1c41a1  programmableSeize
 7274240514ff3acdfd867abcd0e29e60f92f8f1a96f2f35bc6bfe59316feb048  programmableTokenMinting
 ```
+
+### 6.1 If you find `7ae0024` in the audit trail — why it is not the ref to use
+
+The flats were **exported** at wsc-poc commit
+`7ae0024b185cf16f17e38c20c9ee97ae1410c51f`, on the PR #110 branch
+`feat/van-rossem-bump`, and that is the SHA `WSC/AUDIT.md` §6.1 and
+`WSC/flats/PROVENANCE.md` record, because it is what was measured at the time.
+The **identical** bytes are on `main` at `f918ec6`, which is why the command
+above uses `f918ec6` and why nothing here needs `7ae0024`.
+
+PR #110 was squash-merged — the merge creates a new commit on top of the old
+`main` tip, the branch's own commits never enter `main`'s history — and
+`feat/van-rossem-bump` was deleted afterwards. So in your clone:
+
+```bash
+git -C /tmp/wsc-poc for-each-ref --contains 7ae0024b185cf16f17e38c20c9ee97ae1410c51f
+# EMPTY — no branch, no tag. It is not in `git log main` and never will be.
+```
+
+You can still *ask GitHub* for it by name (both worked on 2026-07-26), because
+GitHub retains pull-request refs and serves objects no branch points to:
+
+```bash
+git -C /tmp/wsc-poc fetch origin refs/pull/110/head              # FETCH_HEAD == 7ae0024
+git -C /tmp/wsc-poc fetch origin 7ae0024b185cf16f17e38c20c9ee97ae1410c51f   # also works
+```
+
+Treat that as a convenience with no guarantee — PR refs and unreachable objects
+can be pruned or repacked away, and the SHA does not exist at all in a mirror or
+an archive tarball. **Do not build a verification procedure on it**; use
+`f918ec6`, which is reachable from `main`.
+
+The squash preserved the whole tree, not just these four files: `7ae0024` and
+`f918ec6` share the tree `d86b6aa15e89fa989018d08b4e4bcd08ecc66e5f`
+(`git diff 7ae0024 f918ec6` is empty). So the `file:line` source citations in
+`WSC/Redeemer.lean`, `WSC/Shaped/MintingLocalShapedRIdx.lean` and the model
+docstrings land on the same bytes at `f918ec6` as they did at `7ae0024`.
 
 ---
 

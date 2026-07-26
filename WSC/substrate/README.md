@@ -79,7 +79,10 @@ The bundle is **incremental**: it contains the two commits and *requires* the ba
 # 1. obtain the public base
 git clone https://github.com/input-output-hk/PlutusCoreBlaster pcb
 cd pcb
-git rev-parse HEAD        # expect a04042c4b7b19c66e7e6fa5bbcc3b1c985894ed0
+# The base a04042c is REACHABLE FROM main, so a plain clone always contains it.
+# It also happened to be main's tip on 2026-07-26 — do NOT depend on that; test
+# for the object, not for HEAD, so this step still passes after main advances:
+git cat-file -e a04042c4b7b19c66e7e6fa5bbcc3b1c985894ed0^{commit} && echo "base present"
 
 # 2. verify, then fetch the branch out of the bundle
 git bundle verify <CLAB>/WSC/substrate/pcb-cip153-value-builtins.bundle

@@ -91,7 +91,7 @@ the CLAB git pin). Both are the same blockers option A has; B just makes them vi
 **One-time cost:** add a Lean + Z3 toolchain to a Haskell/Nix repository — a real flake
 and CI change, and the one thing wsc-poc's build currently does not have. Plus a
 **self-referential pin**: the proofs are about bytecode exported from wsc-poc at commit
-`7ae0024`, so the proofs would live in the repository whose later commits invalidate
+`f918ec6` on `main`, so the proofs would live in the repository whose later commits invalidate
 their own fixtures. That is manageable (pin the sha in `PROVENANCE.md`, which is already
 done) but it is a new maintenance obligation on the wsc-poc team every time a validator
 changes.

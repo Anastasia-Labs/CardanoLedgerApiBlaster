@@ -110,7 +110,7 @@ lines across 17 files** for `/home/gumbo` and **3 lines in 3 files** for `/tmp/c
 
 | # | file:line | current | must become |
 |---|---|---|---|
-| P1 | `WSC/Model/GlobalModel.lean:17` | `/home/gumbo/iohk/wsc-poc/.claude/worktrees/new-session-3c417d/src/…/ProgrammableLogicBase.hs` | `input-output-hk/wsc-poc @ 7ae0024 — src/programmable-tokens-onchain/lib/SmartTokens/Contracts/ProgrammableLogicBase.hs` |
+| P1 | `WSC/Model/GlobalModel.lean:17` | `/home/gumbo/iohk/wsc-poc/.claude/worktrees/new-session-3c417d/src/…/ProgrammableLogicBase.hs` | `input-output-hk/wsc-poc @ f918ec6 — src/programmable-tokens-onchain/lib/SmartTokens/Contracts/ProgrammableLogicBase.hs` (`f918ec6` is the durable ref on `main`; **do not write `7ae0024`** — that PR-branch commit is unfetchable post-squash, identical tree, see `WSC/flats/PROVENANCE.md`) |
 | P2 | `WSC/Model/SeizeModel.lean:19` | same worktree prefix | same treatment |
 | P3 | `WSC/Honest.lean:359` | `/home/gumbo/playground/cardano-ledger @ cd8b7fab8` | `IntersectMBO/cardano-ledger @ cd8b7fab8` |
 | P4 | `WSC/goldens/KMeasure.lean.disabled:152-164` | **13** `#import_uplc … "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/*.flat"` | `<REPO>/WSC/goldens/applied/…` with a one-line `sed` recipe in the module header. (Blaster's `#import_uplc` path handling was not tested for relative paths in this task — **verify before assuming a relative path works.**) |
@@ -131,7 +131,7 @@ or with a `<SCRATCH>` / `<REPO>` placeholder.** None should be deleted.
 | M3 | `WSC/AUDIT.md:1042` | the cardano-ledger checkout path |
 | M4 | `WSC/REPRODUCE.md:70` | the `require` line a third party must edit — **this one disappears entirely** once B1 lands |
 | M5 | `WSC/substrate/README.md:122` | the PCB path — **this whole directory goes away**, see §4.4 |
-| M6 | `WSC/flats/PROVENANCE.md:5, 32, 84, 91` | the wsc-poc worktree (×2) and the PCB path (×2). The worktree hits should become `wsc-poc @ 7ae0024`, which is what the provenance actually depends on. |
+| M6 | `WSC/flats/PROVENANCE.md` — the wsc-poc worktree (×1, in the header) and the PCB path (×2) | the worktree hit should become `wsc-poc @ f918ec6` (durable ref on `main`), which is what the provenance actually depends on. **Partly done:** the ref citations were repointed to `f918ec6` on 2026-07-26 and the file now carries the squash-merge explanation; the remaining work under M6 is only the absolute paths. |
 | M7 | `WSC/goldens/K-MEASUREMENTS.md:81, 499, 582` | the PCB path ×3 |
 | M8 | `WSC/goldens/K-MEASUREMENTS.md:84` | a literal `/tmp/claude-1000/…/scratchpad` → `<SCRATCH>` |
 | M9 | `WSC/goldens/MANIFEST.md:45, 73, 190` | the wsc-poc worktree, the CLAB goldens dir, the PCB path |

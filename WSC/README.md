@@ -189,7 +189,8 @@ the map is not read.
   bytecode on each side (§1.1).
 * **Coverage is FALSE** for the twelve re-cut shapes at SHAPE T1R's own size (§1.3).
 * Provenance: the four `.flat` files are **byte-identical** to the `cborHex` of the
-  named unapplied production scripts at wsc-poc `7ae0024` — **4/4, re-verified at
+  named unapplied production scripts at wsc-poc `f918ec6` on `main` (the PR #110
+  squash-merge; exported at `7ae0024`, identical tree) — **4/4, re-verified at
   every audit including this one**.
 * The Conway redeemer-coverage rule reproduces the real node's output on **13/13**
   goldens, and the re-cut is checked in **both** directions (new witnesses pass, all
@@ -470,9 +471,9 @@ grep -rn '^axiom ' --include='*.lean' WSC/Prep WSC/Shaped WSC/Props/Shaped | wc 
 #   RealizableShapes.all_old_witnesses_fail_c3_coverage     (old shapes fail)
 #   Goldens.Audit.every_golden_is_redeemer_covered          (13/13 real vectors)
 
-# 6. PROVENANCE (§3.1) — 4/4 on both counts
+# 6. PROVENANCE (§3.1) — 4/4 on both counts (full recipe: WSC/REPRODUCE.md §6)
 sha256sum WSC/flats/*.flat
-git -C <wsc-poc worktree> show 7ae0024b…:generated/scripts/unapplied/prod/<name>.json \
+git -C <wsc-poc clone> show f918ec6d…:generated/scripts/unapplied/prod/<name>.json \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['cborHex'])" | tr -d '\n' | sha256sum
 
 # 7. SUBSTRATE — see WSC/substrate/README.md §3
