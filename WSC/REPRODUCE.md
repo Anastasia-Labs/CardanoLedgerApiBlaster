@@ -98,14 +98,21 @@ rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.olean \
 
 ### Expected
 
+> **This table was stale and is corrected here.** It carried E5's `7039cdb`
+> figures and was never updated at G3 (`f4486ca`), where the library moved to 432
+> jobs / 94 modules / 162 verdicts. It is now stated at the **current** revision,
+> i.e. after the H2 dead-file cleanup (`AUDIT.md` §12): the jobs and module counts
+> happen to return to 431/93, but the **verdict count is 162, not 159** — the E5
+> value in this table was wrong for two revisions.
+
 | measurement | expected |
 |---|---|
 | exit status | `0` — `Build completed successfully (431 jobs)` |
-| wall clock | **1:39 – 1:57** (two runs; do not quote a point value) |
-| user + sys CPU | 403–435 s + 50–54 s |
-| max RSS | **1.50 GB** |
+| wall clock | **1:49 – 2:36** (measured across three runs on a box under concurrent agent load; do not quote a point value) |
+| user + sys CPU | 478–585 s + 58–84 s |
+| max RSS | **1.50–1.66 GB — load-dependent, NOT an instrument** (`AUDIT.md` §1.2) |
 | WSC modules re-elaborated | **93** |
-| solver verdicts | **159 — 102 `✅ Valid` + 57 `✅ Expected Falsified`** |
+| solver verdicts | **162 — 103 `✅ Valid` + 59 `✅ Expected Falsified`** |
 | `⚠️ Undetermined` / `❌` | **0 / 0** (hard requirement) |
 | `error:` lines | **0** (hard requirement) |
 | `declaration uses 'sorry'` | **20** — 19 `WSC/ShapeBridge.lean`, 1 `PlutusCore/UPLC/CekMachine.lean:299`. **NOT a census — see §5.** |
@@ -152,8 +159,10 @@ axioms: [` … `]` across newlines; a line-oriented grep undercounts `sorryAx` b
 (17 instead of 37).
 
 ```
-174 `#print axioms` results;  37 carry sorryAx;  72 use native_decide;
-124 carry zero project axioms.
+172 `#print axioms` results;  37 carry sorryAx;  70 use native_decide;
+122 carry zero project axioms.
+(At HEAD f4486ca, before the H2 dead-file cleanup: 174 / 37 / 72 / 124.
+ The two removed results were builtins-only, so no project-axiom figure moved.)
 ```
 
 The four to check by name:

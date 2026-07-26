@@ -15,10 +15,10 @@ whichever venue is chosen, written so it works for B, C or D with one paragraph 
 
 | | value |
 |---|---|
-| WSC files tracked in CLAB | **234**, of which **137** are `.lean` |
+| WSC files tracked in CLAB | **228**, of which **131** are `.lean` (was 234/137; the H2 dead-file cleanup deleted 6 modules — `AUDIT.md` §12) |
 | CLAB's *own* diff on this branch (everything not under `WSC/`) | **1,090 insertions** across 7 files, and 308 of those are `WSC.lean` — so the genuinely-CLAB part is **~780 lines** |
-| reviewer-facing markdown under `WSC/` | ~**300 KB** across 12 top-level documents (`AUDIT.md` alone is 101 KB / 1,570 lines) |
-| build cost | **432 jobs, 1:46–2:10 wall, 1.50–1.66 GB RSS**, 94 WSC modules re-elaborated |
+| reviewer-facing markdown under `WSC/` | ~**300 KB** across 12 top-level documents (`AUDIT.md` alone is 117 KB / 1,697 lines — it grew by §12, the H2 dead-file decision table) |
+| build cost | **431 jobs, 1:49–2:00 wall, 1.50–1.66 GB RSS**, 93 WSC modules re-elaborated (432/94 before the H2 cleanup; the **162 verdicts are unchanged**) |
 | hard external requirements | **Z3 4.15.2**, Blaster at a pinned rev, and PlutusCoreBlaster on an **unpublished** branch reached by **absolute local path** |
 | trust surface it introduces | **51** `axiom` declarations, **101** `admit`-closed theorems, `sorryAx` under every top-level result |
 | compiled third-party artifacts it ships | **17** `.flat` files (4 unapplied production validators + 13 applied golden programs) |
@@ -211,14 +211,14 @@ lake build WSC WSC.ShapeBridge
 
 | measurement | value |
 |---|---|
-| exit status | 0 — **432 jobs** |
-| wall clock | **1:46–2:10** over two runs (quote the range, never a point) |
+| exit status | 0 — **431 jobs** (432 before the H2 cleanup) |
+| wall clock | **1:49–2:00** over two runs post-H2 (1:46–2:10 at `f4486ca`) — quote the range, never a point |
 | solver verdicts | **162** = **103 `✅ Valid`** + **59 `✅ Expected Falsified`** |
 | `⚠️ Undetermined` / `❌` | **0** |
 | `error:` lines | **0** |
 | `declaration uses 'sorry'` | **20** — *not a census*, see caveats |
 | `unused variable` | **5**, all at `Composition.lean:2442-2446` — Lean's own confirmation that one `LeafSet`'s acceptance hypotheses are unused |
-| WSC modules re-elaborated | **94** |
+| WSC modules re-elaborated | **93** (94 before the H2 cleanup) |
 | max RSS | **1.50–1.66 GB, load-dependent** — explicitly *not* an instrument |
 
 Every one of the 13 re-cut shapes meets a four-point bar: the theorem reports

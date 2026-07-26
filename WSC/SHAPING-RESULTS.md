@@ -24,9 +24,10 @@
 >   that does not exist yet"* is superseded: `WSC/Coverage.lean` **refutes**
 >   coverage for the 13-shape family at SHAPE T1R's own size, and `WSC/COVERAGE.md`
 >   prices the enumeration route at ≈971 CPU-years for one property.
-> * **Current verified build state** (`WSC/AUDIT.md` §1.2, two clean-room runs):
->   **432 jobs, 1:46–2:10 wall, 162 verdicts = 103 ✅ Valid + 59 ✅ Expected
->   Falsified, 0 errors, 20 `sorry` warnings, 5 unused-variable, 94 WSC modules.**
+> * **Current verified build state** (`WSC/AUDIT.md` §1.2, post-H2 cleanup):
+>   **431 jobs, 1:49–2:00 wall, 162 verdicts = 103 ✅ Valid + 59 ✅ Expected
+>   Falsified, 0 errors, 20 `sorry` warnings, 5 unused-variable, 93 WSC modules.**
+>   (At G3 `f4486ca`: 432 jobs / 94 modules, the same 162 verdicts.)
 >   None of the per-stanza timings below has been re-measured at that revision and
 >   they should not be quoted as current.
 > * **Still true, and the reason to keep this file:** the headline finding — that

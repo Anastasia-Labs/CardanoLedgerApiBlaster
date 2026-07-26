@@ -19,6 +19,17 @@ Audited revision: branch `wsc-containment-proofs`, **HEAD `f4486ca`** (G1's comm
 on top of G2's `9e5d417`, on top of E5's `7039cdb`), tree clean. The E5 body below
 was written at `7039cdb`; every measurement in §1, §3 and §4 has been re-taken at
 `f4486ca` and the tables carry both columns.
+
+> **⚠️ ONE REVISION LATER — THE DEAD-FILE CLEANUP (task H2).** Five modules were
+> deleted for PR submission. **Every verdict survived**: the clean-room rebuild
+> still reports **162 verdicts (103 ✅ Valid + 59 ✅ Expected Falsified), 0 errors,
+> 0 ⚠️/❌, 20 `sorry` warnings, 5 unused-variable**, and the per-verdict source
+> reconciliation is still exactly 59 + 2 + 101. Four numbers in this file moved and
+> **all four are flagged in place below**: jobs **432 → 431**, WSC modules
+> **94 → 93**, `#print axioms` results **174 → 172**, `native_decide` results
+> **72 → 70** and zero-project-axiom results **124 → 122**. The full decision table
+> — every file in the tree, KEEP or DELETE, with the reason — is **§12**. Read it
+> before concluding that anything went missing.
 Environment: 32-core box, Lean 4.24.0, Z3 4.15.2, `maxHeartbeats 0`,
 Blaster git `59db213ca6396269d2606b7dd9ac2bc26ae7c4ce` (branch
 `beta-lambda-cache-optimization`, pinned by rev in `lake-manifest.json`),
@@ -132,7 +143,9 @@ Dependency oleans (`CardanoLedgerApi` and the `PlutusCore` / `Blaster` packages 
 the right cut and a full `lake clean` is not needed: no WSC verdict is computed in a
 dependency module — every `#import_uplc`, `#prep_uplc` and `#blaster` lives in a
 `WSC/` module — so deleting the WSC oleans forces all of them to run for real.
-Confirmed by the log: **93 distinct `WSC.*` modules re-elaborated**, including all
+Confirmed by the log: **93 distinct `WSC.*` modules re-elaborated** (94 at G3;
+**93 again after the H2 cleanup**, and the two must not be confused — E5's 93 and
+H2's 93 are different sets), including all
 shaped/unshaped `#prep_uplc` modules, all 4 `#import_uplc` sites, and all solver
 invocations (159 at E5, **162 at G3**).
 
@@ -144,18 +157,18 @@ they are inert with respect to the build. They are.
 
 ### 1.2 Result, against the audited baselines
 
-| measurement | A3 (`80cdac7`) | C4 (`300f9e0`) | E5 (`7039cdb`) | **G3 (`f4486ca`, 2 runs)** |
-|---|---|---|---|---|
-| exit status | 0 — 405 jobs | 0 — 429 jobs | 0 — 431 jobs | **0 — `Build completed successfully (432 jobs)`, both runs** |
-| wall clock | 1 m 38.50 s | 1 m 30.22 / 1 m 42.57 s | 1:39.29 / 1:46.56 / 1:57.07 | **1 m 46.22 s / 2 m 09.91 s** (**quote 1:46–2:10**, never a point; the box was running concurrent agents) |
-| user + sys CPU | 275.9 + 33.6 s | 380.4 + 56.6 s | 402.7–434.9 + 50.3–54.0 s | **466.7–515.0 + 64.3–70.3 s** (450–499 %) |
-| max RSS | 1.65 GB | 1.65 GB | 1.50–1.52 GB | **1.652–1.658 GB** — see the note below; **not** attributable to G1/G2 |
-| WSC modules re-elaborated | 67 | 90 | 93 | **94** (+1 = `WSC.Shaped.MintingLocalShapedRIdx`) |
-| `error:` lines | 0 | 0 | 0 | **0** (hard requirement — met, both runs; but see **F21**) |
-| solver verdicts | 101: 66 V + 35 F | 158: 101 V + 57 F | 159: 102 V + 57 F | **162: 103 `✅ Valid` + 59 `✅ Expected Falsified`** (identical in both runs) |
-| `⚠️ Undetermined` / `❌` | 0 | 0 | 0 | **0** (both runs) |
-| `declaration uses 'sorry'` | 20 | 20 | 20 | **20** (census §2, unchanged) |
-| `unused variable` | 5 | 5 | 5 | **5** — still all at `Composition.lean:2442-2446` (§5.4) |
+| measurement | A3 (`80cdac7`) | C4 (`300f9e0`) | E5 (`7039cdb`) | **G3 (`f4486ca`, 2 runs)** | **H2 (dead-file cleanup)** |
+|---|---|---|---|---|---|
+| exit status | 0 — 405 jobs | 0 — 429 jobs | 0 — 431 jobs | **0 — `Build completed successfully (432 jobs)`, both runs** | **0 — 431 jobs** (−1 = the deleted `WSC.Props.P5_Witness1600`) |
+| wall clock | 1 m 38.50 s | 1 m 30.22 / 1 m 42.57 s | 1:39.29 / 1:46.56 / 1:57.07 | **1 m 46.22 s / 2 m 09.91 s** (**quote 1:46–2:10**, never a point; the box was running concurrent agents) | 1 m 49.01 / 2 m 00.03 s over two runs (its own pre-change control run on the same box, same load: **2 m 35.84 s** — so **do not read this as a speed-up**; RSS/wall remain machine measurements, §1.2 note) |
+| user + sys CPU | 275.9 + 33.6 s | 380.4 + 56.6 s | 402.7–434.9 + 50.3–54.0 s | **466.7–515.0 + 64.3–70.3 s** (450–499 %) | 478.0 + 58.4 s (control: 584.7 + 83.9 s) |
+| max RSS | 1.65 GB | 1.65 GB | 1.50–1.52 GB | **1.652–1.658 GB** — see the note below; **not** attributable to G1/G2 | 1.643–1.647 GB (control 1.656 GB) |
+| WSC modules re-elaborated | 67 | 90 | 93 | **94** (+1 = `WSC.Shaped.MintingLocalShapedRIdx`) | **93** (−1, and it is a *different* set from E5's 93) |
+| `error:` lines | 0 | 0 | 0 | **0** (hard requirement — met, both runs; but see **F21**) | **0** |
+| solver verdicts | 101: 66 V + 35 F | 158: 101 V + 57 F | 159: 102 V + 57 F | **162: 103 `✅ Valid` + 59 `✅ Expected Falsified`** (identical in both runs) | **162: 103 V + 59 F — UNCHANGED. This is H2's acceptance criterion and it is met.** |
+| `⚠️ Undetermined` / `❌` | 0 | 0 | 0 | **0** (both runs) | **0** |
+| `declaration uses 'sorry'` | 20 | 20 | 20 | **20** (census §2, unchanged) | **20** |
+| `unused variable` | 5 | 5 | 5 | **5** — still all at `Composition.lean:2442-2446` (§5.4) | **5**, same lines |
 
 **On the RSS regression, 1.50 → 1.65 GB.** It is **not** G1's or G2's doing and G3
 did not take it on trust. G2 independently stashed its own work and rebuilt
@@ -348,6 +361,17 @@ Literal-source grep over `WSC/**/*.lean`, comments stripped — **re-run at G3**
 
 ## 3. AXIOM CENSUS
 
+> **UPDATED AT H2.** The dead-file cleanup deleted the only two `#print axioms`
+> results that lived in a module with no Lean dependents, so this section's totals
+> move by exactly −2: **172** results, **37** `sorryAx` (**unchanged**), **70**
+> `native_decide`, **122** zero-project-axiom. The two removed are
+> `WSC.Witness1600.golden_halts_at_1600` and `…golden_errors_at_1553`, both
+> `[propext, Classical.choice, Lean.ofReduceBool, Lean.trustCompiler, Quot.sound]`
+> — i.e. both were in the "builtins-only" bucket, which is why the `sorryAx` count
+> and every project-axiom figure in §3.1–§3.4 are untouched. Re-measured with the
+> two-trap-safe parser at the cleanup revision; the G3 body below is left as G3
+> wrote it.
+
 Measured at **G3 (`f4486ca`)**: the rebuild log carries **174** `#print axioms`
 results, all distinct names (E5 at `7039cdb`: 173; C4: 142). Of these, **37** carry
 `sorryAx`, **72** use `native_decide`, and **124** carry **zero project axioms** —
@@ -370,6 +394,8 @@ axiom (`WSC.OnChain`). Identical in both G3 runs.
 > **102** builtins-only (`propext` / `Classical.choice` / `Quot.sound` /
 > `Lean.ofReduceBool` / `Lean.trustCompiler`), **17** carrying `sorryAx` but no
 > project axiom, and the **5** bracket-free. 102 + 17 + 5 = 124.
+> **At H2 the first bucket is 100** (the two deleted `Witness1600` results were
+> both in it): 100 + 17 + 5 = 122.
 
 > **Parsing trap, recorded because it cost this audit time.** `#print axioms` output
 > **wraps across log lines**. A line-oriented `grep 'depends on axioms' | grep -c
@@ -1398,9 +1424,10 @@ Full third-party recipe, including substrate reconstruction: **`WSC/REPRODUCE.md
 The short form:
 
 ```bash
-# 1. clean-room rebuild  (expected values are for HEAD f4486ca)
-#    expect: 432 jobs, 1:46-2:10, 162 ✅ markers (103 Valid + 59 Expected Falsified),
-#            0 errors, 0 ⚠️/❌, 20 expected `sorry` warnings, 94 WSC modules,
+# 1. clean-room rebuild  (expected values are CURRENT, i.e. post-H2-cleanup;
+#    at HEAD f4486ca they were 432 jobs / 94 modules — §1.2's last two columns)
+#    expect: 431 jobs, 1:49-2:36, 162 ✅ markers (103 Valid + 59 Expected Falsified),
+#            0 errors, 0 ⚠️/❌, 20 expected `sorry` warnings, 93 WSC modules,
 #            5 `unused variable` warnings (all Composition.lean:2442-2446),
 #            RSS 1.50-1.66 GB (LOAD-DEPENDENT — not an instrument, §1.2)
 cp -a <CLAB> <SCRATCH>/clab-audit && cd <SCRATCH>/clab-audit
@@ -1426,8 +1453,9 @@ grep -c 'unused variable' build.log                                # 5
 # 4. axiom census — TWO traps, both must be handled (§3):
 #      (a) PARSE ACROSS NEWLINES; a line grep undercounts sorryAx 17 vs 37
 #      (b) parse BOTH output forms — 5 results say "does not depend on any axioms"
-#          with NO brackets; a bracket-only parser returns 169/119 instead of 174/124
-#    expect: 174 results, 37 sorryAx, 124 with zero project axioms, 72 native_decide
+#          with NO brackets; a bracket-only parser returns 167/117 instead of 172/122
+#    expect: 172 results, 37 sorryAx, 122 with zero project axioms, 70 native_decide
+#            (at HEAD f4486ca: 174 / 37 / 124 / 72 — §3's H2 note)
 #      Composition.containment_on_contained_class        -> 26
 #      RealizableLeaves.containment_on_realizable_class   -> 28 (= 26 + LR_BUDGET_global + TS3)
 #      RealizableLeaves.containment_on_seize_class        -> 28 (= 26 + LR_BUDGET_seize + nodeStepsSeize)
@@ -1568,3 +1596,102 @@ Every item below is something this audit agrees with.
 was worth doing because it retired a theorem quantified over an empty class, but it
 cost a 300-second solver cap, left C1 `⚠️ Undetermined`, and moved the code/shape
 ratio not at all. **Loosening rungs buy narrowness, not coverage.**
+
+---
+
+## 12. THE DEAD-FILE AUDIT (task H2) — the full decision table
+
+**What this section is.** The campaign accreted files for eleven stages. Before the
+work is submitted as a PR, every file in `WSC/` was asked three questions and the
+answers are recorded here rather than left in a diff, because the interesting cases
+are the ones a reviewer would *expect* to be dead and which are not.
+
+The three questions, and the rule:
+
+1. **Does any Lean term outside the file depend on anything it declares?**
+   (measured: `grep -rl '^import <module>$'` over the tree, plus a name-level grep
+   for every declaration in the zero-importer cases)
+2. **Is it cited in prose by a document or by a surviving module's docstring?**
+   (measured: grep for the path, the basename, the brace-expanded form
+   `{A,B}.lean`, and the module name `WSC.Shaped.Probe.X`)
+3. **Is its content duplicated by something strictly better?**
+
+**DELETE only when (1) is no AND (3) is yes, or when the file is pure scratch cited
+by nothing.** A prose citation from a surviving module is by itself disqualifying:
+deleting a probe that `NonVacuity.lean` names as the provenance of a quoted `K`
+would convert a measured number into an unsourced one. That is why so many
+zero-importer probes below are KEEP.
+
+### 12.1 What was deleted — six files, and every one of them justified
+
+| file | (1) Lean dependents | (2) prose citations | (3) superseded by | verdict |
+|---|---|---|---|---|
+| `WSC/Props/P5_Witness1600.lean` | **none.** No module cites `WSC.Witness1600.golden_halts_at_1600` or `…golden_errors_at_1553`; the only `import` was `WSC.lean`'s, i.e. it was in the build but nothing consumed it | 6 (5 × `P5_NonMember.lean`, 1 × `Honest.lean`) + 1 in `status-fragments/U2.md` — **all seven repointed, not dropped** | its two facts are established three further times and better: `P5ShapedWitness.exec_accepts_at_1600_unshaped` (theorem on `appliedGlobal1600.exec`, the term P5 quantifies over, `native_decide`, no `sorryAx`), `ShapeBridge.G1NonVacuity.globalNonVacuous_at_1600` (about the `prop` term), and `NonVacuity.globalNonVacuous_at_1600` — the one that actually discharges the `Honest.lean` obligation, 0 project axioms, K = 1541 pinned two-sided by `P5ShapedWitness.K_is_1541` | **DELETE** |
+| `WSC/Shaped/Probe/M1Probe.lean` | none (0 importers) | **zero, anywhere** | `Props/Shaped/P4Shaped.lean` states `P4a_shaped_mint_runs_minting_logic` over the same `appliedMintShaped900` term with its full control set and vacuity probe. Header says "Not a deliverable" | **DELETE** |
+| `WSC/Shaped/Probe/M2Probe.lean` | none | **zero** | `Props/Shaped/P4ShapedIdx.lean`, same term, 3 V + 2 F | **DELETE** |
+| `WSC/Shaped/Probe/G1Probe.lean` | none | **zero** | `Props/Shaped/P5Shaped.lean` (`P5_shaped_indexed` / `_exists` / `_groundtruth`) over the same `appliedGlobalShaped1600`. Header says "Not a deliverable" | **DELETE** |
+| `WSC/Shaped/Probe/M1Pos.lean` | none | **zero** | four `#eval`s asking whether a POSITIVE-mint SHAPE M1 context is ledger-valid. Answered as a **theorem** by `P1ShapedWitness.mintPos_form_REFUTED` (`P1Shaped.lean:674`) and its re-cut twin in `P1ShapedR.lean:697`, and by four `mintPos … = false` `✅ Valid` verdicts in the built set | **DELETE** |
+| `WSC/Shaped/Probe/U3Census.lean` | none | **zero** (its own docstring is the only mention) | it aggregates ~40 `#print axioms` calls and claims to "reproduce the table in `WSC/AUDIT.md` §3". It no longer can: §3's census is **172 results over the whole built set**, and U3Census names none of the E1/E4/G-stage headline results (no `RealizableLeaves.*`, no `Coverage.*`, no `g6_class_is_empty_nonNative`) while still naming `P4_local_noEscape_shapedIdx`, which §9.10 says must not be quoted. A stale instrument that under-reports is worse than none; §10 step 4 is the recipe that gets all 172. Its own header states it "can be deleted without affecting any result" | **DELETE** |
+
+**Measured effect on the build** (`lake build WSC WSC.ShapeBridge`, clean-room,
+own before/after control runs on the same box under the same load):
+
+| | before (`f4486ca`) | after |
+|---|---|---|
+| jobs | 432 | **431** (−1: only `P5_Witness1600` was in the build at all; the other five are not imported by anything and are never elaborated) |
+| WSC modules re-elaborated | 94 | **93** |
+| **solver verdicts** | **162 = 103 ✅ Valid + 59 ✅ Expected Falsified** | **162 = 103 + 59 — IDENTICAL** |
+| per-verdict source reconciliation (§1.4) | 59 + 2 + 101, 0 unclassified | **59 + 2 + 101, 0 unclassified** |
+| `error:` / `⚠️` / `❌` | 0 / 0 / 0 | **0 / 0 / 0** |
+| `declaration uses 'sorry'` | 20 | **20** |
+| `unused variable` | 5 | **5**, same lines |
+| `#print axioms` results | 174 (37 `sorryAx`, 72 `native_decide`, 124 zero-project-axiom) | **172 (37, 70, 122)** — the −2 are the two `Witness1600` theorems, both builtins-only, so **no project-axiom or `sorryAx` figure anywhere in §3 moves** |
+| `#import_uplc` sites under `WSC/` | 9 | **8** |
+
+**No verdict was lost, so no verdict needs pinning to a source line.** That was the
+acceptance criterion and it is met exactly.
+
+### 12.2 What was NOT deleted, and why — the cases that look dead
+
+These are the traps. Each was a plausible delete candidate on question (1) alone.
+
+| file(s) | why KEEP |
+|---|---|
+| **the pre-re-cut shape modules and their Props** (`Shaped/{BaseShaped,MintingShaped,MintingShapedIdx,MintingLocalShaped,MintingLocalShapedIdx,MintingDelegateShaped,GlobalShaped,GlobalShapedIdx,GlobalMemberShaped,GlobalShapedP1,GlobalShapedP1Out,SeizeShaped}.lean`, `Props/Shaped/{P1Shaped,P2Shaped,P4Shaped,P4ShapedIdx,P4LocalShaped,P4DelegateShaped,P5Shaped,P6Shaped}.lean`) | **the emptiness proofs are STATED OVER THEM.** `ShapeRealizability.lean` and `GlobalRealizability.lean` prove T1/T2/T6/T7, G1, G6, M1, M2, L1, L2, DT1, DS1, S1 empty *as classes of ledger transactions*; those theorems are the entire before/after column that makes the C1/C2 re-cut mean anything, and they need the pre-re-cut shape builders to exist. They also carry **44 of the 162 verdicts** between them |
+| `Shaped/Probe/{T3PrepFAILS,T4PrepFAILS}.lean` | the **D6 reproductions** — deliberately not imported and deliberately non-building; the failure *is* the measurement. Cited 9× and 6× (incl. `COVERAGE.md:359`, `SHAPE-BRIDGE.md:247`, `P1Shaped.lean:93/770`, `GlobalShapedP1.lean:130`, `GlobalShapedP1Out.lean:12`) |
+| `Shaped/Probe/G6Vacuous2500.lean` | the cautionary case §4 opens with: a `✅ Valid` over an accept-UNSAT class, caught only by the mandatory probe. Cited 7×, incl. `README.md:268`, `REPRODUCE.md:184`, `Honest.lean:1191`, `NonVacuity.lean:80/158`, and §4 of this file |
+| `Shaped/Probe/L2RProbe.lean` | the `⚠️ Undetermined` measurement **behind** `P4_local_noEscape_RIdx`'s derivation. Cited by `P4LocalShapedR.lean:522/535/549` and by §1.3/§4.2/§7.6.2 here. Out of the build **on purpose** — that is what keeps the built set at 0 `⚠️` |
+| `Prep/Global.lean` (`:83` `global_vacuity_probe_600`) and `Props/P4_Minting.lean` (`:386` `minting600_is_vacuous`) | the two deliberate **`solve-result: 0`** stanzas. Their `✅ Valid` markers are 2 of the 162 and are *records of vacuity*, not proofs of safety (§1.4) |
+| `Model/*` (5 modules) | the only **unbounded** result in the library (`P2.P2a_seizeModel_preserves_structure`) and `pathC_sound`, which covers a containment dispatch path unreachable at UPLC because of D6 |
+| **the K-search and prep-ceiling probes** — `Shaped/Probe/{M1K,G1K,L1K,DSRK,DTDSK,S1K,G1Witness,T1Probe,T4Probe,T6Probe,L1Probe,L2Probe,L2Reg,DTDSProbe,G2Probe,G3Probe,G6Diag,MPrep1700,MPrep2500,GPrep2500,GPrep4000,BasePrepUnshaped,UnshapedCost,B1Accept,AxAudit,Axioms,P1Axioms,V3Axioms,BridgeProbe,BridgeProbe2FAILS,BridgeProbe3..7}.lean` | 0 importers every one of them, **and every one is cited in prose as the provenance of a number that IS quoted** — e.g. `NonVacuity.lean:70/74/77` names `L1K`/`G1K`/`G6Diag` as where K = 1681 / 1541 / 2837 were searched; `P4DelegateShapedR.lean:546` names `DSRK`; `P4LocalShaped.lean:84` names `L2Reg` for the registration `⚠️ Undetermined`; `SHAPING-RESULTS.md` §§ and `SHAPE-BRIDGE.md:516-525` are inventory tables over them. Deleting any of these turns a measured figure into an unsourced one. **Note the grep trap:** several are cited only in brace-expanded form (`Probe/{M1K,G1K}.lean`, `Probe/{MPrep1700,MPrep2500,GPrep2500,GPrep4000}.lean`), so a basename grep reports them as uncited. They are not |
+| `Prep/Minting1300.lean` | declares **no theorem** and its `appliedMinting1300` is used by no theorem (§4.1 says so) — and it is still load-bearing, because the module header *is* the F5 correction to `K-MEASUREMENTS.md` §5.1: the native-vs-interpreted prep table and the "affordable ceiling is 1700, 2000 dead" figure, cited by `P4_Minting.lean:212` and `Prep/Minting800.lean:20`. Its 9.6 s of build cost is itself the measurement |
+| `goldens/prep-probes/*.lean.disabled` (9), `goldens/{KMeasure,KVerify}.lean.disabled` | the reproduction inputs for `K-MEASUREMENTS.md` §§2.1/3/5.1 and `MANIFEST.md:189-194`. §5.1's method is superseded and its figures carry a DO-NOT-USE warning (F5), but the probes are the *provenance* of figures that are still published with that warning; deleting them would leave §5.1's provenance column dangling |
+| `goldens/pre-fix/**` (26 files) | the pre-D1-fix vectors, over which `Honest.lean:687` states a **FALSE-at-this-revision** predicate and `K-MEASUREMENTS.md` Appendix A states the superseded step counts. Deleting them deletes the before side of a before/after |
+| `goldens/applied/*.flat` (13) | provenance-verified applied programs (`MANIFEST.md`, `K-MEASUREMENTS.md` §2.1, `verify-applied.py`). **Note:** after deleting `P5_Witness1600.lean` **no Lean module reads any of them** — see 12.3 |
+| `status-fragments/*.md` (7) | 4 of 7 are cited by surviving Lean modules or by `SHAPE-BRIDGE.md` (`V3.md` ← `WSC.lean:138` + `P6Shaped.lean:88`; `V1-P1-shaped.md` ← 5 sites incl. two probe headers; `z6-p2shaped.md` ← `SeizeShaped.lean:109`, `P2Shaped.lean:231`; `U1.md` ← `SHAPE-BRIDGE.md:515`). The other 3 (`U2.md`, `V4.md`, `C1-global-realizable.md`) are cited nowhere and self-declare supersession — but they are the **only** record of two latent-unsoundness findings and their in-code dispositions (`U2.md` §2: `LeafSet.p4`'s "`LR5`'s rewarding clause" remark does not follow, isolated as `Composition.SeizeWdrlOfScoped`; `V4.md`: the interval conjunct must be over the pre-state snapshot, and `I(L)` is false without `cs ≠ adaSymbol`), none of which appears in this file. Folding 600+ lines of per-unit history into a sealed audit is a larger and riskier change than keeping the fragments, and the repo's own precedent is explicit against rewriting them (`V3.md`'s H1 addendum: *"rewriting a per-task record would destroy the only thing it is for"*). **KEEP, with the one dangling name in `U2.md:41` given an inline pointer instead of a rewrite** |
+| `CIP153-BUILTINS-REPORT.md` | cited by **nothing** — the only genuinely orphaned document in the tree — and kept anyway, because it is the sole record of the **substrate fidelity evidence**: the `plutus` line citations for flat builtin tags 94–99, the arities, the uni tag, the `Value.hs` semantics read, the cost-model provenance, and six named deviations from `Value.hs`. §6.2 pins the substrate's *bytes*; this file is the argument that those bytes are faithful. H2 added a pointer to it from `WSC/substrate/README.md` so it is no longer an orphan |
+
+### 12.3 Two things H2 observed and did not fix
+
+Recorded rather than silently corrected, in the register §7 uses.
+
+1. **§1.1's "all 4 `#import_uplc` sites" was never right.** There are **9**
+   `#import_uplc` commands under `WSC/` at `f4486ca` (8 after H2): four import the
+   four production flats, four more re-import three of them at other budgets
+   (`Global1600`, `Minting800`, `Minting900`, `Minting1300`), and the ninth was
+   `P5_Witness1600.lean`'s import of an *applied golden*. The sentence is true of
+   the four **flats** and false of the sites. It does not affect any measurement —
+   the claim it supports is "every `#import_uplc` re-ran", which the 93-module
+   re-elaboration count establishes independently.
+2. **No Lean module now executes an applied golden flat, and that is a real loss.**
+   `P5_Witness1600.lean` was the only reader of `WSC/goldens/applied/*.flat`. Its
+   two theorems were the only *theorem-grade* bracket on an applied golden's step
+   count (HALT at 1600, budget-`Error` at 1553, i.e. K = 1554 for
+   `programmableLogicGlobal.transfer-nonmember-covering-node`). After H2 that
+   golden's K = 1554 survives only as a **measurement** in
+   `K-MEASUREMENTS.md` §3, reproducible via `goldens/KMeasure.lean.disabled`. The
+   deletion is still right — the fact the module was *cited* for is non-vacuity at
+   budget 1600, and that is now carried by a theorem about the term P5 actually
+   quantifies over rather than about a different program — but a reviewer should
+   know that the applied-golden execution path is no longer exercised from Lean.
+   Restoring it, if anyone wants it, is a ~10-line module and adds zero verdicts.

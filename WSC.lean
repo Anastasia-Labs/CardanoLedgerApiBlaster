@@ -42,9 +42,13 @@ import WSC.Goldens
 -- reduction ladder.  READ the OBLIGATION STATUS block in that file: the
 -- bytecode obligation is NOT discharged (blaster returned no verdict in 87 min).
 import WSC.Props.P5_NonMember
--- Concrete non-vacuity witness for budget 1600 (real bytecode + real golden
--- NonMember ScriptContext: HALT at 1600, budget-ERROR at 1553).
-import WSC.Props.P5_Witness1600
+-- Non-vacuity at budget 1600 is discharged downstream, by
+-- `WSC.NonVacuity.globalNonVacuous_at_1600` (WSC/Props/Shaped/NonVacuity.lean):
+-- `native_decide` on the real CEK over `Runs.globalRun 1600`, no solver and no
+-- `sorryAx`.  (The former `WSC/Props/P5_Witness1600.lean`, two `native_decide`
+-- theorems over the fully applied golden flat, was deleted as redundant with it —
+-- nothing in Lean ever depended on them.  The golden's own K = 1554 remains
+-- recorded in WSC/goldens/K-MEASUREMENTS.md §3.)
 -- SOURCE MODEL of the global transfer validator (task Z4, ARCHITECTURE.md §2 B3
 -- route): P1 (containment) and P6 (Member self-penalization) are unreachable at
 -- UPLC (accepting runs cost 3,262/3,726 CEK steps), so they are proved against a

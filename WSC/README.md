@@ -10,14 +10,16 @@ it. `WSC/STATUS.md` is the per-property table. `WSC/EXEC-SUMMARY.md` is one page
 no Lean identifiers. `WSC/COVERAGE.md` is the coverage question and its answer.
 `WSC/REPRODUCE.md` is the third-party build recipe.
 
-**Verified build state (task G3, two clean-room runs at HEAD `f4486ca`,
-2026-07-25):** 432 jobs, 1 m 46 s – 2 m 10 s, **162 solver verdicts (103 `✅ Valid` +
-59 `✅ Expected Falsified`), 0 errors, 0 `⚠️ Undetermined`**, source reconciliation
-exact and now done **per verdict** rather than by totals, 94 WSC modules, 20 expected
-`sorry` warnings, 5 `unused variable`. Peak RSS 1.50–1.66 GB — **load-dependent, and
-not an instrument**: unmodified `7039cdb` also measures 1.64 GB under the same
-concurrent load. (At E5 `7039cdb`, quiet box, three runs: 431 jobs, 1:39–1:57,
-159 verdicts = 102 + 57, 93 modules.)
+**Verified build state (current, after the H2 dead-file cleanup):** **431 jobs**,
+1 m 49 s – 2 m 00 s, **162 solver verdicts (103 `✅ Valid` + 59 `✅ Expected
+Falsified`), 0 errors, 0 `⚠️ Undetermined`**, source reconciliation exact and done
+**per verdict** rather than by totals, **93 WSC modules**, 20 expected `sorry`
+warnings, 5 `unused variable`. Peak RSS 1.50–1.66 GB — **load-dependent, and not an
+instrument**: unmodified `7039cdb` also measures 1.64 GB under the same concurrent
+load. (At G3 `f4486ca`, two runs: 432 jobs, 1:46–2:10, the same 162 verdicts, 94
+modules — H2 deleted six modules, one of which was in the build, and **no verdict
+moved**; the decision table is `AUDIT.md` §12. At E5 `7039cdb`, quiet box, three
+runs: 431 jobs, 1:39–1:57, 159 verdicts = 102 + 57, 93 modules.)
 
 ---
 
@@ -406,7 +408,8 @@ claimed as a census when 38 modules suppress the warning; a published `sorryAx` 
 of 27 that was an artifact of grepping line-oriented output that wraps (the true
 figure is **37**); a `#print axioms` total of 169 that missed the **five** results
 printed in the *other* output form, "does not depend on any axioms", with no brackets
-to parse (the true total is **174**); stale golden cost tables; a `PROVENANCE.md` note
+to parse (the true total was **174** at that revision, **172** after the H2 cleanup —
+the trap is the parser, not the number); stale golden cost tables; a `PROVENANCE.md` note
 that was simply false; and a module header claiming the top claim was "proved over a
 realizable class" when it was proved *assuming `p2`*.
 
@@ -437,10 +440,11 @@ Full recipe including substrate reconstruction: **`WSC/REPRODUCE.md`**.
 
 ```bash
 # 1. clean-room rebuild of the whole library
-#    expect (HEAD f4486ca): 432 jobs, 1:46-2:10 wall, 162 ✅ markers (103 Valid +
+#    expect (CURRENT, post-H2): 431 jobs, 1:49-2:00 wall, 162 ✅ markers (103 Valid +
 #            59 Expected Falsified), 0 errors, 0 ⚠️/❌, 20 expected `sorry`
-#            warnings, 94 WSC modules, 5 `unused variable` (all Composition.lean),
+#            warnings, 93 WSC modules, 5 `unused variable` (all Composition.lean),
 #            RSS 1.50-1.66 GB (load-dependent — NOT an instrument)
+#    at HEAD f4486ca it was 432 jobs / 94 modules, same 162 markers (AUDIT.md §12)
 cp -a <CLAB> <SCRATCH>/clab && cd <SCRATCH>/clab
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
 /usr/bin/time -v lake build WSC WSC.ShapeBridge 2>&1 | tee build.log

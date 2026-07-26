@@ -256,3 +256,10 @@ Deliberately **not** done, with reasons:
 The sealed WSC build was **not** re-run in this task, and did not need to be: **no
 tracked file outside `WSC/pr/` was modified, added or deleted**, so the 432-job /
 162-verdict invariant is untouched by construction rather than by measurement.
+
+> **Superseded one commit later by the H2 dead-file cleanup** (`AUDIT.md` §12),
+> which deleted six modules and **did** re-run the build twice with a control:
+> the invariant is now **431 jobs / 93 WSC modules**, and the part that matters —
+> **162 verdicts = 103 ✅ Valid + 59 ✅ Expected Falsified**, 0 errors, 0 ⚠️/❌ —
+> is **unchanged and measured, not assumed**. Any count quoted from this file
+> should be taken from `AUDIT.md` §1.2's H2 column instead.

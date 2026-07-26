@@ -33,6 +33,18 @@ The branch's own two commits, `+2832 / −6` over the base:
 | `830819b` | Add CIP-153 Value builtins (`insertCoin`, `lookupCoin`, `unionValue`, `valueContains`, `valueData`, `unValueData`) |
 | `9f9ca8c` | `Value`: blaster-friendly denotation restatement + algebra lemmas |
 
+> **Where the FIDELITY argument for `830819b` lives: `WSC/CIP153-BUILTINS-REPORT.md`.**
+> This directory pins the substrate's *bytes* (§2/§3 below verify the bundle
+> reconstructs the exact tree). It does not argue that those bytes are a faithful
+> transcription of upstream Plutus. That argument — the `plutus` source citations for
+> flat builtin tags 94–99, the six arities, uni tag 13, the full `Value.hs` semantics
+> read, the cost-model provenance, and **six named, deliberate deviations from
+> `Value.hs`** — is in `WSC/CIP153-BUILTINS-REPORT.md`. It is a raw per-task record,
+> not a reviewer document, and it names the branch by its *first* commit (`830819b`)
+> rather than the pinned tip (`9f9ca8c`); read it for the fidelity evidence only.
+> Cross-reference added at H2, which found it was the one document in `WSC/` that
+> nothing else referenced (`AUDIT.md` §12.2).
+
 **What depends on it.** That branch carries flat decoder tags 94–99
 (`PlutusCore/UPLC/FlatEncoding/Basic.lean:305-310`) plus their CEK denotations.
 Without them the production `programmableLogicGlobal` flat does not decode at all

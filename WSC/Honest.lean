@@ -1122,11 +1122,14 @@ and it is ≥ every measured accepting K for this validator.
   Lower bracket: `P1ShapedWitness.exec_rejects_at_600` (budget 600 ⟹ `Error`) and
   `K_T1_is_2603` (`Halt` at 2603, `Error` at 2602).
 * NON-VACUITY THEOREM (task A1): `WSC.NonVacuity.globalNonVacuous_at_4400`.
-* SECOND WITNESS, at the OLD value and on the real off-chain golden:
-  `WSC.P5ShapedWitness.exec_accepts_at_1600_unshaped` (theorem-grade) — HALT at
-  1600. The two `#eval`s of `WSC/Props/P5_Witness1600.lean` corroborate on the
-  actual golden flat but are NOT theorems and must not be cited as such
-  (audit F11).
+* SECOND WITNESS, at the OLD value: `WSC.P5ShapedWitness.exec_accepts_at_1600_unshaped`
+  (theorem-grade) — HALT at 1600 — packaged as the non-vacuity theorem
+  `WSC.NonVacuity.globalNonVacuous_at_1600`. The corroborating figure on the real
+  off-chain golden flat is K = 1554 (WSC/goldens/K-MEASUREMENTS.md §3); it is a
+  measurement, not a Lean term. (`WSC/Props/P5_Witness1600.lean`, whose two
+  `#eval`s prompted audit F11 and whose two `native_decide` theorems restated the
+  same two facts about the applied golden, has been deleted as redundant with the
+  theorem named above; nothing in Lean depended on it.)
 * PREP COST. Symbolic (fully unshaped) `#prep_uplc` of this validator at budget
   1600 costs **37.8 s** (task A1, `lake build`, cold module — the figure
   K-MEASUREMENTS §5.1 published as 2,143 s = 35.7 min is a 57x overstatement,

@@ -35,9 +35,9 @@ translate/optimize step is the wall. **The wall is the SMT search itself**, and
 what it returns is `Undetermined`, i.e. Z3 neither proves nor refutes the query.
 So the honest reading of the missing vacuity certificate is
 "solver-undetermined", NOT "vacuous": the 600-step prep is *provably* vacuous
-(`✅ Valid`), whereas at 1600 Z3 simply does not decide. The concrete golden
-witness (WSC/Props/P5_Witness1600.lean) is what tells us the truth is
-"non-vacuous".
+(`✅ Valid`), whereas at 1600 Z3 simply does not decide. The concrete
+non-vacuity theorem `WSC.NonVacuity.globalNonVacuous_at_1600` is what tells us
+the truth is "non-vacuous".
 
 Consequently every bytecode-level statement below is a `Prop` DEFINITION with
 the `#blaster` command recorded in its doc comment, never a `theorem`. What IS
@@ -50,12 +50,19 @@ and the pure-Lean reduction lemmas
 including "(ii)+(iii) ⟹ (i)" and "bytecode-shaped ⟹ ground-truth".
 
 Non-vacuity of budget 1600 is nevertheless established CONCRETELY and
-independently of the solver, by WSC/Props/P5_Witness1600.lean: the real
-compiled validator with the real golden NonMember/covering-node
-`ScriptContext` applied HALTS at budget 1600 and budget-errors at 1553
-(K = 1554, WSC/goldens/K-MEASUREMENTS.md §3). So the statements below are known
-to be about a non-empty set of transactions — what is missing is the solver
-verdict, not the witness.
+independently of the solver, by `WSC.NonVacuity.globalNonVacuous_at_1600`
+(WSC/Props/Shaped/NonVacuity.lean): `native_decide` on the real CEK, over
+`Runs.globalRun 1600` = `appliedGlobal1600.exec` — i.e. the executable form of
+the very term the statements below quantify over — at the SHAPE-G1 witness
+`P5ShapedWitness.ctx`, which is P5's own subject shape and is
+`validRewardingContext` with zero failing conjuncts. Measured K = 1541, pinned
+two-sided by `P5ShapedWitness.K_is_1541`. **0 project axioms, no `sorryAx`.**
+So the statements below are known to be about a non-empty set of transactions —
+what is missing is the solver verdict, not the witness.
+
+(The cheapest *off-chain-produced* accepting golden of this validator costs
+K = 1554, which is likewise inside 1600; that figure is a CEK-step measurement
+recorded in WSC/goldens/K-MEASUREMENTS.md §3, no longer executed from Lean.)
 ══════════════════════════════════════════════════════════════════════════════
 
 Stated against the ACTUAL compiled production bytecode
@@ -71,8 +78,10 @@ steps** (bridged to real node acceptance by the LR-BUDGET axiom family in
 WSC/Honest.lean). 1600 was chosen because the CHEAPEST accepting golden of this
 validator, `programmableLogicGlobal.transfer-nonmember-covering-node`, halts in
 **K = 1554** steps (WSC/goldens/K-MEASUREMENTS.md §3) — and that golden is
-exactly P5's subject shape, and it HALTS inside the bound (concretely verified
-in WSC/Props/P5_Witness1600.lean). It does NOT
+exactly P5's subject shape, so it HALTS inside the bound. (The theorem-grade
+in-budget acceptance is `WSC.NonVacuity.globalNonVacuous_at_1600`, at the
+SHAPE-G1 witness, K = 1541; the golden's 1554 is a measurement, not a Lean
+term.) It does NOT
 cover the containment-carrying transfers (K = 3262 / 3726, P1's shapes), whose
 symbolic prep is out of reach (K-MEASUREMENTS §5.2).
 
@@ -490,8 +499,10 @@ returning, and a build that hangs is worse than an honest gap.
 
 NOTE (E9, binding, unchanged): the negative control is ALSO satisfied by
 budget-`Error`, so it can never by itself detect the 1600-step bound; the
-non-vacuity evidence is `WSC/Props/P5_Witness1600.lean` (concrete golden, HALT
-at 1600 / ERROR at 1553) plus K = 1554 from K-MEASUREMENTS.md §3. -/
+non-vacuity evidence is `WSC.NonVacuity.globalNonVacuous_at_1600` (theorem,
+`native_decide`, real CEK on `Runs.globalRun 1600`, K = 1541 pinned two-sided by
+`P5ShapedWitness.K_is_1541`), corroborated by the golden's measured K = 1554 in
+K-MEASUREMENTS.md §3. -/
 
 /-- Negative control (STATED): a context in which the redeemer positionally
 claims `NonMember` for `cs` but the node at the claimed index FAILS either the
@@ -546,9 +557,13 @@ in seconds: the 1600 prep is a much larger residual term and the solve does not
 terminate in a usable time.
 
 So the symbolic non-vacuity certificate for `appliedGlobal1600.prop` is OPEN.
-The substitute evidence is concrete and independent: WSC/Props/P5_Witness1600.lean
-runs the real bytecode with the real golden NonMember ctx and gets HALT at 1600
-/ ERROR at 1553 (K = 1554, K-MEASUREMENTS.md §3).
+The substitute evidence is concrete and independent:
+`WSC.NonVacuity.globalNonVacuous_at_1600` runs the real bytecode on
+`Runs.globalRun 1600` (= `appliedGlobal1600.exec`) at the SHAPE-G1 NonMember
+witness and HALTS, `native_decide`, 0 project axioms and no `sorryAx`; K = 1541
+is pinned two-sided by `P5ShapedWitness.K_is_1541`. Note the residual gap this
+does NOT close: the certificate is on `.exec`, the statement here is on `.prop`,
+and their equality is audit finding F8.
 
 Discharge command (NOT run):
 `#blaster (gen-cex: 1) (solve-result: 1) [P5_vacuity_probe_1600]` -/

@@ -99,7 +99,9 @@ this file is resolved in favour of this file, and the disagreements are itemised
    `#print axioms` undercounts `sorryAx` as 17 when the true figure is **37**. The
    instrument is `#print axioms`, parsed **across newlines** *and* for **both output
    forms** — 5 results print "does not depend on any axioms" with no brackets, and a
-   bracket-only parser reports 169 results instead of the true **174**.
+   bracket-only parser reports 167 results instead of the true **172** (at HEAD
+   `f4486ca`, before the H2 cleanup: 169 vs 174 — the trap is the parser, not the
+   number).
 7. **This checkout now builds elsewhere — but only after two manual steps, and the
    substrate branch is still unpublished.** `WSC/substrate/` carries a verified
    incremental `git bundle` reconstructing PlutusCoreBlaster
@@ -118,6 +120,17 @@ this file is resolved in favour of this file, and the disagreements are itemised
 ## 1. VERIFIED BUILD STATE (task G3 clean-room rebuild, two runs, HEAD `f4486ca`)
 
 *E5's three-run figures at `7039cdb` are given in parentheses where they differ.*
+
+> **⚠️ ONE REVISION LATER — THE DEAD-FILE CLEANUP (task H2).** Six modules were
+> deleted for PR submission. **The verdict count did not move**: still **162 =
+> 103 `✅ Valid` + 59 `✅ Expected Falsified`**, still 0 errors, 0 `⚠️`/`❌`, 20
+> `sorry` warnings, 5 unused-variable, and the per-verdict reconciliation is still
+> exactly 101 + 2 + 59. Four rows of the table below moved: **jobs 432 → 431**,
+> **WSC modules 94 → 93**, **`#print axioms` results 174 → 172** (`sorryAx`
+> unchanged at 37; `native_decide` 72 → 70; zero-project-axiom 124 → 122; the two
+> removed results were both builtins-only), wall **1:49–2:00** with a same-load
+> pre-change control at 2:35. `axiom` declaration counts (51 / 0) are unchanged.
+> The full decision table for every file in the tree is **`AUDIT.md` §12**.
 
 | measurement | value |
 |---|---|
@@ -422,9 +435,10 @@ Full third-party recipe, including substrate reconstruction: **`WSC/REPRODUCE.md
 
 ```bash
 # the whole library, clean-room
-#   G3 (f4486ca): 432 jobs, 1:46-2:10, 162 ✅ markers (103 V + 59 F), 0 errors,
-#       0 ⚠️, 20 expected `sorry` warnings, 94 WSC modules, 5 `unused variable`,
+#   CURRENT (post-H2): 431 jobs, 1:49-2:00, 162 ✅ markers (103 V + 59 F), 0 errors,
+#       0 ⚠️, 20 expected `sorry` warnings, 93 WSC modules, 5 `unused variable`,
 #       RSS 1.50-1.66 GB (LOAD-DEPENDENT — not an instrument)
+#   G3 (f4486ca): 432 jobs, 1:46-2:10, same 162 markers, 94 WSC modules
 #   E5 (7039cdb): 431 jobs, 1:39-1:57, 159 ✅ markers (102 V + 57 F), 93 WSC modules
 rm -rf .lake/build/lib/lean/WSC .lake/build/lib/lean/WSC.*
 /usr/bin/time -v lake build WSC WSC.ShapeBridge 2>&1 | tee build.log

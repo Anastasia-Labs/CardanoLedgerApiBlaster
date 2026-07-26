@@ -416,15 +416,17 @@ And `AUDIT.md` §9 gains one entry:
 # the module (≈1.7 s cold once its imports are built)
 lake build WSC.Coverage
 
-# the whole library with it: expect 432 jobs, 162 ✅ markers
-# (103 Valid + 59 Expected Falsified — this module still runs no solver; the
-#  +2 jobs and +4 markers since E4 are the G stage's, reconciled in AUDIT.md §1.3),
+# the whole library with it: expect 431 jobs, 162 ✅ markers
+# (103 Valid + 59 Expected Falsified — this module still runs no solver),
 # 0 errors, 20 `sorry` warnings, 5 unused-variable warnings
 #
-# NUMBERS RECONCILED AT THE G STAGE (2026-07-25). This block used to say
-# "430 jobs, 158 ✅ markers (101 Valid + 57 Expected Falsified)", which was the
-# E4-era state. WSC/AUDIT.md §1.2 is the authority for the current figures:
-# 432 jobs, 1:46-2:10 wall, 1.50-1.66 GB (load-dependent), 94 WSC modules.
+# NUMBERS RECONCILED AT THE G STAGE (2026-07-25) AND AGAIN AT H2. This block used
+# to say "430 jobs, 158 ✅ markers (101 Valid + 57 Expected Falsified)", which was
+# the E4-era state; the G stage took it to 432 jobs / 162 markers / 94 modules, and
+# H2's dead-file cleanup took the jobs to 431 and the modules to 93 with the 162
+# markers UNCHANGED. WSC/AUDIT.md §1.2 is the authority for the current figures:
+# 431 jobs, 1:49-2:00 wall, 1.50-1.66 GB (load-dependent), 93 WSC modules.
+# The decision table for the deletions is WSC/AUDIT.md §12.
 lake build WSC WSC.ShapeBridge 2>&1 | tee build.log
 grep -o '✅ [A-Za-z ]*' build.log | sort | uniq -c
 grep -c 'error:' build.log

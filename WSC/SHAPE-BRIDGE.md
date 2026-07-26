@@ -18,7 +18,7 @@ when this was written — §8 is stated against `92f3255`.
 > | whole-module cold build | 38 s | **45 s** (G3, box under concurrent load; ≈38 s on a quiet box) |
 > | expected `sorry` warnings in this module | 19 | **19 — unchanged** (`AUDIT.md` §2: all 20 build-wide `sorry` warnings less the one pre-existing PCB warning) |
 > | shapes bridged | 16 | **16 — unchanged** (6 Tier A + 10 Tier B). Not to be confused with the **13** re-cut shapes of `WSC/Coverage.lean`'s family, which is a different roster for a different purpose |
-> | whole-library build | not stated | **432 jobs, 162 verdicts (103 ✅ Valid + 59 ✅ Expected Falsified), 0 errors**, of which this module contributes **19 V + 6 F** |
+> | whole-library build | not stated | **431 jobs, 162 verdicts (103 ✅ Valid + 59 ✅ Expected Falsified), 0 errors**, of which this module contributes **19 V + 6 F** (432 jobs at G3 `f4486ca`; the H2 dead-file cleanup removed one in-build module and no verdict — `AUDIT.md` §12) |
 >
 > **Two substantive corrections to the body**, both flagged again at their own
 > sections:
