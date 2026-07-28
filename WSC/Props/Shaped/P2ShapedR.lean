@@ -713,3 +713,25 @@ theorem K_is_2301_and_2412 :
 end P2RWitness
 
 end WSC
+
+/-! ## §Axiom census (task N5)
+
+`WSC.SeizeModel.seizeModel_faithful` is REFUTED at wsc-poc `2306678`
+(`WSC/Model/SeizeModelRefuted.lean`). This module imports `WSC/Props/P2_Seize.lean`,
+which USES that axiom, so it is worth demonstrating rather than asserting that
+NONE of the results above travels through it. The shaped route talks to the
+bytecode directly and cites no model.
+
+`blaster` closes its goals with `admit`, so `sorryAx` is expected on every
+theorem it proves and is not a defect; what matters is that
+`WSC.SeizeModel.seizeModel_faithful` does NOT appear. -/
+
+#print axioms WSC.P2a_R_structure
+#print axioms WSC.P2a_R_ada_only_tops_up
+#print axioms WSC.P2b_R_containment
+#print axioms WSC.P2_R_gates_are_earned
+#print axioms WSC.P2a_R_negative_control
+#print axioms WSC.P2b_R_negative_control
+#print axioms WSC.P2RWitness.K_is_2301_and_2412
+#print axioms WSC.P2RWitness.exec_accepts_at_3800
+#print axioms WSC.P2RWitness.exec_rejects_escape_and_theft
