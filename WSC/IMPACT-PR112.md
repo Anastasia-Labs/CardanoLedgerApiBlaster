@@ -737,51 +737,61 @@ Task **N4**, 2026-07-28, appended alongside the N3 and N5 appendices above.
 Supersedes §6's substrate verdicts for the GLOBAL side; nothing here changes
 §1-§5.
 
-### N4.1 D8 IS CLOSED — it was a duplicate of D6
+### N4.1 ALL THREE GLOBAL PROPERTIES ARE RE-PROVED
 
-N1 reported D8 (`Prep/Global1600` fails in the kernel after ~8 min, `dite'`
-polarity mismatch) as a NEW blocker distinct from D6. It is not: it is D6, on a
-bigger term. Both are `Optimize.main` emitting a `Blaster.dite'` whose branch
-binder type was `Not`-normalised without the head's `p` following.
+Against wsc-poc `main` @ `2306678`, on the merged substrate (PCB `3fdd3fb`,
+`Lean-blaster-wsc` `4d320dd`, the TRUE #112 seize flat `350b58d7b322…`):
 
-Root cause, fix, and the measured before/after table: `WSC/pr/03-blaster-d6-FIX.md`.
-The fix is two files in `Lean-blaster` @ `59db213`; **it is unpushed and lives
-only in this task's workspace, so every global result below is unreproducible
-until it is upstreamed or vendored.**
+| property | shapes | solver verdicts |
+|---|---|---|
+| **P1** | T1R, T2R, T6R, T7R, **T8R (new)** | 6 `✅ Valid` + 7 `✅ Expected Falsified` |
+| **P5** | G1R | 2 `✅ Valid` + 2 `✅ Expected Falsified` |
+| **P6** | G6R | 2 `✅ Valid` + 2 `✅ Expected Falsified` |
 
-After the fix `WSC.Prep.Global1600` builds in **1826 s** (30.4 min), and all
-seven global shaped preps build in 2-3 s each.
+All four points of the bar are met for each: theorem, vacuity probe at its OWN
+prep term and OWN shape, two-sided K, and a shape whose class is inhabited.
 
-### N4.2 D6's REACH WAS WIDER THAN RECORDED
+### N4.2 D6 — REACH, AND WHOSE FIX LANDED
 
-Before this unit, D6 was documented as blocking SHAPES T3/T4 only (`COVERAGE.md`,
-`STATUS.md`). Against the #112 bytecode it also blocked **every shaped prep with
-a nonzero mint field** — G1R, G6R, T2R, T7R — because PR #112 moved the mint
-merge onto the CIP-153 `punionValue` builtin. Since P5 and P6 are inherently
-mint-side, D6 was blocking two of this unit's three properties outright. That is
-now fixed.
+N4 and N5 hit D6 independently and diagnosed the same root cause. **N5's fix is
+the one that landed** (`optimizeDITE` rebuilding both branch binder types from
+the final condition); N4's workspace patch was subtly different, was wrong, and
+was discarded — see N4.3. Full account: `WSC/pr/03-blaster-d6-FIX.md`.
+
+What N4 adds is the REACH: N1's **D8 is not a separate defect**, it is D6 on a
+bigger term, and after PR #112 D6 blocked **every shaped prep with a nonzero
+mint field** (G1R, G6R, T2R, T7R) because #112 moved the mint merge onto the
+CIP-153 `punionValue` builtin. Since P5 and P6 are inherently mint-side, D6 was
+the difference between those two properties being provable and being unstatable.
 
 Not yet re-tested, and worth someone's time: `Probe/T3PrepFAILS.lean` and
-`Probe/T4PrepFAILS.lean` are named for a failure the fix may well have removed.
+`Probe/T4PrepFAILS.lean` are named for a failure the landed fix may have removed.
 If they now prep, P1's containment dispatch Paths B/C and the input-side
 aggregation axis open up.
 
-### N4.3 D9 — NEW, OPEN. It costs the library P6.
+### N4.3 "D9" — REPORTED, THEN RETRACTED. NOT A DEFECT.
 
-`Unexpected smt error: (error "… Overflow encountered when expanding vector")` on
-all four solver stanzas over SHAPE G6R. Two hypotheses (the CIP-153 mint merge;
-the prep budget) were tested and BOTH REFUTED. Full write-up, bisections and the
-next step: `WSC/pr/05-blaster-issue-d9-bv-overflow.md`.
+An earlier revision of this appendix reported a new open defect D9 (SMT
+"Overflow encountered when expanding vector") and concluded P6 could not be
+restored. **Both claims were wrong.** The errors came from N4's own workspace
+patch to Blaster, which discarded the optimized `dite'` binder type but still
+ran the optimization over it, leaving the hypothesis context and rewrite caches
+inconsistent with the emitted binder. Under N5's landed fix, P6 is green with no
+other change.
 
-P6's EXECUTABLE evidence is unaffected and was re-run green. It is the
-universally quantified theorem and its probes that have no verdict.
+Retraction, with the reason the two bisections that were run did not catch it:
+`WSC/pr/05-blaster-issue-d9-bv-overflow.md`. The short version — the control that
+would have caught it in minutes is re-running KNOWN-GREEN modules with and
+without the patch, which N5 did (42 Valid + 23 Expected Falsified, unchanged) and
+N4 did not.
 
-### N4.4 D7 (seize flat does not decode) TRANSITIVELY BLOCKS P1 AND P5
+### N4.4 D7 (seize flat does not decode) TRANSITIVELY BLOCKED P1 AND P5
 
-Not obvious and worth recording: `Props/P1_Transfer` and `Props/P5_NonMember`
-import `WSC.Honest`, which imports `WSC.Runs`, which imports `WSC.Prep.Seize` for
-`seizeRun`. So the seize decode failure takes the two global properties down with
-it even though neither mentions seize. Unit N5 owns the PCB `ScaleValue` fix.
+Worth recording because it is not obvious: `Props/P1_Transfer` and
+`Props/P5_NonMember` import `WSC.Honest` → `WSC.Runs` → `WSC.Prep.Seize`, so the
+seize decode failure took the two global properties down with it even though
+neither mentions seize. Cleared by N5's PCB `ScaleValue` work; re-verified here
+against the true #112 seize flat.
 
 ### N4.5 STRUCTURAL CHANGES MADE HERE
 
@@ -807,10 +817,26 @@ it even though neither mentions seize. Unit N5 owns the PCB `ScaleValue` fix.
 * **Explicit `(timeout: 1500)` on every solver call** in the six global P-modules.
   They had none, and Blaster's default is infinite — a real hang risk now that
   the bytecode moved. Per house rule this is a hang guard, not a soundness hole.
+* **SHAPE G6R is accept-capable at budget 2400** (`Probe/D9Budget.lean`), so P6's
+  3300 has 1104 steps of slack. Not acted on — lowering it is how SHAPE G6 was
+  once silently accept-UNSAT at 2500.
 
 ### N4.6 MEASURED K CHANGE
 
-SHAPE G6R witness: **K = 2837 → 2196** (−22.6 %), two-sided
-(`halts 2196 = true`, `halts 2195 = false`). In line with N2's golden
-measurements. `K_is_2837` in `P6ShapedR` is therefore false and is the
-`native_decide` failure at `:253`.
+Every global witness got cheaper. All re-measured two-sided and re-pinned in
+Lean; the old theorem names (`K_T1R_is_2603` etc.) are renamed to the new values.
+
+| shape | witness | pre-#112 | #112 | Δ |
+|---|---|---|---|---|
+| G1R (P5) | `ctx` | 1541 | **1402** | −9.0 % |
+| G6R (P6) | `ctx` | 2837 | **2196** | −22.6 % |
+| T1R (P1) | `ctxOk` | 2603 | **2343** | −10.0 % |
+| T2R (P1 mint) | `ctxBurn` | 3572 | **2567** | −28.1 % |
+| T6R (P1 agg) | `ctxOut` | 3150 | **2777** | −11.8 % |
+| T7R (P1 agg+mint) | `ctxOutBurn` | 3572 | **2567** | −28.1 % |
+
+Same direction and rough size as N2's golden measurements. Two invariants from
+the pre-#112 table SURVIVE and were re-checked, which is evidence the
+measurement is sound: T2R and T7R still coincide exactly, and each re-cut shape's
+K is still identical to its un-re-cut sibling's — redeemer coverage still costs
+ZERO CEK steps, because the transfer path never dereferences `txInfoRedeemers`.

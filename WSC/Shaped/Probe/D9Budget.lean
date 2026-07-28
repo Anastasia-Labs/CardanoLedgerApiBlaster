@@ -1,6 +1,14 @@
 /-
-WSC/Shaped/Probe/D9Budget.lean — **DEFECT D9, SECOND BISECTION: is it the SHAPE
-or the BUDGET?** (task N4.)
+WSC/Shaped/Probe/D9Budget.lean — **SHAPE G6R IS ACCEPT-CAPABLE AT BUDGET 2400**,
+and a historical bisection (task N4).
+
+⚠ NAME. Written to bisect a supposed defect "D9". **THERE IS NO D9** — it was an
+artifact of a bad workspace patch to Blaster, retracted in
+`WSC/pr/05-blaster-issue-d9-bv-overflow.md`. What survives is the measurement:
+SHAPE G6R accepts inside 2400 steps (new K = 2196), i.e. P6\'s shape does not
+need the 3300 it is prepped at. The probe below is the evidence, and the trap
+named at the end of this header is the reason it is a probe and not an
+assertion.
 
 FIRST BISECTION (WSC/Shaped/Probe/D9Probe.lean) REFUTED the obvious hypothesis.
 D9 is NOT the CIP-153 mint merge: the SHAPE G1R vacuity probe has a nonzero mint,

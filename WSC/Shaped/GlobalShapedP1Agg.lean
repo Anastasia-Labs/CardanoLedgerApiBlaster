@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Shaped/GlobalShapedP1Agg.lean — **SHAPE T4 / T5**: SHAPE T1 grown along the
 dimension that matters most for P1's MEANING — TWO mini-ledger inputs, so

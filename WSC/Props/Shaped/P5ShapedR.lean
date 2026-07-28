@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED against wsc-poc main @ 2306678 (PR #112) by task N4. Shapes re-cut with the 5-field TransferAct; K re-measured two-sided. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Props/Shaped/P5ShapedR.lean — **P5 (escape-critical) re-proved over the
 NODE-REALIZABLE re-cut SHAPE G1R** (task C1).

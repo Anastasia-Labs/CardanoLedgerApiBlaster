@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Shaped/GlobalShapedIdx.lean — SHAPE G2 = SHAPE G1 with BOTH redeemer index
 fields loosened to symbolic integers (task Z2, loosening rung).
@@ -95,7 +95,7 @@ statements is true — so if the G2/G3 accept-classes were empty at budget 1600 
 bridges would hold vacuously and nothing in the build would say so.
 
 This is the one line that closes that: SHAPE G1's redeemer is
-`TransferAct [] [] [NonMember 1] 0` (`GlobalShaped.lean:100-101`) and SHAPE G2's is
+`TransferAct [] [] [] [NonMember 1] 0` (`GlobalShaped.lean`) and SHAPE G2's is
 the same term with the two indices as arguments, so substituting `0` and `1`
 recovers G1 on the nose — `rfl`, kernel-checked, no solver, no axiom. Everything
 else in the two builders is byte-identical.

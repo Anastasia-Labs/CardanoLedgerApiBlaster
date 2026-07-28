@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED against wsc-poc main @ 2306678 (PR #112) by task N4. Shapes re-cut with the 5-field TransferAct; K re-measured two-sided. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Props/Shaped/P6Shaped.lean — **P6 (the `Member` claim is self-penalizing),
 PROVED at UPLC level against the real compiled transfer bytecode, over SHAPE G6**
@@ -101,7 +101,7 @@ script-address outputs each holding ada plus the minted asset with FREE credenti
 hashes and FREE quantities, a one-policy/one-token mint with a symbolic SIGNED
 quantity, a 2-entry all-script withdrawal map, one redeemer entry, empty
 cert/signatory/datum/vote/proposal lists, and the redeemer fixed to
-`TransferAct [] [] [Member] 0`.
+`TransferAct [] [] [] [Member] 0` (FIVE fields since PR #112).
 
 **Bound 2b — one token name, one policy.** The mint has exactly one `(cs, tn)`
 pair. That matters more than usual here, because
@@ -416,12 +416,16 @@ theorem exec_accepts_at_3300 :
 scan that a `Member` claim switches ON: under `NonMember` the mint entry is dropped,
 the expected value is empty and the dispatch at ProgrammableLogicBase.hs:678-701
 short-circuits. P6's self-penalization is therefore visible even in the step count,
-before any theorem is proved. -/
-theorem K_is_2837 :
+before any theorem is proved.
+
+RE-MEASURED against the PR #112 bytecode (task N4), two-sided. It is IDENTICAL
+to the re-cut sibling's value in `WSC/Props/Shaped/P6ShapedR.lean` on the same witness leaves — redeemer
+coverage costs zero CEK steps, as before. -/
+theorem K_is_2196 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 2837) = true
+              (globalInputs1600 ppCS ctx) 2196) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 2836) = false := by native_decide
+              (globalInputs1600 ppCS ctx) 2195) = false := by native_decide
 
 /-! ### § SELF-PENALIZATION, MEASURED — the same escape, both classifications
 

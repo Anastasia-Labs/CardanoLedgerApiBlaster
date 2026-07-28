@@ -1,102 +1,76 @@
-# D9 — SMT backend: "Overflow encountered when expanding vector" on SHAPE G6R
+# D9 — RETRACTED. There is no such defect.
 
-Status: **OPEN, NOT DIAGNOSED.** Filed by task N4, 2026-07-28. Two hypotheses
-tested and BOTH REFUTED — this file records the bisections so the next person
-does not repeat them.
+Task N4, 2026-07-28. **This file is kept as a correction, not as a defect
+report.** An earlier revision of it reported "D9" as a new, open Blaster defect
+and concluded that P6 could not be restored against wsc-poc main @ `2306678`.
+**Both claims were wrong.** P6 is restored and green.
 
-**This is the defect that currently costs the library P6.** All four solver
-stanzas of `WSC/Props/Shaped/P6ShapedR.lean` — the two theorems AND both
-mandatory probes — return this error instead of a verdict, so P6 has no verdict
-at all against wsc-poc main @ `2306678`.
+## What was reported
 
-## Symptom
+All four solver stanzas of `WSC/Props/Shaped/P6ShapedR.lean` — both theorems and
+both mandatory probes — returned
+
+    Unexpected smt error: (error "… Overflow encountered when expanding vector")
+
+instead of a verdict. Two hypotheses were tested and both refuted with committed
+probes: the CIP-153 mint merge (`Probe/D9Probe.lean` — SHAPE G1R has a nonzero
+mint and passed) and the prep budget (`Probe/D9Budget.lean` — SHAPE G6R at 2400
+failed at the identical SMT source position as at 3300).
+
+Those two bisections were sound and their results stand. The conclusion drawn
+from them did not.
+
+## What it actually was
+
+**A defect in N4's own workspace patch to Blaster.**
+
+N4 and N5 independently diagnosed D6 (the kernel-ill-typed `Blaster.dite'`) and
+independently wrote a fix. The root-cause diagnosis was the same and correct in
+both cases. The repairs were not equivalent:
+
+* **N5's, which landed** (`Lean-blaster-wsc` @ `4d320dd`): `optimizeDITE`
+  rebuilds both branch binder types from the final condition — the binder types
+  are never optimized separately at all.
+* **N4's, discarded**: kept optimizing the binder type and then DISCARDED the
+  result in the `LambdaWaitForType` continuation (`diteBT.getD optExpr`).
+
+Both produce kernel-well-typed terms, which is why the kernel error went away
+under either. But N4's still RAN `optimizeNot` over the binder type, so the
+optimizer's hypothesis context and rewrite caches were populated from the
+De-Morgan-normalised form while the binder itself carried the un-normalised one.
+The SMT translation then ran on an inconsistent state, and Z3 was handed a
+malformed vector — "D9".
+
+Once the workspace patch was dropped and the merged tree picked up N5's fix,
+`P6ShapedR` went green with no other change:
 
 ```
-error: WSC/Props/Shaped/P6ShapedR.lean:102:55: Unexpected smt error:
-  (error "line 209 column 521: Overflow encountered when expanding vector")
-error: WSC/Props/Shaped/P6ShapedR.lean:151:89: … "line 209 column 2146: …"
-error: WSC/Props/Shaped/P6ShapedR.lean:175:0:  … "line 209 column 520: …"
-error: WSC/Props/Shaped/P6ShapedR.lean:199:0:  … "line 119 column 3827: …"
+info: WSC/Props/Shaped/P6ShapedR.lean:102:55: ✅ Valid
+info: WSC/Props/Shaped/P6ShapedR.lean:151:89: ✅ Valid
+info: WSC/Props/Shaped/P6ShapedR.lean:175:57: ✅ Expected Falsified
+info: WSC/Props/Shaped/P6ShapedR.lean:199:57: ✅ Expected Falsified
 ```
-The message is Z3's, surfaced through Blaster's `Unexpected smt error` path. The
-goal translates; the backend then fails on it. No counterexample, no verdict.
 
-## What it is NOT
+## Why this is worth keeping in the record
 
-### Not defect D6, and not caused by D6's fix
-D6 (`WSC/pr/02…`, fixed in `WSC/pr/03…`) was a KERNEL error from `addDecl` on the
-optimizer's output — those goals never reached the solver. D9 is raised by the
-SMT backend on a goal that now translates cleanly. D6's fix is what lets these
-goals get far enough to hit D9; it did not create it.
+1. **Nothing in the library ever depended on the wrong fix.** The failure mode
+   was a hard SMT error and a hard build failure, never a `✅ Valid`. The bad
+   patch could not have produced a green tick over a false goal — it could only
+   destroy verdicts. That is the direction the fix note argued a
+   rewrite-removing change must fail in, and it is what happened.
 
-Corroboration that the fix is not the cause: with the same patched Blaster, the
-three probes in `WSC/Shaped/Probe/D9Probe.lean` return `✅ Expected Falsified`
-normally, and `WSC/Prep/Global1600.lean` — the biggest symbolic prep in the
-library — now elaborates to completion (1826 s) where before it died.
+2. **"A regression measured and reported" is only a success if the measurement
+   is attributed correctly.** Two careful bisections were run and both were
+   right about what D9 was NOT; neither tested the one variable that had actually
+   changed under this unit's feet — the prover itself. The control that would
+   have caught it immediately is the one N5 ran and N4 did not: re-run a set of
+   KNOWN-GREEN modules with and without the patch. N4's own fix note listed that
+   control as "not yet done" and proceeded anyway. That was the error.
 
-### Not the CIP-153 mint merge — HYPOTHESIS 1, REFUTED
-The obvious suspect was PR #112's rewrite of the mint merge onto `punionValue`
-(`ProgrammableLogicBase.hs:1245-1268`) and its 128-bit `Quantity` range guard,
-since `±2^127` is visible in D6's own error text. Predicted split: empty-mint
-shapes fine, nonzero-mint shapes broken.
+3. **Do not resurrect D9.** If the "expanding vector" error reappears, check the
+   Blaster pin before assuming a backend bug.
 
-`WSC/Shaped/Probe/D9Probe.lean` tests exactly that. Result — **all three pass**:
-
-| probe | shape | mint | result |
-|---|---|---|---|
-| `D9_T1R_vacuity` | T1R | empty | `✅ Expected Falsified` |
-| `D9_T8R_vacuity` | T8R | empty | `✅ Expected Falsified` |
-| `D9_G1R_vacuity` | G1R | **nonzero** | `✅ Expected Falsified` |
-
-SHAPE G1R has a nonzero mint, goes through `punionValue`, and is fine. Hypothesis
-refuted.
-
-### Not the budget / term size — HYPOTHESIS 2, REFUTED
-The remaining difference between the passing G1R probe and the failing G6R ones
-was the prep budget: 1600 vs 3300. `WSC/Shaped/Probe/D9Budget.lean` re-preps the
-SAME SHAPE G6R at budget **2400** and runs the SAME vacuity probe.
-
-Result: **identical failure**, and — the telling part — at the *identical* SMT
-source position, `line 119 column 3827`, as the 3300 run. Budget 2400 was chosen
-as still accept-capable: the G6R witness's step count was re-measured against the
-#112 bytecode at **K = 2196** (down from 2837; a 22.6 % drop consistent with the
-6.5-14.7 % reductions unit N2 measured on the global goldens). Hypothesis
-refuted.
-
-## What is left — for whoever picks this up
-
-The failing goals and the passing ones differ in the SHAPE, with mint and budget
-both eliminated. SHAPE G6R (`WSC/Shaped/GlobalShapedR.lean` §2) against SHAPE G1R
-(§1):
-
-| | G1R (passes) | G6R (fails) |
-|---|---|---|
-| outputs | **1**, at `PubKeyCredential dest` | **2**, both at `ScriptCredential`, hashes `ob0`/`ob1` FREE and distinct from `plc` |
-| reference inputs | 2 (params + directory node) | 1 (params only) |
-| mint proof | `NonMember 1` | `Member` |
-
-The two free script-credential hashes compared against a third free hash `plc`
-are the most conspicuous difference, and "expanding vector" is a
-`ByteString`-shaped complaint rather than an arithmetic one — so the next
-bisection to run is a SHAPE G1R variant with a second free-hash script output,
-holding everything else fixed. **That was not run here.**
-
-Note the two free output hashes are NOT incidental: they are what makes P6
-non-tautological ("WHY TWO OUTPUTS", `WSC/Shaped/GlobalMemberShaped.lean`'s
-header). Collapsing them to dodge D9 would make the ledger's own `isBalanced`
-imply P6's postcondition, so that is not an acceptable workaround.
-
-## What still works at SHAPE G6R, so the scope of the loss is clear
-
-Everything executable. On the same bytecode and the same shape, by
-`native_decide`, no SMT involved:
-
-* the witness is `validRewardingContext` and satisfies P6's postcondition
-  (4 + 3 = 7 at base against a +7 mint, zero base inputs);
-* the real compiled bytecode ACCEPTS it at budget 3300;
-* a ledger-legal ESCAPING variant (3 of 7 minted tokens to a non-base
-  credential) is REJECTED under the `Member` claim.
-
-So P6's executable evidence survives PR #112 intact. What is missing is the
-UNIVERSALLY QUANTIFIED statement over the shape class — the theorem and its
-probes. P6 must not be quoted as proved against `2306678` until D9 is fixed.
+The two probe modules are kept — `Probe/D9Probe.lean` supplies the mandatory
+vacuity probes for SHAPES T1R and T8R and is load-bearing; `Probe/D9Budget.lean`
+records a genuine measurement (SHAPE G6R is accept-capable at budget 2400, new
+K = 2196). Their headers are corrected.

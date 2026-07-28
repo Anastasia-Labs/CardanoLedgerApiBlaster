@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED against wsc-poc main @ 2306678 (PR #112) by task N4. Shapes re-cut with the 5-field TransferAct; K re-measured two-sided. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Props/Shaped/P1ShapedR.lean — **P1 (containment) re-proved over the
 NODE-REALIZABLE re-cut SHAPES T1R / T2R / T6R / T7R** (task C1).
@@ -21,7 +21,7 @@ script witness the transaction needs, and whose classes are proved NON-EMPTY in
 
 WHAT CHANGED, EXHAUSTIVELY — the redeemer map, and nothing else:
 * **T1R** = T1 with `txInfoRedeemers` = `[(Spending ⟨"",0⟩, I rBase),
-  (Rewarding w0, TransferAct [1] [1] [] 0), (Rewarding w1, I rTls)]` (3 entries,
+  (Rewarding w0, TransferAct [1] [1] [] [] 0), (Rewarding w1, I rTls)]` (3 entries,
   the measured size of the real `base-spend-transfer-tx` golden);
 * **T2R** = T2 with the same three plus `(Minting cs, I rMint)` in second
   position (4 entries — a nonzero mint field is a needed script, and

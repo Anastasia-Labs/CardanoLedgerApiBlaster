@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED against wsc-poc main @ 2306678 (PR #112) by task N4. Shapes re-cut with the 5-field TransferAct; K re-measured two-sided. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Props/Shaped/P6ShapedR.lean — **P6 (the `Member` claim is self-penalizing)
 re-proved over the NODE-REALIZABLE re-cut SHAPE G6R** (task C1).
@@ -244,13 +244,17 @@ theorem exec_accepts_at_3300 :
         50) :=
   isHaltB_sound _ (by native_decide)
 
-/-- **EXACT STEP COUNT — `K = 2837`, UNCHANGED from SHAPE G6** (`K_is_2837`).
-Budget 3300, headroom 463. -/
-theorem K_is_2837 :
+/-- **EXACT STEP COUNT — `K = 2196`** against the PR #112 bytecode, pinned
+TWO-SIDED. Budget 3300, headroom 1104.
+
+RE-MEASURED at wsc-poc main @ `2306678` (task N4): it was **2837**, so this
+witness got **22.6 % cheaper** — the largest drop of any global shape in the
+library, and the same direction as unit N2's golden measurements. -/
+theorem K_is_2196 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 2837) = true
+              (globalInputs1600 ppCS ctx) 2196) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 2836) = false := by native_decide
+              (globalInputs1600 ppCS ctx) 2195) = false := by native_decide
 
 /-! ### § SELF-PENALIZATION, MEASURED — re-run at the realizable cut
 

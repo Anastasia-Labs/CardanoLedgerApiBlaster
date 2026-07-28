@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED against wsc-poc main @ 2306678 (PR #112) by task N4. Shapes re-cut with the 5-field TransferAct; K re-measured two-sided. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Props/Shaped/P5Shaped.lean — **P5, the ESCAPE-CRITICAL property, PROVED at
 UPLC level against the real compiled transfer bytecode, over SHAPE G1**
@@ -45,7 +45,7 @@ header. In one line: one non-mini-ledger ada-only input, exactly two reference
 inputs (params node then candidate directory node), one non-mini-ledger output,
 a one-policy/one-token mint, a 2-entry all-script withdrawal map, one redeemer
 entry, empty cert/signatory/datum/vote/proposal lists, and the redeemer fixed to
-`TransferAct [] [] [NonMember 1] 0`.
+`TransferAct [] [] [] [NonMember 1] 0` (FIVE fields since PR #112).
 
 **Bound 2b — ONE NODE INDEX AT A TIME.** SHAPE G1 pins the `NonMember` node index
 to 1. Freeing it (SHAPE G3, `WSC/Shaped/GlobalShapedIdx.lean`) with the index-free
@@ -77,7 +77,8 @@ Likewise `pCS ≠ ppCS` as variables, so `pparamsAtRefIdx`'s own `phasCSH` gate
 **FINDING — the golden is NOT P5's subject shape** (recorded in
 WSC/SHAPING-RESULTS.md and in WSC/Shaped/GlobalShaped.lean's header). The vector
 `programmableLogicGlobal.transfer-nonmember-covering-node` has redeemer
-`d8799f9f01ff9f01ff8000ff` = `TransferAct [1] [1] [] 0`, i.e. an EMPTY mint-proof
+`d8799f9f01ff9f01ff808000ff` = `TransferAct [1] [1] [] [] 0` (the hex is the
+POST-#112 regenerated golden; it was `d8799f9f01ff9f01ff8000ff` before), i.e. an EMPTY mint-proof
 list: its covering-node check happens in the INPUT-side transfer walk
 (ProgrammableLogicBase.hs:889-900), and with an empty mint the validator never
 even calls the mint walk (:1219-1222) that `nonMemberNodeIdxOf` mirrors. So the
@@ -506,12 +507,16 @@ budget-errors at 1540. (Measured by binary search in
 cheapest accepting golden of this validator is K = 1554
 (WSC/goldens/K-MEASUREMENTS.md §3) — so SHAPE G1 sits in the same step-count
 regime as the real off-chain transaction while being a genuine mint-side
-`NonMember`. -/
-theorem K_is_1541 :
+`NonMember`.
+
+RE-MEASURED against the PR #112 bytecode (task N4), two-sided. It is IDENTICAL
+to the re-cut sibling's value in `WSC/Props/Shaped/P5ShapedR.lean` on the same witness leaves — redeemer
+coverage costs zero CEK steps, as before. -/
+theorem K_is_1402 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 1541) = true
+              (globalInputs1600 ppCS ctx) 1402) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 1540) = false := by native_decide
+              (globalInputs1600 ppCS ctx) 1401) = false := by native_decide
 
 end P5ShapedWitness
 

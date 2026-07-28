@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Shaped/GlobalShapedP1.lean — the SHAPES for **P1 (containment)** against the
 production transfer validator `programmableLogicGlobal` (task V1).
@@ -72,7 +72,9 @@ prep):
 * withdrawal map: exactly 2 entries, both SCRIPT credentials;
 * exactly 1 redeemer-map entry, for the own `Rewarding` purpose;
 * empty certificate / datum / vote / proposal lists; exactly 1 signatory;
-* redeemer = `TransferAct [1] [1] [] 0`: the transfer proof points at reference
+* redeemer = `TransferAct [1] [1] [] [] 0` (FIVE fields since PR #112,
+  `ownerWdrlIdxs` third and empty — this shape's mini-ledger input is
+  pubkey-owner-witnessed, so it is never read): the transfer proof points at reference
   index 1 (the directory node), the transfer withdrawal index at withdrawal
   entry 1, no mint proofs, params at reference index 0. All four are
   self-validating hints re-checked by `pcheckedDrop`/`phead` plus the branch

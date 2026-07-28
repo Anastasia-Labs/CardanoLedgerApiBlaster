@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Shaped/GlobalMemberShaped.lean — SHAPED prep of the production transfer
 validator `programmableLogicGlobal` on a **`Member` mint classification**, at CEK
@@ -28,7 +28,9 @@ remain inside the mini-ledger, whereas a `NonMember` claim removes it.*
 FIXED (the published scope — quote this with any theorem stated against this
 prep):
 * purpose REWARDING, own credential = `ScriptCredential w0`;
-* redeemer = `TransferAct [] [] [Member] 0`, i.e. NO transfer proofs, NO transfer
+* redeemer = `TransferAct [] [] [] [Member] 0`, i.e. NO transfer proofs, NO transfer
+  withdrawal indices, NO owner withdrawal indices (PR #112's third field — this
+  shape has no mini-ledger input, so it is never read),
   withdrawal indices, exactly ONE mint proof and it is `Member` (constructor tag
   0 — ProgrammableLogicBase.hs:1041-1043), and `paramsRefIdx = 0` (a
   self-validating hint re-checked by `pparamsAtRefIdx`'s `phasCSH` gate at :832);

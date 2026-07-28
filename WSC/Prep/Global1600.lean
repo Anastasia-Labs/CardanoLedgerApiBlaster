@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112 / BLOCKED: the PR #112 global flat DECODES but this #prep_uplc now fails in the KERNEL (Blaster optimizer dite' polarity mismatch, defect D8). See WSC/IMPACT-PR112.md §6.2.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Prep/Global1600.lean — SECOND prep of the SAME imported
 `programmableLogicGlobal` (transfer) validator, at CEK step budget **1600**.

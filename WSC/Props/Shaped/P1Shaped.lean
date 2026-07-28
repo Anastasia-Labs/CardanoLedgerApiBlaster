@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED against wsc-poc main @ 2306678 (PR #112) by task N4. Shapes re-cut with the 5-field TransferAct; K re-measured two-sided. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Props/Shaped/P1Shaped.lean — **P1, the CENTRAL CONTAINMENT property, stated
 and proved at UPLC level against the real compiled transfer bytecode, over
@@ -80,7 +80,8 @@ WSC/Shaped/GlobalShapedP1.lean's header. In one line each:
   policy carrying exactly one token name, the SAME policy `cs` and token name
   `tn` throughout; EMPTY mint; a 2-entry all-script withdrawal map; 1 redeemer
   entry; 1 signatory; empty cert/datum/vote/proposal lists; redeemer fixed to
-  `TransferAct [1] [1] [] 0`.
+  `TransferAct [1] [1] [] [] 0` (FIVE fields since PR #112; the empty
+  `ownerWdrlIdxs` is third).
 * **SHAPE T2** — SHAPE T1 with `txInfoMint = [(cs,{tn:q})]`, `q` a free Integer
   of UNCONSTRAINED SIGN, and redeemer `TransferAct [1] [1] [Member] 0`.
 

@@ -1,21 +1,19 @@
 /-
-WSC/Shaped/Probe/D9Probe.lean — **DEFECT D9 BISECTION** (task N4, 2026-07-28).
+WSC/Shaped/Probe/D9Probe.lean — **the MANDATORY VACUITY PROBES for SHAPES T1R
+and T8R**, plus a historical bisection (task N4, 2026-07-28).
 
-WHAT D9 IS. Against the PR #112 global bytecode, solver stanzas over the
-mint-side shapes die with
+⚠ NAME. This module was written to bisect a supposed defect "D9". **THERE IS NO
+D9** — it was an artifact of a bad workspace patch to Blaster, retracted in
+`WSC/pr/05-blaster-issue-d9-bv-overflow.md`. The module keeps its name because
+the retraction cites it, and it keeps its place in the build because the two
+probes below are LOAD-BEARING: they are point (b) of the four-point bar for
+SHAPES T1R and T8R, stated at those shapes' own prep terms.
 
-    Unexpected smt error: (error "… Overflow encountered when expanding vector")
+The bisection recorded below was run against the bad patch. Its conclusions
+about what the failure was NOT remain valid and are the reason the retraction
+could be written; read them as history.
 
-instead of returning a verdict. All four solver stanzas of
-`WSC/Props/Shaped/P6ShapedR.lean` (both theorems and BOTH mandatory probes) fail
-this way, so P6 currently has no verdict at all.
-
-D9 is NOT defect D6 and is NOT caused by D6's fix. D6 was a KERNEL type error
-raised by `addDecl` on the optimizer's output; the goals never reached the
-solver. D9 is raised by the SMT backend on a goal that now translates fine. The
-D6 fix is what lets these goals get far enough to hit D9.
-
-WHAT THIS MODULE TESTS. The hypothesis is that D9 comes from the CIP-153
+WHAT THIS MODULE TESTED. The hypothesis was that the failure came from the CIP-153
 `unionValue` 128-bit `Quantity` range guard (the `±2^127` bounds visible in D6's
 own error text), which PR #112 introduced on the transfer validator's MINT-MERGE
 path (`ProgrammableLogicBase.hs:1245-1268`) where the old code used a hand-rolled
@@ -36,8 +34,8 @@ independent of defect D7 (the seize flat does not decode, blocking
 `WSC.Runs` → `WSC.Honest` → `P1_Transfer`/`P5_NonMember`). That is the only
 reason the P1-side shapes can be exercised at all right now.
 
-EXPECTED for both: `✅ Expected Falsified` — an accepting context exists inside
-the budget.
+MEASURED, all three: `✅ Expected Falsified` — an accepting context exists inside
+the budget for each shape.
 -/
 import WSC.Shaped.GlobalShapedP1RPrep
 import WSC.Shaped.GlobalShapedP1SOwnPrep
@@ -97,10 +95,10 @@ def D9_T8R_vacuity : Prop :=
 
 #blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [D9_T8R_vacuity]
 
-/-- **THE D9 POSITIVE CONTROL, SHAPE G1R** (NONZERO mint — P5's own shape). If
-the hypothesis in this module's header is right, THIS one raises the SMT
-"Overflow encountered when expanding vector" error while the two above return
-verdicts. -/
+/-- **SHAPE G1R** (NONZERO mint — P5's own shape). Written as the positive
+control for the refuted hypothesis; it passed, which is what refuted it. It is
+retained as a second, independent statement of P5's shape non-vacuity, at a
+different prep term from `P5ShapedR`'s own probe. -/
 def D9_G1R_vacuity : Prop :=
   ∀ (ppCS : CurrencySymbol)
     (cs tn : ByteString) (q : Integer) (owner : ByteString) (inAda : Integer)

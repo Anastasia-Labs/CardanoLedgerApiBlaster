@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112 CITATIONS: this prep re-points at the PR #112 flat automatically (decodes ✓, preps at 600 ✓), but its source line citations are pre-#112. See WSC/IMPACT-PR112.md §3.1.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Prep/Global.lean — import + prep of the programmableLogicGlobal
 (transfer) validator. Split into its own module so the `#prep_uplc`

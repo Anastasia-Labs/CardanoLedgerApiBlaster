@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-BASED on wsc-poc main @ 2306678 (PR #112) by task N4: redeemer widened to 5 fields, prep re-run green. See WSC/IMPACT-PR112.md APPENDIX N4.
 /-
 WSC/Shaped/GlobalShaped.lean — SHAPED prep of the production transfer validator
 `programmableLogicGlobal` at CEK step budget **1600** (task Z2 rung 4).
@@ -21,7 +21,8 @@ directory node".
 This is the shape P5 (ADDENDUM E3) is actually about, and it is NOT the shape of
 the `transfer-nonmember-covering-node` golden. FINDING (task Z2, recorded in
 WSC/SHAPING-RESULTS.md): that golden's redeemer is
-`d8799f9f01ff9f01ff8000ff` = `TransferAct [1] [1] [] 0`, i.e. **`mintProofs = []`**
+`d8799f9f01ff9f01ff808000ff` = `TransferAct [1] [1] [] [] 0` (the hex is the
+POST-#112 regenerated golden; it was `d8799f9f01ff9f01ff8000ff` before), i.e. **`mintProofs = []`**
 — its covering-node check happens in the INPUT-side transfer walk
 (`pcheckTransferLogicAndGetProgrammableValue`'s negative-proof branch,
 ProgrammableLogicBase.hs:889-900), not in the mint walk
@@ -49,7 +50,8 @@ prep):
 * withdrawal map: exactly 2 entries, both SCRIPT credentials;
 * exactly 1 redeemer-map entry, for the own `Rewarding` purpose;
 * empty certificate / signatory / datum / vote / proposal lists;
-* redeemer = `TransferAct [] [] [NonMember 1] 0` — the two list-index fields of
+* redeemer = `TransferAct [] [] [] [NonMember 1] 0` (FIVE fields since PR #112,
+  `ownerWdrlIdxs` third and empty) — the two list-index fields of
   the redeemer are CONCRETE (`paramsRefIdx = 0`, the `NonMember` node index
   `= 1`): these are self-validating hints, re-checked by `pcheckedDrop`/`phead`
   plus the branch conditions, and they are exactly the fields the task's shaping
