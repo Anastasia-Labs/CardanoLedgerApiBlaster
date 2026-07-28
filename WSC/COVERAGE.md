@@ -189,7 +189,7 @@ below must NOT be described as "fourteen node-realizable shapes"; thirteen are,
 and one is pending.~~ **CORRECTED at task H1 (2026-07-28) — F23 is CLOSED.** T8R
 now carries a certified inhabitant like every other member: `WSC.t8R_realizable`
 (`WSC/Props/Shaped/GlobalRealizability.lean:939`), a two-sided `K_T8R_is_2288`
-(`WSC/Props/Shaped/P1ShapedR.lean:1036`), and class-level coverage
+(`WSC/Props/Shaped/P1ShapedR.lean:1039`), and class-level coverage
 (`t8R_class_covered` / `t8R_class_coverage`). **All sixteen shapes below are
 node-realizable**, so the roster may be described that way again.
 
