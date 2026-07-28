@@ -83,9 +83,14 @@ flow. §5 backs it with executable witnesses instead of asserting it. In summary
   outputs contains `E` (every other contribution is `> 0` by `validTxOutValue`),
   so PATH B accepts ⟹ PATH C would accept. **PATH B is a pure performance fast
   path with no distinguishing input/output behaviour**, and no acceptance or
-  rejection can isolate it. It is isolated by COST instead: `K_T3R_B_is_1936` and
-  `K_T3R_C_is_2228` pin, two-sided, a **292-step** gap between two contexts that
-  differ in ONE integer leaf by ONE. Changing `qOut0` from 5 to 6 cannot cost 292
+  rejection can isolate it. It is isolated by COST instead, and its CONDITION is
+  evaluated separately: `T3R_pathB_condition` shows, in ground-truth vocabulary,
+  that the output map equals the input map at `ctxB` and differs at `ctxC` — and
+  at this shape the expected map IS the input map with ada dropped, because one
+  contributing input means `pvalueFromCred` finishes in PHASE 2 with
+  `ptail # (pasMap # firstVd)` and no arithmetic. `K_T3R_B_is_1936` and
+  `K_T3R_C_is_2228` then pin, two-sided, a **292-step** gap between two contexts
+  that differ in ONE integer leaf by ONE. Changing `qOut0` from 5 to 6 cannot cost 292
   CEK steps inside a fixed control flow; it costs them because the equality at
   :638 flipped and the run stopped short-circuiting and executed
   `accumulateOutputsAtCred` + `pvalueContains`. Stated plainly so it is not
@@ -713,6 +718,31 @@ theorem T3R_pathC_is_taken :
       programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxC) 4400) = true := by
   native_decide
 
+/-- **THE TWO SIDES OF PATH B's EQUALITY, IN GROUND-TRUTH VOCABULARY.**
+
+PATH B's test at ProgrammableLogicBase.hs:638 is
+`(pmapData # (ptail # (pasMap # txOutValueData))) #== expectedMapData`, i.e. the
+mini-ledger OUTPUT's value map with the ada entry dropped, against the expected
+map. At SHAPE T3R the expected map is the mini-ledger INPUT's value map with the
+ada entry dropped: the shape has exactly ONE contributing input, so
+`pvalueFromCred` finishes in PHASE 2 and returns `ptail # (pasMap # firstVd)`
+(:411-427) with no arithmetic at all; the mint field is empty so
+`punionValue` adds nothing (:1219-1222); and `pfilterPositiveCurrencyPairs`
+(:257-298) is the identity here because `validTxOutValue` forces both quantities
+`> 0` (`ctxB_valid`).
+
+So this theorem is PATH B's condition, evaluated: it HOLDS at `ctxB` and FAILS at
+`ctxC`. Both sides are read straight off the `ScriptContext` — no validator
+accumulator appears. -/
+theorem T3R_pathB_condition :
+    ((ctxB.scriptContextTxInfo.txInfoOutputs.map (fun o => o.txOutValue.tail)).head?
+      = (ctxB.scriptContextTxInfo.txInfoInputs.map
+          (fun i => i.txInInfoResolved.txOutValue.tail)).head?)
+    ∧ ((ctxC.scriptContextTxInfo.txInfoOutputs.map (fun o => o.txOutValue.tail)).head?
+        ≠ (ctxC.scriptContextTxInfo.txInfoInputs.map
+            (fun i => i.txInInfoResolved.txOutValue.tail)).head?) := by
+  native_decide
+
 /-- **THE EXCLUDED CASE AT SHAPE T4R.** `ctxAggEscape` is ledger-legal,
 redeemer-covered, and moves 2 units out of the mini-ledger by under-supplying the
 AGGREGATE of two inputs; the real compiled bytecode rejects it. -/
@@ -882,6 +912,7 @@ theorem t4R_realizable :
 #print axioms t4R_class_covered
 #print axioms P1BCShapedWitness.T3R_not_path_A
 #print axioms P1BCShapedWitness.T3R_pathC_is_taken
+#print axioms P1BCShapedWitness.T3R_pathB_condition
 #print axioms P1BCShapedWitness.K_T3R_B_is_1936
 #print axioms P1BCShapedWitness.K_T3R_C_is_2228
 #print axioms P1BCShapedWitness.K_T4R_is_2696

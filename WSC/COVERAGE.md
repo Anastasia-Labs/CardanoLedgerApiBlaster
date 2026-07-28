@@ -25,7 +25,7 @@
 **The refutation reproduces.** Re-measured at wsc-poc `main` @ 2306678: the three
 missed transactions are still `validRewardingContext ∧ redeemersExactAllPlutus`,
 still accepted by the production `programmableLogicGlobal` at budget 4400, still
-outside all fourteen `range*` shapes, still inside `SizeBound 2 2 2 2 0`. `Covers`
+outside all sixteen `range*` shapes, still inside `SizeBound 2 2 2 2 0`. `Covers`
 is still PROVED FALSE at SHAPE T1R's own size. The single number that moved is the
 step count: **2,603 → 2,343**, two-sided, for the three missed transactions AND for
 the shape's own certified inhabitant. The coincidence that carries the argument —
@@ -77,7 +77,7 @@ earlier hope is closed off, with a proof.
 ## 0. THE ONE-PARAGRAPH ANSWER
 
 Coverage is now **stated in Lean** (`Coverage.Covers`), and it is **false** for
-the fourteen re-cut shapes of tasks C1/C2, the G stage and the N6 stage — not at some larger
+the sixteen re-cut shapes of tasks C1/C2, the G stage, the N6 stage and task H2 — not at some larger
 transaction size, but at **SHAPE T1R's own size**. Three witnesses prove it, each
 of which is (i) `validRewardingContext` **and** `redeemersExactAllPlutus`, i.e. realizable
 at exactly the bar `WSC.t1R_realizable` meets, (ii) **accepted by the real
@@ -88,7 +88,7 @@ inputs, and a transfer with an unbounded validity interval (the default every
 wallet emits). None is exotic. (That last characterisation — "what every wallet
 emits" — is a statement about the world, not a measurement in this repository;
 what IS machine-checked is that an unbounded validity interval is
-`validRewardingContext` and outside all fourteen shapes.) The arithmetic explains why no repair by enumeration is available: at
+`validRewardingContext` and outside all sixteen shapes.) The arithmetic explains why no repair by enumeration is available: at
 that bound there are at least **3.05 × 10¹⁴** distinct `Data` skeletons against a
 family of **14**, and even the smallest bound that admits a single real transfer
 has **9.27 × 10⁹** — ≈ 971 single-core CPU-years at the campaign's own measured
@@ -176,7 +176,7 @@ A shape freezes two kinds of thing, and the distinction decides everything:
 | **leaf scalars** | every `ByteString`, every `Integer` (hashes, quantities, ada amounts, fee, redeemer indices) | **yes** — they are the shape's free leaves, and they are symbolic |
 | **list lengths and constructor tags** — the `Data` skeleton | how many inputs / reference inputs / outputs / withdrawals / redeemer entries / signatories / certificates / datum witnesses / mint policies / token names per policy; `Credential` tag; staking-reference tag; datum tag; `Option` presence; validity-interval bound tags | **no.** Freezing them is precisely what makes `#prep_uplc` tractable. Escaping one needs a NEW SHAPE — a new prep, new theorems, a new vacuity probe |
 
-The fourteen re-cut shapes and their free-leaf counts (the builders' own arities,
+The sixteen re-cut shapes and their free-leaf counts (the builders' own arities,
 counted mechanically from their `def` signatures):
 
 **T8R joined the family at task N6 (2026-07-28).** It is the shape that exercises
@@ -190,8 +190,22 @@ and one is pending.~~ **CORRECTED at task H1 (2026-07-28) — F23 is CLOSED.** T
 now carries a certified inhabitant like every other member: `WSC.t8R_realizable`
 (`WSC/Props/Shaped/GlobalRealizability.lean:939`), a two-sided `K_T8R_is_2288`
 (`WSC/Props/Shaped/P1ShapedR.lean:1036`), and class-level coverage
-(`t8R_class_covered` / `t8R_class_coverage`). **All fourteen shapes below are
+(`t8R_class_covered` / `t8R_class_coverage`). **All sixteen shapes below are
 node-realizable**, so the roster may be described that way again.
+
+**T3R AND T4R JOINED THE FAMILY AT TASK H2 (2026-07-28).** They are the re-cuts
+of the pre-re-cut SHAPES T3 and T4, which audit **F2** showed unbuildable on a
+node (T3: 1 script input + 2 script withdrawals ⟹ 3 redeemer entries demanded,
+1 supplied; T4: 2 script inputs + 2 script withdrawals ⟹ 4 demanded, 1
+supplied). They are the only members that leave the containment dispatch's PATH
+A (T3R — two token names per policy, so `checkWholesaleThenBuiltin` runs) and
+that drive `pvalueFromCred` into its PHASE 3 builtin accumulation (T4R — two
+mini-ledger inputs). Both carry a CERTIFIED inhabitant from the day they landed
+— `WSC.t3R_realizable` / `WSC.t3R_realizable_pathC` / `WSC.t4R_realizable`
+(`WSC/Props/Shaped/P1ShapedBC.lean`), two-sided `K_T3R_B_is_1936` /
+`K_T3R_C_is_2228` / `K_T4R_is_2696`, and class-level `t3R_class_covered` /
+`t4R_class_covered`. T4R is also the first member with **three inputs**, so it
+is the first for which the `SizeBound` `mIn` dimension bites.
 
 | shape | builder | free leaves | in | ref | out | wdrl | mint |
 |---|---|---|---|---|---|---|---|
@@ -208,10 +222,12 @@ node-realizable**, so the roster may be described that way again.
 | DT1R | `dtRCtx` | 39 | 1 | 2 | 2 | 2 | 1 |
 | DS1R | `dsRCtx` | 39 | 1 | 2 | 2 | 2 | 1 |
 | **T8R** | `p1SOwnCtx` | **42** | 2 | 2 | 2 | **3** | 0 |
+| **T3R** | `p1BCShapedCtx` | **44** | 2 | 2 | 2 | 2 | 0 |
+| **T4R** | `p1AggRCtx` | **42** | **3** | 2 | 2 | 2 | 0 |
 | S1R | `seizeRCtx` | 51 | 2 | 2 | 2 | 2 | 1 |
-| **total** | | **500** | | | | | |
+| **total** | | **586** | | | | | |
 
-**500 free leaves is the whole symbolic surface of the campaign.** Everything
+**586 free leaves is the whole symbolic surface of the campaign.** Everything
 else about every context the library reasons about is a constant.
 
 > **TWELVE → THIRTEEN, at the G stage (2026-07-25).** SHAPE **L2R**
@@ -219,15 +235,16 @@ else about every context the library reasons about is a constant.
 > family when audit **F19** closed. `Covers` is an existential over the family, so
 > a LARGER family is easier to satisfy and harder to refute — every negative result
 > in §4 is therefore now stated over a strictly larger family and says strictly
-> more than it did at E4. The total moved 421 → 458, and 458 → 500 at N6 when T8R joined.
+> more than it did at E4. The total moved 421 → 458, 458 → 500 at N6 when T8R
+> joined, and 500 → 586 at H2 when T3R (44) and T4R (42) joined.
 
-### 2.1 Five things ALL TWELVE freeze — proved, at every leaf assignment
+### 2.1 Five things ALL SIXTEEN freeze — proved, at every leaf assignment
 
 `Coverage.ShapeInvariants` + `Coverage.family_invariants`
 (`#print axioms` = `[propext, Quot.sound]` — no solver, no `native_decide`, no
 project axiom):
 
-| field | what the fourteen shapes allow | what the ledger allows |
+| field | what the sixteen shapes allow | what the ledger allows |
 |---|---|---|
 | `txInfoSignatories` | 0 or 1 (`[]` or `[owner]`) | any sorted list of required signers |
 | `txInfoReferenceInputs` | 0, 1 or 2 | any list |
@@ -315,7 +332,7 @@ out of reach at every bound at which the question is meaningful.
 | `not_covers_at_T1R_size` | `¬ Covers recutFamily ValidRewarding (SizeBound 2 2 2 2 0)` | `propext, ofReduceBool, trustCompiler, Quot.sound` — **no `sorryAx`, no project axiom** |
 | `not_covers_at_T1R_size'` | the same, from an independent witness | same |
 | `not_covers_with_three_reference_inputs` | `¬ Covers recutFamily ValidRewarding (SizeBound 2 3 2 2 0)` | same |
-| `family_invariants` | all fourteen shapes satisfy all five invariants at every leaf assignment | `propext, Quot.sound` |
+| `family_invariants` | all sixteen shapes satisfy all five invariants at every leaf assignment | `propext, Quot.sound` |
 | `ctxOk_in_family` | the transcription control | `propext` |
 
 The bound in the first two is **SHAPE T1R's own size**: ≤2 inputs, ≤2 reference
@@ -361,7 +378,7 @@ That third measurement is the honest quantification of what a shape bound costs.
 This section exists because getting this distinction wrong would be the worst
 outcome of the task.
 
-* **PROVED FALSE:** *"the fourteen re-cut shapes cover the ledger-valid rewarding
+* **PROVED FALSE:** *"the sixteen re-cut shapes cover the ledger-valid rewarding
   contexts at `SizeBound 2 2 2 2 0`"*. There is a Lean term for its negation, it
   carries no `sorryAx` and no project axiom, and three independent witnesses
   discharge it.
@@ -423,7 +440,7 @@ What it needs, per property, per bound:
    (SHAPE T1R's two-script withdrawal map): ~15 lines, both directions, no
    solver. SHAPE T1R has 39 free leaves over 16 `TxInfo` fields, two structured
    reference-input datums, a redeemer map and a `Data`-encoded redeemer; the
-   fourteen shapes have 500 leaves between them.
+   sixteen shapes have 586 leaves between them.
 
 **Cost: 971 CPU-years at the smallest meaningful bound, for one property.** Route
 A is closed.
@@ -467,7 +484,7 @@ programme could offer at any affordable bound.
 Two of the five frozen dimensions could be un-frozen without new shapes, because
 they are ledger fields the validators never dereference:
 
-* `txInfoTxCerts` and `txInfoData` are `[]` in all fourteen shapes. A shape variant
+* `txInfoTxCerts` and `txInfoData` are `[]` in all sixteen shapes. A shape variant
   carrying one entry each would cost one prep (~1.3 s) per shape.
 
 This would not change any coverage verdict — the *list-length* axes (§4.2) remain
