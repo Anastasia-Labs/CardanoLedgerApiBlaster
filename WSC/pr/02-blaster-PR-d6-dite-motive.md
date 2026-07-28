@@ -1,16 +1,65 @@
-# SUBMISSION 3 — Blaster defect report D6 (an ISSUE, not a PR)
+# SUBMISSION 3 — Blaster defect D6: **A PULL REQUEST** (was: an issue)
 
 **Repo** `input-output-hk/Lean-blaster` · **against rev**
 `59db213ca6396269d2606b7dd9ac2bc26ae7c4ce` (branch `beta-lambda-cache-optimization`)
 · **severity** HIGH for any consumer that optimizes a term containing `dite`
+· **status** ⛔ **FIXED — this document is now a PR, not an issue** (task N6, 2026-07-28)
 
-This is not a pull request. It is a defect report we owe upstream, and it is against
-**Blaster**, not PlutusCoreBlaster — even though both reproductions we hold are
-triggered through PCB's `#prep_uplc`. Part 1 is the issue text. Part 2 is what is
-missing before filing.
+## ⚠️ WHAT CHANGED ABOUT THIS DOCUMENT
+
+It was drafted as a defect report we owed upstream, with a Part 2 listing what was
+missing before we could file. **We then fixed it ourselves.** The fix is one function
+in `Blaster/Optimize/Rewriting/OptimizeITE.lean`, commit **`4d320dd`** on
+`Lean-blaster-wsc` (= public `59db213` + that single commit), authored during task N5.
+
+So the submission to make is a **pull request** carrying the fix, and this file is its
+description. Part 1 below is unchanged and is the defect analysis — it becomes the PR's
+"problem statement". Part 2 has been rewritten: the blockers it listed are resolved
+except one, which is stated honestly rather than quietly dropped.
+
+Root cause, reach and the post-mortem of a retracted duplicate report live in the
+companion `WSC/pr/03-blaster-d6-FIX.md`.
+
+## THE PATCH
+
+```
+ Blaster/Optimize/Rewriting/OptimizeITE.lean | 38 ++++++++++++++++++++++++++++-
+ 1 file changed, 37 insertions(+), 1 deletion(-)
+```
+
+`Blaster.dite' c (fun _ : c => _) (fun _ : ¬c => _)` is well typed only when the branch
+binders are **syntactically** `c` and `¬c`. But the condition and the branch lambdas are
+optimized INDEPENDENTLY — `OptimizeStack.DiteChoiceWaitForCond` optimizes argument 1,
+and the binder types are optimized separately via `.LambdaWaitForType`. Whenever
+`optimize (¬c)` is not syntactically `¬ (optimize c)`, the rebuilt `dite'` is
+kernel-ill-typed.
+
+`optimizeDITE` now rebuilds **both** binder types from the FINAL condition (`c` and
+`Not c`) before reassembling the application. This is sound because `dite'` ignores the
+`Decidable` instance and its branches take a computationally irrelevant PROOF argument:
+when a branch lambda does not use its binder (`!body.hasLooseBVars` — true of every
+branch the optimizer builds by normalisation) the binder's type is unconstrained by the
+body. When the body DOES use its binder, nothing is changed. **The change can only
+repair a term the kernel would have rejected; it never alters a term that already
+typechecked, and it never touches a branch body.**
+
+## EVIDENCE THE PR SHOULD CARRY
+
+| claim | measurement |
+|---|---|
+| fixes reproduction 1 (`¬(true = e)`) | `WSC/Shaped/Probe/T3PrepFAILS.lean`: kernel error → **exit 0, 0 errors, 2.4 s** |
+| fixes reproduction 2 (De Morgan) | `WSC/Shaped/Probe/T4PrepFAILS.lean`: kernel error → **exit 0, 0 errors, 9.4 s** |
+| fixes a third, independent consumer | `WSC/Prep/Global1600`: 8 m 9 s kernel failure → **builds, 8 m 19 s** |
+| and a fourth | post-#112 `programmableSeize` shaped prep at budget 3800: kernel error → **elaborates in 28 s** |
+| **does not change any verdict** | the eight untouched `WSC/Props/Shaped/P4*` minting modules: **42 ✅ Valid + 23 ✅ Expected Falsified** with the patch and the **identical 42 + 23** without it, zero failures either way |
+
+The last row is the one a maintainer should care about most: the defect's blast radius
+is "term fails to typecheck", never "term typechecks and means something else", and the
+control confirms the repair inherits that property.
 
 ---
 ---
+
 
 # PART 1 — ISSUE TEXT (file this)
 
@@ -147,58 +196,48 @@ builtins.
 ---
 ---
 
-# PART 2 — WHAT IS MISSING BEFORE FILING (do not submit this part)
+# PART 2 — WHAT WAS MISSING, AND WHERE IT STANDS NOW (do not submit this part)
 
-### 2.1 We do not have a Blaster-only reproduction, and a maintainer will want one
+*Rewritten at task N6. The original Part 2 listed three blockers to filing an ISSUE.
+Two are resolved by the fact that we now have a FIX; one is genuinely still open and is
+the reason this PR is not yet filed.*
 
-Both reproductions run through PCB and require a 6,880-hex-char production script plus
-the CIP-153 `Value` denotations. That is a poor bug report: the maintainer cannot run it.
+### 2.1 A Blaster-only reproduction — ⚠️ STILL MISSING, and it still matters
 
-**What the root-cause analysis says should suffice**, and what should be attempted before
-filing (30–60 minutes, Blaster only, no PCB, no UPLC):
+**Unchanged and not papered over.** Both reproductions still run through PCB and still
+need a production script plus the CIP-153 `Value` denotations. A maintainer cannot run
+them. The original sketch (a `dite` whose else-binder normalises, driven through
+optimize-then-`addDecl` rather than the `#blaster` tactic, which `admit`s and so may
+never add the optimized term as a definition) was **never attempted** — not at N5, which
+went straight from diagnosis to fix, and not at N6, which chose the clean-room rebuild
+over it.
 
-```lean
--- sketch, UNTESTED — this is a work item, not a verified reproduction
-import Blaster
-example (b : Bool) (n : Nat) : Nat :=
-  if h : b = true then n else 0        -- rule 1 candidate: ¬(true = b) in the else binder
-example (x : Int) : Int :=
-  if h : ¬ (x < -3) ∧ ¬ (5 < x) then x else 0   -- rule 2 candidate: De Morgan
-```
-run through whatever entry point exercises `Optimize.main` and `addDecl` on the result
-(the `#blaster` tactic path calls `goal.admit` on `Valid` and so may never add the
-optimized term as a *definition*; the failing path is specifically
-**optimize-then-`addDecl`**, which is what `#prep_uplc` does). If a two-line
-reproduction can be produced, **lead the issue with it** and demote both current
-reproductions to "how we found it".
+This is now *less* costly than it was, because a PR carrying a fix is easier to evaluate
+than a bug report nobody can reproduce: the maintainer can read the 37-line diff and the
+soundness argument without running anything. But a regression test in Blaster's own
+suite is what would make the fix stick, and **we are not supplying one.** Say so when
+filing; do not imply the two PCB modules are usable as upstream tests.
 
-**If it cannot be reproduced in Blaster alone, say so in the issue** and offer the PCB
-route with the fixture. Do not imply we have a minimal reproduction when we do not.
+### 2.2 Verify the two rewrites are really the ones firing — ✅ RESOLVED
 
-### 2.2 Verify the two rewrites are really the ones firing
+The original text offered option (b), "soften the attribution to *the error is exactly
+the shape these two rules produce*". That softening is **no longer needed**: the fix was
+developed against both failing terms and both now elaborate, which confirms the
+attribution operationally. The rules are as named in Part 1
+(`notEqSimp?`, `notLogicalSimp?` in `OptimizePropNot.lean`).
 
-The attribution above is a *reading* of `OptimizePropNot.lean` matched against the two
-error messages, and the match is exact (rule 1's `¬ (true = e) ⇝ false = e` is literally
-the T3 error; rule 2's `¬ (¬e₁ ∧ ¬e₂) ⇝ e₁ ∨ e₂` is literally the T4 error). But it was
-**not** confirmed by instrumenting Blaster or by a `verbose:` trace. Before filing,
-either (a) re-run one reproduction with Blaster's `verbose:` option and confirm the rule
-in the trace, or (b) soften "the rewrite is in `notEqSimp?`/`notLogicalSimp?`" to "the
-error is exactly the shape these two rules produce". **(b) is acceptable; overstating is
-not.**
+One correction to Part 1's framing, worth carrying into the PR: the defect is **not**
+really "the `Not`-normalisation rewrites the else-branch binder". It is that the
+condition and the branches are optimized independently, so ANY normalisation that
+treats `c` and `¬c` asymmetrically triggers it. Those two rules are the two we
+measured, not an exhaustive list — which is precisely why the fix rebuilds the binders
+from the final condition instead of special-casing either rule.
 
-### 2.3 The reproductions are in an unpublished repository
+### 2.3 The reproductions are in an unpublished repository — ⚠️ STILL TRUE, now worse
 
-`T3PrepFAILS.lean` and `T4PrepFAILS.lean` are in the downstream proof library, which is
-not public (see `04-wsc-proof-library-placement.md`). The issue text above therefore
-**inlines the failing terms and the diagnosis** and cites only Blaster's own files, so it
-stands alone. Keep it that way. Do not link paths the maintainer cannot open.
-
-### 2.4 What NOT to put in the issue
-
-* Any `/home/gumbo/…` path, any `/tmp/claude-…` path, any internal task codename
-  (`V1`, `C1`, `T3`, `T4` as *shape* names are fine as shorthand if defined in place;
-  as task names they are noise).
-* The campaign's own findings register (`D6`, `F12`) — those are our numbers, not theirs.
-  Give the defect a plain title and let them number it.
-* Any suggestion that PCB is at fault. `PreProcess.lean` does the only correct thing
-  available to it.
+`Lean-blaster-wsc` @ `4d320dd` is a **local, unpushed path pin**, and so is
+PlutusCoreBlaster `cip153-value-builtins` @ `3fdd3fb`. Every global- and seize-side
+result in the WSC library is therefore **unreproducible off this machine**. Publishing
+the Blaster commit is a precondition for filing this PR at all, and publishing both is a
+precondition for anyone independently checking the results the PR's evidence table
+cites. See `WSC/REPRODUCE.md` and `WSC/substrate/README.md`.

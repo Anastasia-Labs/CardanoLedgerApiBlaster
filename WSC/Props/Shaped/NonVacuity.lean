@@ -86,7 +86,7 @@ Every K below is pinned to the STEP by a theorem in the witness's own module
 -/
 import WSC.Honest
 import WSC.Props.Shaped.P1Shaped
-import WSC.Props.Shaped.P2Shaped
+import WSC.Props.Shaped.P2ShapedR
 import WSC.Props.Shaped.P4LocalShaped
 import WSC.Props.Shaped.P5Shaped
 import WSC.Props.Shaped.P6Shaped
@@ -186,20 +186,36 @@ symbolic `#prep_uplc` at 2000 never completed in 77 minutes.  Every one of those
 measurements stands.  All of them are about `#prep_uplc` COST, and none of them
 applies to `Runs.seizeRun 3800`, which is not a prep. -/
 
-/-- **`SeizeNonVacuous K_seize` (3800) — PROVED.**  Witness: SHAPE S1 at
-`P2ShapedWitness.ctxAccept` — the "nothing moves" seizure, in which the
-continuing pair keeps all 10 seized tokens and the second output sits OUTSIDE the
+/-- **`SeizeNonVacuous K_seize` (3800) — PROVED.**  Witness: SHAPE **S1R** at
+`WSC.P2RWitness.ctxAccept` — the "nothing moves" seizure, in which the continuing
+pair keeps all 10 seized tokens and the second output sits OUTSIDE the
 mini-ledger holding an unrelated policy.  It satisfies `validRewardingContext` IN
-FULL including `isBalanced` (`all_four_valid`, first conjunct).  Measured
-K = 3004; the residual-output instance (the shape of the real accepting seize
-goldens) costs 3328, also inside the bound.
+FULL including `isBalanced` (`WSC.P2RWitness.all_four_valid`, first conjunct).
 
-LIMIT, stated: the 2-input accepting seize golden costs 4,647 steps and is
-OUTSIDE 3800.  This theorem certifies the bound is non-empty, not that it covers
-the golden suite. -/
+**RE-POINTED FROM SHAPE S1 TO SHAPE S1R BY TASK N6.**  It used to name
+`WSC.P2ShapedWitness.ctxAccept` and `…exec_accepts_at_3800` from
+`WSC/Props/Shaped/P2Shaped.lean`, which task N6 DELETED: that module is refuted at
+wsc-poc `main` @ 2306678 (PR #112) — `P2a_shaped_structure` `❌ Falsified` on the
+ada top-up #112 legalised, and its K measurement `native_decide`-false because the
+seize step counts moved.  `WSC/Shaped/S1Witnesses.lean` records the deletion and
+keeps the four old contexts for `RealizableShapes`.  The replacement is strictly
+BETTER, not merely equivalent: the S1R witness is redeemer-covered
+(`WSC.P2RWitness.all_four_covered`) and the S1 one provably is NOT
+(`WSC.RealizableShapes`, audit **F2**), so this non-vacuity witness is now a
+transaction a node could actually build.
+
+MEASURED K = **2301** (was 3004 at SHAPE S1 pre-#112); the residual-output
+instance costs **2412** (was 3328), both inside the bound and both pinned
+two-sided by `WSC.P2RWitness.K_is_2301_and_2412`.
+
+LIMIT, stated: the 2-input accepting seize golden costs **2,905** steps
+(`WSC/goldens/K-MEASUREMENTS.md` §3, re-measured by task N5; it was 5,079) and is
+still OUTSIDE 3800 only if the older figure is quoted — at 2,905 it is now INSIDE.
+This theorem certifies the bound is non-empty, not that it covers the golden
+suite. -/
 theorem seizeNonVacuous_at_3800 : WSC.SeizeNonVacuous WSC.K_seize :=
-  ⟨WSC.P2ShapedWitness.ppCS, WSC.P2ShapedWitness.ctxAccept,
-   WSC.P2ShapedWitness.all_four_valid.1, WSC.P2ShapedWitness.exec_accepts_at_3800⟩
+  ⟨WSC.P2RWitness.ppCS, WSC.P2RWitness.ctxAccept,
+   WSC.P2RWitness.all_four_valid.1, WSC.P2RWitness.exec_accepts_at_3800⟩
 
 /-! ## AXIOM AUDIT
 

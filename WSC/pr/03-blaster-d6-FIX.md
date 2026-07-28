@@ -1,6 +1,6 @@
 # D6 — the `Blaster.dite'` motive defect: ROOT CAUSE AND FIX
 
-Status: **FIXED.** Companion to `WSC/pr/02-blaster-issue-d6-dite-motive.md`,
+Status: **FIXED.** Companion to `WSC/pr/02-blaster-PR-d6-dite-motive.md`,
 which reported the defect.
 
 **WHOSE FIX LANDED.** Tasks N4 and N5 hit this defect independently, in different

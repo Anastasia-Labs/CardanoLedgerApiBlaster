@@ -149,6 +149,31 @@ def T1RShape (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
           pHash pCS pTn pAda pQty hp.directoryNodeCS glc slc nHash nCS nTn nAda nQty
           key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee).scriptContextTxInfo
 
+/-! ## §2W THE SIDE CONDITION wsc-poc PR #112 FORCED INTO THE COMPOSITION
+
+`Composition.top_claim` now also takes `WdrlPairShaped Shape` — *every
+transaction of the class has a two-entry, both-script withdrawal map* — because
+the post-#112 base validator indexes into `txInfoWdrl` instead of scanning it and
+`Composition.p3_lifted` cannot close otherwise (`WSC/Props/P3_BaseWdrl.lean`).
+
+SHAPE T1R has exactly that map already: `WSC.p1ShapedWdrl` is literally
+`[(.ScriptCredential w0, a0), (.ScriptCredential w1, a1)]`, which is
+`WSC.bwWdrl`.  So the new obligation costs the class NOTHING — the two theorems
+below are `rfl` on the two withdrawal leaves.  That is not luck; it is why task
+N6 cut SHAPE B1W at that map (see that module's header). -/
+
+/-- SHAPE T1R's `txInfoWdrl` IS SHAPE B1W's, definitionally. -/
+theorem p1ShapedWdrl_is_bwWdrl (w0 w1 : ByteString) (a0 a1 : Integer) :
+    p1ShapedWdrl w0 w1 a0 a1 = WSC.bwWdrl w0 w1 a0 a1 := rfl
+
+/-- **The side condition holds over SHAPE T1R.** -/
+theorem t1RShape_wdrlPair (hp : WSC.HonestParams) :
+    Composition.WdrlPairShaped (T1RShape hp) := by
+  rintro ctx ⟨plc, w0, _, _, cs, tn, owner, inAda, qIn, ext, in2Ada, qIn2, outAda, qOut,
+    dest, escAda, qEsc, pHash, pCS, pTn, pAda, pQty, glc, slc, nHash, nCS, nTn, nAda, nQty,
+    key, next, tlsH, ilsH, gsCS, w1, a0, a1, rBase, rTls, fee, hti⟩
+  exact ⟨w0, w1, a0, a1, by rw [hti]; rfl⟩
+
 /-! ## §3 The two vocabulary lemmas
 
 Both are ordinary Lean; neither uses a solver, `native_decide` or any axiom. -/
@@ -224,7 +249,7 @@ not empty. The chain, and every link is named:
    project axiom) — turns `NodeAcceptsGlobal` into
    `isSuccessful (Runs.globalRun 4400 …)`.
 4. `bridge_T1R` (§1) turns that into the `.prop` term `WSC.P1R_T1` quantifies over.
-5. `WSC.P1R_T1` — `✅ Valid`, budget 4400, witness K = 2603 — gives the containment
+5. `WSC.P1R_T1` — `✅ Valid`, budget 4400, witness K = 2343 (was 2603 pre-#112) — gives the containment
    inequality at the shape's OWN slot `(cs0, tn0)`.
 6. `valueOf_adaPlusOne_off` (§3) gives it at every OTHER slot, where the shape puts
    no tokens at all.
@@ -432,7 +457,7 @@ at the mini-ledger base credential, one external pubkey; two outputs — one at 
 one escaping to a pubkey; empty mint; two script withdrawals; a THREE-entry redeemer
 map covering all three script witnesses; two reference inputs — protocol params and
 one directory node), and whose global-validator run halts within `K_global = 4400`
-CEK steps. The accepting witness costs **K = 2603** steps.
+CEK steps. The accepting witness costs **K = 2343** steps (was 2603 pre-#112).
 
 **THE FULL `#print axioms` LIST IS PRINTED AT BUILD TIME IN §9** — it is not
 paraphrased here, because the point of this module is that the trust base is
@@ -450,7 +475,8 @@ theorem containment_on_realizable_class_of_p2 (hp : WSC.HonestParams)
         Composition.Contain hp.progLogicCred cs tn ctx) :
     ∀ (L : Composition.Ledger), Composition.Reachable hp (T1RShape hp) L →
       Composition.I hp L :=
-  Composition.top_claim hp (T1RShape hp) (realizableLeaves hp hp2) hdep
+  Composition.top_claim hp (T1RShape hp) (realizableLeaves hp hp2)
+    (t1RShape_wdrlPair hp) hdep
 
 /-- The same result in the plain-English form: **no UTxO outside the mini-ledger
 holds any registered programmable token.** -/
@@ -469,7 +495,7 @@ theorem no_tokens_outside_mini_ledger_on_realizable_class_of_p2
     ∀ u ∈ L, WSC.payCred u.utxoOut ≠ hp.progLogicCred →
       valueOf cs tn u.utxoOut.txOutValue = (0:Int) :=
   Composition.no_programmable_tokens_outside_mini_ledger hp (T1RShape hp)
-    (realizableLeaves hp hp2) hdep L hR cs tn hcs hreg
+    (realizableLeaves hp hp2) (t1RShape_wdrlPair hp) hdep L hR cs tn hcs hreg
 
 /-! ## §8 THE CLASS IS NOT EMPTY — the whole point
 
@@ -494,7 +520,7 @@ def witnessParams : WSC.HonestParams :=
   , seizeLogicCred := .ScriptCredential (ByteString.mk "SEIZE") }
 
 /-- **THE CLASS IS INHABITED.** `WSC.P1RShapedWitness.ctxOk` — the SHAPE-T1R
-accepting witness whose real-CEK cost is 2603 steps — is a member of the very class
+accepting witness whose real-CEK cost is 2343 steps — is a member of the very class
 §7 quantifies over. -/
 theorem t1RShape_witness : T1RShape witnessParams WSC.P1RShapedWitness.ctxOk :=
   ⟨ByteString.mk "PROGLOGIC", ByteString.mk "GLOBAL", rfl, rfl,
@@ -680,7 +706,8 @@ theorem containment_on_realizable_class (hp : WSC.HonestParams)
     (hdep : WSC.Deployed hp) :
     ∀ (L : Composition.Ledger), Composition.Reachable hp (T1RShapeNS hp) L →
       Composition.I hp L :=
-  Composition.top_claim hp (T1RShapeNS hp) (realizableLeavesNS hp) hdep
+  Composition.top_claim hp (T1RShapeNS hp) (realizableLeavesNS hp)
+    (fun ctx h => t1RShape_wdrlPair hp ctx h.1) hdep
 
 /-- The plain-English form, likewise with no leaf assumption. -/
 theorem no_tokens_outside_mini_ledger_on_realizable_class
@@ -691,7 +718,8 @@ theorem no_tokens_outside_mini_ledger_on_realizable_class
     ∀ u ∈ L, WSC.payCred u.utxoOut ≠ hp.progLogicCred →
       valueOf cs tn u.utxoOut.txOutValue = (0:Int) :=
   Composition.no_programmable_tokens_outside_mini_ledger hp (T1RShapeNS hp)
-    (realizableLeavesNS hp) hdep L hR cs tn hcs hreg
+    (realizableLeavesNS hp) (fun ctx h => t1RShape_wdrlPair hp ctx h.1) hdep
+    L hR cs tn hcs hreg
 
 /-! ### §10.4 THE REFINED CLASS IS STILL NOT EMPTY
 

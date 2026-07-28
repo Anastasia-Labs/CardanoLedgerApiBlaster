@@ -1,5 +1,25 @@
 # WSC containment campaign — AUTHORITATIVE STATUS
 
+> # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
+>
+> This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
+> (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
+> minting policy is byte-identical. Tasks N1–N6 re-based everything.
+>
+> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
+> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable, 102 WSC modules, two clean-room runs, wall 10:34 / 10:36,
+> peak RSS ≈ 4.3 GB.** Both composed results survive with **28** project axioms
+> each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
+> — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
+>
+> Everything that changed, with measurements: `WSC/AUDIT.md` (top banner) and
+> `WSC/status-fragments/N6-compose-and-reaudit.md`. Numbers in the body below
+> that disagree with the ones above are the pre-#112 record.
+
+---
+
+
 **Read this first, then `WSC/AUDIT.md`.** Everything below is machine-checked or
 measured *in this repository*, with the file/line or the measurement cited. Where a
 result is not there yet, this table says so in those words.
@@ -12,6 +32,68 @@ EXISTED before believing any of it** (`AUDIT.md` §7.6); that check is now manda
 for any unit gating another's, and it is why finding F20 exists. Any disagreement between a fragment and
 this file is resolved in favour of this file, and the disagreements are itemised in
 `WSC/AUDIT.md` §7 and §8.
+
+---
+
+## 0-N6. THE SEVEN SENTENCES, RE-STATED AT wsc-poc `main` @ 2306678 (PR #112)
+
+**This section SUPERSEDES §0 below, sentence by sentence. §0 is kept because the
+history is part of the record.**
+
+1. **The top claim is still NOT PROVED**, and it is now narrower. *In an honest
+   deployment, programmable tokens cannot exist outside the mini-ledger.* What
+   exists is (a) a machine-checked **reduction** to four leaf obligations plus
+   **25 project axioms** (`Composition.top_claim`) — which now ALSO takes
+   `WdrlPairShaped Shape`, a side condition on the transaction class that PR #112
+   forced in; (b) that reduction discharged over one inert accounting class,
+   **intersected with `WSC.WdrlPair`**; and (c) that reduction discharged with NO
+   remaining leaf hypothesis over the same TWO node-realizable shape classes,
+   `containment_on_realizable_class` (transfer, `T1RShapeNS`) and
+   `containment_on_seize_class` (seize, `S1RShape`), each depending on **28**
+   project axioms — *unchanged from pre-#112, measured*.
+2. **"N = 0" IS STILL NOT THE MEASURE. THE RATIO IS, AND IT DID NOT MOVE.**
+   One of four leaves is the production bytecode with its acceptance hypothesis
+   genuinely consumed; three of four are the shape — on *each* side, exactly as
+   before:
+
+   | class | `p1` | `p2` | `p4` | `nopre` |
+   |---|---|---|---|---|
+   | `T1RShapeNS` (transfer) | **BYTECODE** (`P1R_T1` @ 4400) | shape + ledger rule | shape | shape |
+   | `S1RShape` (seize) | shape + ledger rule | **BYTECODE** (`P2b_R_containment` @ 3800) | shape | shape |
+
+   A fifth bytecode result is on the critical path and always was:
+   `p3_lifted` consumes `P3_B1W_run` (`programmableLogicBase` @ 600, SHAPE B1W)
+   inside branch C. It is not a `LeafSet` field, so it does not enter this table.
+3. **Everything about the bytecode is still BOUNDED BY A CEK BUDGET**, and the
+   budgets moved: base 600 (witness K **194**, was 208), global 4400 (T1R K
+   **2343**, was 2603), seize 3800 (S1R K **2301**, was 3004), minting 900
+   (K 784, unchanged — the minting bytecode is byte-identical).
+4. **The shaped results are still bounded by their SHAPE, and coverage is still
+   PROVED FALSE** — re-measured at 2306678 and it reproduces exactly: three
+   ledger-valid, Conway-redeemer-exact transactions the production bytecode
+   accepts in **2,343** steps, byte-identically to the certified inhabitant,
+   which no shape in the family contains (`Coverage.not_covers_at_T1R_size`).
+   **One thing improved:** P3's new class `WSC.WdrlPair` has a complete,
+   both-directions ledger-vocabulary characterisation (`Coverage.wdrlPair_char`)
+   — the only class in the campaign of which that is true.
+5. **`sorryAx` is still under both composed results** (Blaster closes `Valid`
+   goals by `admit`), and `WSC.OnChain`, `WSC.Deployed`, the `LR_*` ledger rules
+   and the four `nodeSteps*` are still opaque axioms.
+6. **Two results were REFUTED by #112 and are reported as losses, not repaired:**
+   `WSC.SeizeModel.seizeModel_faithful` is FALSE at 2306678
+   (`WSC/Model/SeizeModelRefuted.lean` settles it by computation on two contexts
+   differing in one lovelace leaf), which costs the library its only **UNBOUNDED**
+   seize result; and `WSC/Props/Shaped/P2Shaped.lean` (P2 over the pre-re-cut
+   SHAPE S1) was DELETED because its structure conjunct is `❌ Falsified` against
+   the ada top-up #112 legalised.
+7. **The reproducibility caveat got WORSE.** Two of the four production
+   validators — `programmableLogicGlobal` **and now `programmableSeize`** — do
+   not DECODE at all without the unpublished `cip153-value-builtins`
+   PlutusCoreBlaster branch, which additionally needed a seventh builtin
+   (`ScaleValue`, flat tag 100) added by task N5; and Blaster is now a local
+   unpublished pin too (`wsc-d6-dite-branch-retype`, one commit) without which
+   the global-1600 and seize preps die in the kernel. **Nothing in this library
+   is reproducible off this machine until three branches are published.**
 
 ---
 
@@ -178,13 +260,13 @@ to use negatively without it (F18).
 
 | # | Status | Theorem(s) | Budget / shape | Witness K | Realizability | 4-point bar |
 |---|---|---|---|---|---|---|
-| **P1** | PROVED, Path A only | `P1R_T1/T2/T6/T7` (`P1ShapedR.lean`) | 4400 / T1R, T2R, T6R, T7R | 2603 / 3572 / 3150 / 3572 | `t1R…t7R_realizable` | **4/4** each |
-| **P2** | PROVED, both conjuncts | `P2a_R_structure`, `P2b_R_containment`, `P2_R_gates_are_earned` (`P2ShapedR.lean`) | 3800 / S1R | 3004 (accept) / 3328 | `s1r_realizable(Exact)` | **4/4** |
-| **P3** | PROVED, unshaped | `P3_base_requires_global_or_seize_run` (`P3_BaseRun.lean`) | 600 / — | golden 208 | n/a (unshaped) | n/a |
+| **P1** | PROVED, Path A only | `P1R_T1/T2/T6/T7/T8` (`P1ShapedR.lean`) | 4400 / T1R, T2R, T6R, T7R, **T8R** | **2343 / 2567 / 2777 / 2567** / *T8R: none* | `t1R…t7R_realizable`; **no `t8R_realizable`** | **4/4** each except **T8R: 2/4** (F23) |
+| **P2** | PROVED — P2b unchanged; **P2a RESTATED** for #112's ada top-up | `P2a_R_structure`, `P2b_R_containment`, `P2a_R_ada_only_tops_up` (`P2ShapedR.lean`) | 3800 / S1R | **2301** (accept) / **2412** | `s1r_realizable(Exact)` | **4/4** |
+| **P3** | PROVED, **SHAPED (regressed at #112)** | `P3_base_requires_global_or_seize_run_B1RG` / `_B1RS` (`P3_BaseRun.lean`), `P3_B1W_run` (`P3_BaseWdrl.lean`) | 600 / B1RG, B1RS, B1W | golden **194** | ✅ at each shape's own prep AND run term | `b1RG_realizable`, `b1RS_realizable`, `b1W_realizable` |
 | **P4** | PROVED, all four arms | `P4_disjunction_at_{L1R,DT1R,DS1R}`, `P4_burnonly_arm_R`, **`P4_local_noEscape_RIdx` (L2R)** | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 | `m1r,m2r,l1r,dt1r,ds1r_realizable`; L2R via `L2RWitness.ctx_realizable` | **4/4 — every row, M2R included** (F17 landed at `f4486ca`) |
 | **P4a** | PROVED | `P4a_R_*`, `P4a_RIdx_*`, `P4a_local_R` | as P4 | as P4 | as P4 | as P4 |
-| **P5** | PROVED | `P5R_shaped_indexed/_exists/_groundtruth` (`P5ShapedR.lean`) | 1600 / G1R | 1541 | `g1R_realizable` | **4/4** |
-| **P6** | PROVED | `P6R_shaped_member_adds_to_requirement`, `_mint_stays_at_base`, `_noBaseInputs` | 3300 / G6R | 2837 | `g6R_realizable` | **4/4** |
+| **P5** | PROVED | `P5R_shaped_indexed/_exists/_groundtruth` (`P5ShapedR.lean`) | 1600 / G1R | **1402** | `g1R_realizable` | **4/4** |
+| **P6** | PROVED | `P6R_shaped_member_adds_to_requirement`, `_mint_stays_at_base`, `_noBaseInputs` | 3300 / G6R | **2196** | `g6R_realizable` | **4/4** |
 
 The four-point bar is: theorem `✅ Valid`; vacuity probe at **its own** prep term and
 **its own** shape reporting `✅ Expected Falsified`; concrete accepting CEK witness;
@@ -293,7 +375,7 @@ and, for a reviewer, the most important artifact in the campaign.
   reference input; an `always` validity range) with every leaf scalar untouched. All
   three are `validRewardingContext ∧ redeemersExactAllPlutus`, all three are **accepted** by
   `Runs.globalRun 4400`, and all three cost **exactly 2,603 steps** —
-  `missed_transactions_cost_exactly_2603_steps`, byte-identical to `K_T1R_is_2603`.
+  `missed_transactions_cost_exactly_2343_steps`, byte-identical to `K_T1R_is_2343`.
   **0 project axioms, no `sorryAx`.**
 * **Transcription control:** `ctxOk_in_family` puts the certified inhabitant *inside*
   `rangeT1R`, so `¬ Covers` cannot be an artefact of a mis-copied binder list.
@@ -305,10 +387,16 @@ and, for a reviewer, the most important artifact in the campaign.
   output) contains **9,269,489,664** `Data` skeletons ≈ **971 CPU-years** for one
   property at the measured 3.3 s/shape. At T1R's own bound: 3.05×10¹⁴ skeletons ≈
   3.2×10⁷ CPU-years. **Enumeration is out of reach at every meaningful bound.**
-* **The one positive result:** `p3_lives_over_a_covering_class` — **P3 is proved over
-  a fully symbolic context and therefore needs no coverage argument at all.** It is
-  the only property in the campaign of which that is true, and the existence proof for
-  the recommended route.
+* **The one positive result, RESTATED AFTER #112 — it got weaker.** This bullet used
+  to be `p3_lives_over_a_covering_class`: *P3 proved over a fully symbolic context,
+  needing no coverage argument at all, the only property of which that was true.*
+  **That is false at 2306678** and the theorem is gone (task N3). The replacement is
+  `p3_lives_over_the_wdrlPair_class`: P3 over `WSC.WdrlPair` — withdrawal map of
+  length 2, both credentials script credentials — with the redeemer and both script
+  parameters still fully symbolic. Its value is that **the class has a complete
+  both-directions characterisation in ledger vocabulary** (`wdrlPair_char`, axioms
+  `[propext]`), so for P3 alone the coverage question is a fifteen-line theorem and
+  not a programme.
 
 **"Coverage is false" ≠ "coverage is impossible."** The Lean artifact refutes coverage
 for *this family at these bounds*; that a larger family could not cover a smaller
@@ -360,7 +448,7 @@ strengthens nothing (see F18).
 | **F2-coverage** | CRITICAL | **OPEN — and now PROVED FALSE** | No argument that the shapes exhaust the transactions the claim is about, and stage 11 replaced that absence with a machine-checked refutation at T1R's own size. **The binding constraint on the whole deliverable.** |
 | **F1** | CRITICAL | **NARROWED TO A RATIO** | Both composed results have complete `LeafSet`s (N = 0), but **1 of 4 leaves is the bytecode and 3 are the shape** on each side. Closing `p2` cost zero axioms and added zero bytecode content. For the general class nothing is proved. |
 | **F2-realizability** | CRITICAL | **REPAIRED (13/13)** | Shapes re-cut to satisfy Conway `hasExactSetOfRedeemers`; verified in both directions (new shapes pass, old shapes fail, 13/13 goldens match). SHAPE **L2 is now re-cut as L2R** (G1, `f4486ca`), so there is no longer an unrepaired shape. Note the rule the shapes are checked against is the **all-Plutus** specialisation — see F18. |
-| **D6** | HIGH | OPEN | Blaster emits kernel-ill-typed `dite'` when a CIP-153 `Value` builtin result stays symbolic. Blocks SHAPES T3/T4, hence P1 dispatch Paths B/C and input-side aggregation. Needs an upstream fix. |
+| **D6** | was HIGH | **CLOSED — FIXED UPSTREAM (N5), re-tested (N6)** | Blaster emitted a kernel-ill-typed `dite'` when a CIP-153 `Value` builtin result stayed symbolic, because the condition and the branch binders were optimized independently. Fixed by `optimizeDITE` rebuilding both binder types from the final condition — Blaster `wsc-d6-dite-branch-retype` @ **`4d320dd`**. Both reproductions now build (`T3PrepFAILS` 2.4 s, `T4PrepFAILS` 9.4 s, exit 0) and are **relabelled as regression tests**. It also unblocked **D8**, which is why P1/P5/P6 are statable at 2306678. **But the limitation it supported is only HALF lifted:** SHAPE T3's accept class is measured non-empty (`T3_vacuity_probe` ✅ Expected Falsified, 4.6 s), so Paths B/C ARE reachable at UPLC — yet T3/T4 are pre-re-cut and not node-realizable (T3 needs 3 redeemer entries, supplies 1), so proving over them still requires a **T3R/T4R re-cut** that does not exist. See `AUDIT.md` D6. |
 | **F8** | MEDIUM | OPEN, **now binding on BOTH composed results** | `PropExecFaithful`: theorems on `.prop`, witnesses on `.exec`, equality unproved and deliberately not axiomatized. All 12 re-cut groups inherit it; so do both composed results, via `bridge_T1R` and `bridge_S1R`. |
 | **F4** | MEDIUM | OPEN by nature | "`sorry`-free" is false; **101** results are `admit`-closed and every top-level theorem carries `sorryAx`. |
 | **D5** | was HIGH → **MEDIUM** | **PARTIALLY REPAIRED** | Revision now recorded in three places; verified offline bundle in `WSC/substrate/` reconstructs the pinned tree byte-identically; `WSC/REPRODUCE.md` is the third-party recipe. **Still open:** branch unpublished, path absolute, rev not enforced by lake. |
@@ -384,10 +472,11 @@ strengthens nothing (see F18).
 The order changed at E5, because coverage now has a measured answer and the honest
 conclusion is to stop trying to close it by enumeration.
 
-1. **Fix D6 upstream and invest in UNSHAPED prep/solve cost.** This is now the highest
-   -value item, on the campaign's own measurements: the only property that needs no
-   coverage argument (P3) is the only unshaped one, and the obstacles to unshaped work
-   are **engineering defects with named reproductions** — unshaped global prep is
+1. **D6 IS NOW FIXED — the remaining item is the T3R/T4R re-cut, plus UNSHAPED prep/solve cost.** This is still the highest
+   -value item, but the case for it CHANGED at #112 and got weaker: the property that
+   used to need no coverage argument (P3) **is no longer unshaped**, so the route has
+   lost its worked example. The obstacles to unshaped work remain
+   **engineering defects with named reproductions** — unshaped global prep is
    45.5 s at 1600 but never completes at 3300; the unshaped P5 solve was killed at
    5,241 s ≈ 87 min with no verdict against ≈2 s shaped
    (`WSC/SHAPING-RESULTS.md:11`); unshaped seize prep at 2000 never completed in

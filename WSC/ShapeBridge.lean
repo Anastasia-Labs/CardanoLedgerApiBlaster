@@ -841,7 +841,15 @@ other WSC bytecode theorem (solver verdict + `admit`; see ARCHITECTURE Tier 4). 
 
 /-- **LEVEL 3, SHAPE B1 — THE SHAPE BRIDGE, prop level.**  The shaped prep's
 optimized term accepts exactly when the UNSHAPED prep's optimized term accepts on
-the `ScriptContext` the shape denotes.  Solver-verified (`blaster`). -/
+the `ScriptContext` the shape denotes.  Solver-verified (`blaster`).
+
+⛔ **VACUOUS AT wsc-poc `main` @ 2306678 (PR #112).**  SHAPE B1's accept class is
+EMPTY — `WSC.Z2Calib.B1_accept_class_is_empty` is `✅ Valid` — because #112 made
+the base validator `pasConstr` its redeemer and SHAPE B1's redeemer is a bare
+`Data.I`.  Both sides of this `iff` are identically false, so the theorem is true
+and says nothing.  It is kept only so that the emptiness result has something to
+point at.  **Do not quote it.**  The live base bridges are `WSC.exec_B1RG` /
+`WSC.exec_B1RS` / `WSC.exec_B1W`, all `rfl`. -/
 theorem bridge_B1
     (gh sh : ScriptHash)
     (txid : ByteString) (idx : Integer) (baseHash : ScriptHash) (lovelace : Integer)
@@ -1215,52 +1223,34 @@ correctly so, because both are universally quantified and the base validator's
 membership test is symmetric in them.  That is not a false positive; it is a
 badly-chosen control.  The controls below perturb asymmetrically. -/
 
-/-- CONTROL B1-a — the first base parameter is handed to the unshaped prep as a
-PUBKEY credential (`Data.Constr 0`) instead of a SCRIPT one (`Constr 1`), so the
-right side loses the `globalCred ∈ wdrl` disjunct.  Expected `Falsified`. -/
-def control_B1_pubkey_param : Prop :=
-  ∀ (gh sh : ScriptHash)
-    (txid : ByteString) (idx : Integer) (baseHash : ScriptHash) (lovelace : Integer)
-    (w0 w1 : ScriptHash) (a0 a1 : Integer)
-    (fee : Integer) (red : Integer) (lo hi : Integer) (tid : ByteString),
-    (isSuccessful
-      (appliedBaseShaped.prop gh sh txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid)
-    ↔ isSuccessful
-      (appliedBase.prop (Credential.PubKeyCredential gh) (Credential.ScriptCredential sh)
-        (baseShapedCtx txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid)))
+/-! ### SHAPE B1'S CONTROLS — **RETIRED, AND WHY** (task N6)
 
-#blaster (gen-cex: 0) (solve-result: 1) [control_B1_pubkey_param]
+The three `control_B1_*` stanzas that stood here are gone, and this is a finding
+rather than a tidy-up.
 
-/-- CONTROL B1-b — the shape's SECOND withdrawal credential is collapsed onto the
-first on the right side only, so that side's map offers strictly fewer hashes.
-Expected `Falsified`. -/
-def control_B1_collapsed_wdrl : Prop :=
-  ∀ (gh sh : ScriptHash)
-    (txid : ByteString) (idx : Integer) (baseHash : ScriptHash) (lovelace : Integer)
-    (w0 w1 : ScriptHash) (a0 a1 : Integer)
-    (fee : Integer) (red : Integer) (lo hi : Integer) (tid : ByteString),
-    (isSuccessful
-      (appliedBaseShaped.prop gh sh txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid)
-    ↔ isSuccessful
-      (appliedBase.prop (Credential.ScriptCredential gh) (Credential.ScriptCredential sh)
-        (baseShapedCtx txid idx baseHash lovelace w0 w0 a0 a1 fee red lo hi tid)))
+At wsc-poc `main` @ 2306678 (PR #112) the base validator READS ITS REDEEMER.
+SHAPE B1's redeemer is a bare `Data.I red`; `pasConstr` on a `Data.I` ERRORS, so
+**SHAPE B1's accept class is EMPTY** — machine-checked, not argued:
+`WSC.Z2Calib.B1_accept_class_is_empty` is `✅ Valid`
+(`WSC/Shaped/Calib/P3Shaped.lean`, task N3).
 
-#blaster (gen-cex: 0) (solve-result: 1) [control_B1_collapsed_wdrl]
+Two of the three controls therefore came back **`❌ Unexpected Valid`** when this
+tree was first rebuilt against the new flat: an `iff` between two propositions
+that are both identically false is Valid whatever the perturbation, so the
+control can no longer discriminate anything.  Keeping them would have left a
+green `bridge_B1` sitting next to controls that certify nothing — exactly the
+"green tick over nothing" this campaign is supposed to catch.  `bridge_B1` itself
+is kept below with a VACUITY WARNING in its docstring for the same reason: it is
+true, and it is true vacuously.
 
-/-- CONTROL B1-c — POLARITY.  Expected `Falsified`; a `Valid` here would mean the
-bridge is being read off an accept-UNSAT class. -/
-def control_B1_polarity : Prop :=
-  ∀ (gh sh : ScriptHash)
-    (txid : ByteString) (idx : Integer) (baseHash : ScriptHash) (lovelace : Integer)
-    (w0 w1 : ScriptHash) (a0 a1 : Integer)
-    (fee : Integer) (red : Integer) (lo hi : Integer) (tid : ByteString),
-    (isSuccessful
-      (appliedBaseShaped.prop gh sh txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid)
-    ↔ isUnsuccessful
-      (appliedBase.prop (Credential.ScriptCredential gh) (Credential.ScriptCredential sh)
-        (baseShapedCtx txid idx baseHash lovelace w0 w1 a0 a1 fee red lo hi tid)))
+THE LIVE BASE BRIDGES ARE ELSEWHERE and are `rfl`, not solver verdicts:
+`WSC.exec_B1RG` / `WSC.exec_B1RS` (`WSC/Props/P3_BaseRun.lean`, SHAPES B1RG/B1RS)
+and `WSC.exec_B1W` (`WSC/Props/P3_BaseWdrl.lean`, SHAPE B1W — the one
+`Composition.p3_lifted` consumes).  Their non-vacuity is discharged by their own
+probes at their own terms, and their discriminating power by
+`P3_B1RG_forces_globalCred` / `P3_B1RS_forces_seizeCred`'s mutation controls and
+by `P3_B1W_tightness_global` / `_seize`. -/
 
-#blaster (gen-cex: 0) (solve-result: 1) [control_B1_polarity]
 
 /-- CONTROL M1-a — SHAPE M1's two withdrawal credentials collapsed onto `w1` on
 the right side only.  The `BurnOnly` arm reads the minting-logic credential out of
@@ -1399,8 +1389,9 @@ theorem corner4_unshaped_prop :
     isSuccessful (appliedMinting900.prop ppCS mlh ctx) := by blaster
 
 /-- REJECTING instance, SHAPE B1: neither base parameter is in the withdrawal
-map, and the bytecode refuses — so the B1 bridge is not being read off a class on
-which the validator is constant.  (`#eval` cross-check in
+map, and the bytecode refuses.  ⚠️ At 2306678 this no longer shows the B1 bridge
+is read off a non-constant class — it IS constant there, see the note below.
+(`#eval` cross-check in
 `WSC/Shaped/Probe/B1Accept.lean`: `w0 = "GLOBAL"` and `w0 = "SEIZE"` both accept,
 `w0 = "AAA"` does not.) -/
 theorem b1_rejects_when_neither_cred_present :
@@ -1410,14 +1401,14 @@ theorem b1_rejects_when_neither_cred_present :
         (ByteString.mk "AAA") (ByteString.mk "ZZZ") 0 0 40 0 0 1 (ByteString.mk "")))
       = false := by native_decide
 
-/-- …and it ACCEPTS when the global credential IS present.  Same shape, one leaf
-changed. -/
-theorem b1_accepts_when_global_present :
-    isSuccessful (Runs.baseRun 600 (Credential.ScriptCredential (ByteString.mk "GLOBAL"))
-      (Credential.ScriptCredential (ByteString.mk "SEIZE"))
-      (baseShapedCtx (ByteString.mk "") 0 (ByteString.mk "BASE") 100
-        (ByteString.mk "GLOBAL") (ByteString.mk "ZZZ") 0 0 40 0 0 1 (ByteString.mk ""))) :=
-  isHaltB_sound _ (by native_decide)
+/-! **`b1_accepts_when_global_present` DELETED (task N6).**  It asserted that the
+same SHAPE-B1 context with `w0 = "GLOBAL"` is ACCEPTED, and at 2306678 that is
+`native_decide`-FALSE: the post-#112 validator errors on the shape's `Data.I`
+redeemer before it ever looks at the map.  The rejecting witness above survives
+because it is still a rejection — but note that it now rejects for a DIFFERENT
+reason (a malformed redeemer, not an absent credential), which is precisely why
+SHAPE B1 had to be re-cut to B1RG/B1RS.  The live accepting witnesses are
+`WSC.P3RWitness.ctxG` / `ctxS` at K = 194, pinned two-sided. -/
 
 end Witness
 

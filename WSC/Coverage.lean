@@ -1,9 +1,28 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Coverage.lean — **THE SHAPE-COVERAGE QUESTION, STATED IN LEAN, AND ANSWERED
-IN THE NEGATIVE FOR THIS LIBRARY'S THIRTEEN SHAPES** (task E4, audit finding **F2**
-second half; extended from twelve to thirteen at the G stage, 2026-07-25, when
-SHAPE L2R closed audit **F19**).
+IN THE NEGATIVE FOR THIS LIBRARY'S FOURTEEN SHAPES** (task E4, audit finding
+**F2** second half; extended from twelve to thirteen at the G stage, 2026-07-25,
+when SHAPE L2R closed audit **F19**; to fourteen at the N6 stage, 2026-07-28,
+when SHAPE T8R joined).
+
+**RE-ESTABLISHED AGAINST wsc-poc `main` @ 2306678 (PR #112) — task N6.** This
+module briefly carried a `⚠️ PRE-#112` banner (task N1) because §5's refutation
+rests on witnesses ACCEPTED BY THE REAL BYTECODE, and #112 replaced that
+bytecode. The banner is removed because the refutation was RE-MEASURED, not
+re-assumed: all three missed transactions are still `validRewardingContext ∧
+redeemersExactAllPlutus`, still accepted by the post-#112
+`programmableLogicGlobal`, and still outside every shape in the family. The one
+number that moved is the step count, 2,603 → **2,343**, which is also SHAPE
+T1R's own certified inhabitant's K — so the coincidence that makes §5's point
+(*the machine cannot tell a missed transaction from a covered one*) survives
+#112 exactly.
+
+**WHAT DID NOT SURVIVE: §7.** The pre-#112 §7 said P3 was the one property in
+the campaign proved over a COVERING class and needing no coverage argument.
+PR #112 gave the base validator a real redeemer, P3 no longer closes unshaped
+(task N3 measured `⚠️ Undetermined` at a 600 s cap and again at 2400 s), and that
+sentence is now FALSE. It is not repaired by re-pointing; §7 below states the
+replacement, which is a genuinely different and weaker-but-honest claim.
 
 ════════════════════════════════════════════════════════════════════════════
 WHY THIS MODULE EXISTS
@@ -22,7 +41,7 @@ transactions". Until now the gap was an UNKNOWN: nobody had written down what
 coverage would even mean, so nobody could say whether it was within reach.
 
 This module writes the statement down (§1), and then decides it — negatively —
-for the thirteen re-cut shapes of tasks C1/C2 and the G stage (§6). **The result is a theorem, not
+for the fourteen re-cut shapes of tasks C1/C2, the G stage and the N6 stage (§6). **The result is a theorem, not
 an absence of one**: the family does not cover, at a size bound that admits
 nothing bigger than the shapes themselves already contain, and the three
 witnesses are node-realizable transactions that the production
@@ -33,7 +52,7 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
 ════════════════════════════════════════════════════════════════════════════
 **PROVED (this module).**
 
-1. `not_covers_at_T1R_size` — the thirteen-shape family does **not** cover the
+1. `not_covers_at_T1R_size` — the fourteen-shape family does **not** cover the
    rewarding-context class at bound `SizeBound 2 2 2 2 0` (≤2 inputs, ≤2
    reference inputs, ≤2 outputs, ≤2 withdrawals, 0 mint entries), which is
    *exactly SHAPE T1R's own size*. Two independent witnesses.
@@ -42,11 +61,19 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
    conjuncts `WSC.t1R_realizable` quotes for the campaign's own certified
    inhabitant — and each is ACCEPTED by the real compiled global validator in
    `Runs.globalRun 4400`, by `native_decide` on the CEK machine (§5).
-4. `p3_lives_over_a_covering_class` — P3, the keystone, is proved over the
-   UNSHAPED class, and the one-element family `[unshapedClass]` covers every
-   bound (`unshaped_covers`). **P3 needs no coverage argument at all.** It is the
-   only property in the campaign of which that is true, and it is the single
-   most important sentence in this module.
+4. `p3_lives_over_the_wdrlPair_class` — P3, the keystone, over `WSC.WdrlPair`.
+   **THIS ITEM USED TO READ** *"`p3_lives_over_a_covering_class` — P3 is proved
+   over the UNSHAPED class […] P3 needs no coverage argument at all […] the
+   single most important sentence in this module"*. **PR #112 made that false**
+   and the theorem is deleted: the base validator now reads an index out of a
+   real redeemer, and task N3 could not close the unshaped goal at a 600 s cap,
+   a 2400 s cap, a redeemer-only shape, or a smaller prep budget. The
+   replacement is genuinely weaker — P3 is SHAPED now — but it keeps the part
+   that mattered: `wdrlPair_char` characterises the class **both ways** in
+   ledger vocabulary (length 2, both credentials script credentials), with no
+   reference to the validator, so P3 is the one property whose coverage question
+   is a fifteen-line theorem instead of a programme. `unshaped_covers` is pure
+   and survives unchanged; it simply no longer has a property to carry.
 5. `wdrl_range_char` — a genuine, non-circular coverage lemma for ONE component
    (the two-script withdrawal map): a `Withdrawals` list is in the range of
    `p1ShapedWdrl` **iff** it has length 2 and both credentials are script
@@ -56,7 +83,7 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
 
 **NOT PROVED, and NOT claimed.**
 
-* This is **not** "coverage is impossible". It is "*these thirteen shapes* do not
+* This is **not** "coverage is impossible". It is "*these fourteen shapes* do not
   cover *this bound*", plus an arithmetic argument in `WSC/COVERAGE.md` that the
   enumeration route is not affordable. A different, larger family could cover a
   smaller bound; nothing here rules that out.
@@ -91,14 +118,14 @@ parameter" is not an available repair:
 | `ctxThreeRefIns` | list length | a transfer that reads **three** reference inputs |
 | `ctxAlwaysRange` | constructor tag | a transfer with an **unbounded validity interval** — the default every wallet emits |
 
-All thirteen shapes carry ≤1 signatory, ≤2 reference inputs and a FINITE CLOSED
+All fourteen shapes carry ≤1 signatory, ≤2 reference inputs and a FINITE CLOSED
 validity interval (`ShapeInvariants`, §3, proved shape by shape). None of the
 three is exotic. ("What every wallet emits" is a statement about the world, not
 a measurement in this repository; what is machine-checked is that an unbounded
-validity interval is `validRewardingContext` and outside all thirteen shapes.)
+validity interval is `validRewardingContext` and outside all fourteen shapes.)
 
-PROVENANCE / SCOPE. The thirteen range predicates in §2 are transcribed
-mechanically from the `def` signatures of the thirteen shape builders at this
+PROVENANCE / SCOPE. The fourteen range predicates in §2 are transcribed
+mechanically from the `def` signatures of the fourteen shape builders at this
 revision (`WSC/Shaped/{GlobalShapedR, MintingShapedR, MintingShapedRIdx,
 MintingLocalShapedR, MintingLocalShapedRIdx, MintingDelegateShapedR,
 SeizeShapedR}.lean`); the free-leaf count in each docstring is the builder's own
@@ -280,6 +307,43 @@ def rangeT7R : ShapeClass := fun ctx =>
       next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee
       = ctx
 
+/-- The range of shape builder `p1SOwnCtx` — **SHAPE T8R**, 42 free leaves
+(`WSC/Shaped/GlobalShapedR.lean:661`).
+
+**ADDED AT THE N6 STAGE (2026-07-28), and it is the shape PR #112 was written
+for.** T8R is T1R with the mini-ledger input owned by a SCRIPT rather than by a
+signatory: `txInfoSignatories = []`, three script withdrawals `w0 w1 w2`, and
+`ownerWdrlIdxs = [2]` naming the owner script's withdrawal. It is the only shape
+in the family that exercises `pvalueFromCred`'s script-owner arm
+(`ProgrammableLogicBase.hs:386-393`) — the line #112 added — and therefore the
+only one over which `WSC.P1R_T8_owner_witness_enforced_thm` (acceptance forces
+`sOwn = w2`) can be stated.
+
+Adding a NON-EMPTY class to the family can only make `Covers` EASIER to satisfy,
+so every negative result in §6 is hereby stated over a strictly larger family
+and is correspondingly STRONGER. Non-emptiness is not assumed: `D9_T8R_vacuity`
+(`WSC/Shaped/Probe/D9Probe.lean`) is `✅ Expected Falsified` at T8R's own prep
+term, i.e. the solver exhibits an accepting model.
+
+**CAVEAT, carried deliberately (finding F23).** T8R is the one shape in the
+family with no two-sided CEK witness and no `t8R_realizable`; its inhabitant is
+a solver model, not a certified `ScriptContext`. That weakens what T8R
+contributes to a POSITIVE coverage claim, but not what it contributes here: the
+§6 results are refutations, and a refutation over a larger family is stronger
+whether or not the added class has a certified point. -/
+def rangeT8R : ShapeClass := fun ctx =>
+  ∃ (cs tn : ByteString) (plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer) (pHash pCS pTn : ByteString)
+    (pAda pQty : Integer) (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString) (w0 w1 w2 : ByteString)
+    (a0 a1 a2 : Integer) (rBase rTls rOwn : Integer) (fee : Integer),
+    p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+      pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+      key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee
+      = ctx
+
 /-- The range of shape builder `mintRCtx` (18 free leaves). -/
 def rangeM1R : ShapeClass := fun ctx =>
   ∃ (ownCS : CurrencySymbol) (tn : TokenName) (q : Integer) (owner : ByteString)
@@ -320,7 +384,7 @@ before `fee`, transcribed from `WSC/Shaped/MintingLocalShapedRIdx.lean:163-174`.
 
 **Why adding it STRENGTHENS §6 rather than weakening it.** `Covers` is an
 existential over the family, so a LARGER family is EASIER to satisfy and harder to
-refute. Refuting coverage for thirteen shapes therefore says strictly more than
+refute. Refuting coverage for fourteen shapes therefore says strictly more than
 refuting it for twelve, and the three counterexamples still work because SHAPE L2R
 freezes the same five skeleton features every other member does (`inv_L2R`). Note
 that `rangeL1R ⊆ rangeL2R` definitionally (`localRCtxIdx_at_one` is `rfl`), so the
@@ -404,7 +468,7 @@ def loBoundTag : Data → Option Integer
   | .Constr _ [.Constr _ [.Constr t _, _], _] => some t
   | _ => none
 
-/-- The five skeleton features every one of the thirteen re-cut shapes freezes. -/
+/-- The five skeleton features every one of the fourteen re-cut shapes freezes. -/
 structure ShapeInvariants (ctx : ScriptContext) : Prop where
   sigLe : ctx.scriptContextTxInfo.txInfoSignatories.length ≤ 1
   refLe : ctx.scriptContextTxInfo.txInfoReferenceInputs.length ≤ 2
@@ -438,6 +502,13 @@ theorem inv_T7R : ∀ ctx, rangeT7R ctx → ShapeInvariants ctx := by
   simp only [rangeT7R, forall_exists_index]; intros; subst_vars
   exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
 
+/-- SHAPE T8R satisfies all five invariants. Note `txInfoSignatories = []` here
+(length 0, not 1) — T8R's mini-ledger input is authorised by the owner SCRIPT's
+withdrawal, not by a signatory, which is the whole point of the shape. -/
+theorem inv_T8R : ∀ ctx, rangeT8R ctx → ShapeInvariants ctx := by
+  simp only [rangeT8R, forall_exists_index]; intros; subst_vars
+  exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
+
 theorem inv_M1R : ∀ ctx, rangeM1R ctx → ShapeInvariants ctx := by
   simp only [rangeM1R, forall_exists_index]; intros; subst_vars
   exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
@@ -468,15 +539,33 @@ theorem inv_S1R : ∀ ctx, rangeS1R ctx → ShapeInvariants ctx := by
 
 end Invariants
 
-/-- **The family**: the thirteen node-realizable shapes of tasks C1/C2 and the G
-stage — every shape in this library whose class is not proved empty.
+/-- **The family**: the fourteen re-cut shapes of tasks C1/C2, the G stage and
+the N6 stage — every shape in this library whose class is not proved empty.
 
 **TWELVE → THIRTEEN at the G stage (2026-07-25).** `rangeL2R` joined when SHAPE
-L2R landed (audit **F19**). Growing the family can only make `Covers` easier to
-satisfy, so every negative result below is now stated over a strictly larger
-family and is correspondingly stronger. -/
+L2R landed (audit **F19**).
+
+**THIRTEEN → FOURTEEN at the N6 stage (2026-07-28).** `rangeT8R` joined when
+SHAPE T8R landed (task N4) — the shape that exercises PR #112's new
+`ownerWdrlIdxs` script-owner arm.
+
+Growing the family can only make `Covers` easier to satisfy, so every negative
+result below is now stated over a strictly larger family and is correspondingly
+stronger.
+
+**PRECISION ABOUT "node-realizable" (finding F23).** This docstring used to say
+"the thirteen NODE-REALIZABLE shapes". That adjective is no longer true of the
+family as a whole: thirteen of the fourteen carry a certified inhabitant — a
+concrete `ScriptContext` satisfying `validXContext`, Conway's exact-redeemer rule
+and real-CEK acceptance at a two-sided K — but **T8R does not**. T8R's class is
+known non-empty only through a solver model (`D9_T8R_vacuity`, `✅ Expected
+Falsified`). That distinction costs nothing here, because §6 uses the family only
+to REFUTE coverage and a refutation over a larger family is stronger regardless;
+it would matter if the family were ever used to support a POSITIVE coverage
+claim, and `WSC/COVERAGE.md` §"Shape roster" flags it at the one place that
+could. -/
 def recutFamily : List ShapeClass :=
-  [rangeG1R, rangeG6R, rangeT1R, rangeT2R, rangeT6R, rangeT7R,
+  [rangeG1R, rangeG6R, rangeT1R, rangeT2R, rangeT6R, rangeT7R, rangeT8R,
    rangeM1R, rangeM2R, rangeL1R, rangeL2R, rangeDT1R, rangeDS1R, rangeS1R]
 
 /-- Every member of the family satisfies all five invariants at every leaf
@@ -485,13 +574,14 @@ theorem family_invariants :
     ∀ S ∈ recutFamily, ∀ ctx, S ctx → ShapeInvariants ctx := by
   intro S hS ctx h
   simp only [recutFamily, List.mem_cons, List.not_mem_nil, or_false] at hS
-  rcases hS with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+  rcases hS with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
   · exact inv_G1R ctx h
   · exact inv_G6R ctx h
   · exact inv_T1R ctx h
   · exact inv_T2R ctx h
   · exact inv_T6R ctx h
   · exact inv_T7R ctx h
+  · exact inv_T8R ctx h
   · exact inv_M1R ctx h
   · exact inv_M2R ctx h
   · exact inv_L1R ctx h
@@ -536,9 +626,18 @@ theorem not_covers_of_invariant {fam : List ShapeClass}
 ## §5 THREE MISSED TRANSACTIONS
 
 Each is `P1RShapedWitness.ctxOk` — the campaign's own certified SHAPE-T1R
-inhabitant, accepted by the production bytecode in 2,603 CEK steps
-(`WSC.t1R_realizable`, `P1RShapedWitness.K_T1R_is_2603`) — with **exactly one**
+inhabitant, accepted by the production bytecode in **2,343** CEK steps
+(`WSC.t1R_realizable`, `P1RShapedWitness.K_T1R_is_2343`) — with **exactly one**
 `Data`-skeleton feature changed. Every leaf scalar is untouched.
+
+**RE-MEASURED AT wsc-poc `main` @ 2306678 (PR #112), task N6: THE REFUTATION
+REPRODUCES, unchanged in substance.** All three contexts are still
+`validRewardingContext ∧ redeemersExactAllPlutus`, still ACCEPTED by the
+post-#112 `programmableLogicGlobal`, still outside all fourteen shapes, still
+inside `SizeBound 2 2 2 2 0`. The only thing that moved is the step count:
+2,603 → **2,343**, for the three missed transactions AND for the certified
+inhabitant, still byte-identical to each other. #112 made the global validator
+CHEAPER, not more discriminating.
 
 The point of building them this way is that the comparison is forced: they
 differ from a context the library DOES reason about only in a dimension no
@@ -627,24 +726,25 @@ theorem ctxAlwaysRange_accepted :
   P1ShapedWitness.isHaltB_sound _ (by native_decide)
 
 /-- **THE MEASUREMENT THAT MAKES THE GAP CONCRETE.** Each of the three missed
-transactions halts in EXACTLY 2,603 CEK steps and budget-errors at 2,602 — the
-same two-sided bracket `P1RShapedWitness.K_T1R_is_2603` pins for the shape's own
-certified inhabitant.
+transactions halts in EXACTLY 2,343 CEK steps and budget-errors at 2,342 — the
+same two-sided bracket `P1RShapedWitness.K_T1R_is_2343` pins for the shape's own
+certified inhabitant (task N6 re-measurement; it was 2,603 pre-#112, on both
+sides, so the coincidence survived the rewrite).
 
 So the three are indistinguishable from a covered transaction *by the machine*:
 same validator, same budget, same step count, same verdict. The ONLY thing that
 puts them outside every theorem in this library is the `Data` skeleton. That is
 what a shape bound costs, measured. -/
-theorem missed_transactions_cost_exactly_2603_steps :
-    (P1ShapedWitness.isHaltB (Runs.globalRun 2603 ppCS ctxTwoSigners) = true
-     ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2602 ppCS ctxTwoSigners) = false)
-  ∧ (P1ShapedWitness.isHaltB (Runs.globalRun 2603 ppCS ctxThreeRefIns) = true
-     ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2602 ppCS ctxThreeRefIns) = false)
-  ∧ (P1ShapedWitness.isHaltB (Runs.globalRun 2603 ppCS ctxAlwaysRange) = true
-     ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2602 ppCS ctxAlwaysRange) = false) := by
+theorem missed_transactions_cost_exactly_2343_steps :
+    (P1ShapedWitness.isHaltB (Runs.globalRun 2343 ppCS ctxTwoSigners) = true
+     ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2342 ppCS ctxTwoSigners) = false)
+  ∧ (P1ShapedWitness.isHaltB (Runs.globalRun 2343 ppCS ctxThreeRefIns) = true
+     ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2342 ppCS ctxThreeRefIns) = false)
+  ∧ (P1ShapedWitness.isHaltB (Runs.globalRun 2343 ppCS ctxAlwaysRange) = true
+     ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2342 ppCS ctxAlwaysRange) = false) := by
   native_decide
 
-/-! ### §5.3 …and none of the three is in ANY of the thirteen shapes -/
+/-! ### §5.3 …and none of the three is in ANY of the fourteen shapes -/
 
 theorem ctxTwoSigners_outside : ¬ ShapeInvariants ctxTwoSigners := by
   intro h; exact absurd h.sigLe (by decide)
@@ -667,7 +767,7 @@ theorem ctxThreeRefIns_size : SizeBound 2 3 2 2 0 ctxThreeRefIns := by
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> decide
 
 /-! ════════════════════════════════════════════════════════════════════════
-## §6 THE RESULT — the thirteen shapes DO NOT COVER
+## §6 THE RESULT — the fourteen shapes DO NOT COVER
 
 Stated at SHAPE T1R's own size: ≤2 inputs, ≤2 reference inputs, ≤2 outputs,
 ≤2 withdrawals, no mint. Not a bigger transaction, not a different validator, not
@@ -678,7 +778,7 @@ longer "no coverage argument exists", it is **"coverage is false for this family
 at this bound, and here are three node-realizable transactions the production
 validator accepts to prove it"**. -/
 
-/-- **MAIN NEGATIVE RESULT.** The thirteen re-cut shapes do not cover the
+/-- **MAIN NEGATIVE RESULT.** The fourteen re-cut shapes do not cover the
 rewarding-context class at their own size. Witness: a transfer with two required
 signers. -/
 theorem not_covers_at_T1R_size :
@@ -739,17 +839,42 @@ theorem unshaped_covers (Valid Bound : ScriptContext → Prop) :
   intro ctx _ _
   exact ⟨unshapedClass, by simp, trivial⟩
 
-/-- **P3 lives over that class.** Verbatim `WSC.P3_base_requires_global_or_seize`
-with the (vacuous) class hypothesis inserted, so that the pairing
-"property + class it is proved over" is exhibited for the one case where the
-class is everything. -/
-theorem p3_lives_over_a_covering_class (globalCred seizeCred : Credential) :
-    ∀ ctx, unshapedClass ctx →
-      validSpendingContext ctx →
-      isSuccessful (appliedBase.prop globalCred seizeCred ctx) →
+/-- **P3 NO LONGER LIVES OVER THE COVERING CLASS — and what it lives over
+instead is the ONE class in the campaign with a complete ledger-vocabulary
+characterisation.** (Task N6, after wsc-poc PR #112.)
+
+WHAT THIS THEOREM USED TO SAY.  `p3_lives_over_a_covering_class` was
+`WSC.P3_base_requires_global_or_seize` with a vacuous class hypothesis inserted:
+P3 held over `unshapedClass`, i.e. over EVERY `ScriptContext`, and this module's
+prose called it *"the only property in the campaign of which this is true"*.
+That sentence is **false of production** at `main` @ 2306678 and the theorem it
+rested on no longer exists.  #112 replaced the base validator's `pfix` scan of
+`txInfoWdrl` with `pdropList <index read from the redeemer>`, and a symbolic
+index into a symbolic-LENGTH list does not close: task N3 measured
+`⚠️ Undetermined` at a 600 s cap, at a 2400 s cap, at a redeemer-only shape and
+at a smaller prep budget.
+
+WHAT REPLACES IT, and it is much closer to the old statement than task N3's
+report suggested.  P3 now holds over `WSC.WdrlPair` — *the withdrawal map has
+two entries, both at script credentials* — with the redeemer, both script
+PARAMETERS and every other `TxInfo` field still fully symbolic
+(`WSC.P3_base_requires_global_or_seize_run_W`, `WSC/Props/P3_BaseWdrl.lean`,
+SHAPE B1W).  That class is not everything, so P3 has lost its special status;
+but it is the only class in this library that is cut in LEDGER vocabulary rather
+than by a `Data` skeleton, and §8's `wdrl_range_char` is its complete, both
+directions, non-circular characterisation:
+
+    WdrlPair ctx  ↔  wdrl.length = 2 ∧ every entry's credential is a script hash
+
+So for P3 — alone in the campaign — the coverage question of §8 is not a
+research programme, it is a fifteen-line theorem that already exists.  The
+statement below is that pairing, made explicit. -/
+theorem p3_lives_over_the_wdrlPair_class (globalCred seizeCred : Credential) :
+    ∀ ctx, WSC.WdrlPair ctx →
+      isSuccessful (Runs.baseRun 600 globalCred seizeCred ctx) →
         credentialInWithdrawals globalCred ctx.scriptContextTxInfo.txInfoWdrl
         ∨ credentialInWithdrawals seizeCred ctx.scriptContextTxInfo.txInfoWdrl :=
-  fun ctx _ => P3_base_requires_global_or_seize globalCred seizeCred ctx
+  fun ctx hw h => WSC.P3_base_requires_global_or_seize_run_W globalCred seizeCred ctx hw h
 
 /-! ════════════════════════════════════════════════════════════════════════
 ## §8 WHAT A COVERAGE PROOF WOULD COST — one component, done
@@ -766,7 +891,7 @@ right-hand side mentions only `length` and the `Credential` constructor, never
 **It is also the cost anchor.** This one component took ~15 lines. SHAPE T1R has
 39 free leaves spread over 16 `TxInfo` fields, two inputs, two reference inputs
 with structured datums, two outputs, a withdrawal map, a redeemer map and a
-`Data`-encoded redeemer; the thirteen shapes together have 458 free leaves. The
+`Data`-encoded redeemer; the fourteen shapes together have 500 free leaves. The
 extrapolation, and why the other side of the ledger (the number of skeletons)
 makes the exercise pointless anyway, is `WSC/COVERAGE.md` §4-§5. -/
 
@@ -793,6 +918,22 @@ theorem wdrl_range_char (w : Withdrawals) :
           subst hh0; subst hh1
           exact ⟨h0, h1, a0, a1, rfl⟩
         · simp at hlen
+
+/-- **AND THAT CLASS HAS A COMPLETE LEDGER-VOCABULARY CHARACTERISATION.**
+`WSC.WdrlPair` — the side condition wsc-poc PR #112 forced into
+`Composition.top_claim` — is EXACTLY §8's `wdrl_range_char`, so the "what would a
+coverage proof cost" question is, for this one class, already answered with a
+theorem rather than an estimate.  Both directions; no solver; no axiom. -/
+theorem wdrlPair_char (ctx : ScriptContext) :
+    WSC.WdrlPair ctx
+      ↔ (ctx.scriptContextTxInfo.txInfoWdrl.length = 2
+          ∧ ∀ e ∈ ctx.scriptContextTxInfo.txInfoWdrl,
+              ∃ h, e.1 = Credential.ScriptCredential h) :=
+  ⟨fun ⟨w0, w1, a0, a1, h⟩ =>
+      (wdrl_range_char _).mp ⟨w0, w1, a0, a1, h.symm⟩,
+   fun h => by
+      obtain ⟨w0, w1, a0, a1, hh⟩ := (wdrl_range_char _).mpr h
+      exact ⟨w0, w1, a0, a1, hh.symm⟩⟩
 
 /-! ════════════════════════════════════════════════════════════════════════
 ## §9 HOW MANY SKELETONS ARE THERE? — the enumeration arithmetic, machine-checked
@@ -845,7 +986,7 @@ theorem skeletons_at_T1R_size :
 
 /-- **At the SMALLEST interesting size** — SHAPE M1R's (1 input, 0 reference
 inputs, 1 output, ≤1 withdrawal, 0–1 signatories): **995,328**. Even the floor
-is five orders of magnitude above the thirteen shapes that exist. -/
+is five orders of magnitude above the fourteen shapes that exist. -/
 theorem skeletons_at_M1R_size :
     skeletonLowerBound 1 0 1 1 2 2 9 2 = 995328 := by native_decide
 
@@ -866,21 +1007,23 @@ The two negative results and the three realizability facts must not depend on
 anything but Lean's own axioms and `native_decide`'s compiler trust
 (`Lean.ofReduceBool`, `Lean.trustCompiler`). In particular **no project axiom
 and no `sorryAx`** — a refutation that leaned on an assumption would be worth
-nothing. `p3_lives_over_a_covering_class` DOES carry `sorryAx`, inherited from
-P3's `blaster` verdict, and that is expected and stated. -/
+nothing. `p3_lives_over_the_wdrlPair_class` DOES carry `sorryAx`, inherited from
+P3's `blaster` verdict, and that is expected and stated; `wdrlPair_char` must
+NOT, since it is pure Lean. -/
 
 #print axioms not_covers_at_T1R_size
 #print axioms not_covers_at_T1R_size'
 #print axioms not_covers_with_three_reference_inputs
 #print axioms missed_transactions_are_realizable_and_accepted
-#print axioms missed_transactions_cost_exactly_2603_steps
+#print axioms missed_transactions_cost_exactly_2343_steps
 #print axioms family_invariants
 #print axioms ctxOk_in_family
 #print axioms wdrl_range_char
 #print axioms unshaped_covers
 #print axioms skeletons_at_T1R_size
 #print axioms skeletons_at_minimal_transfer_size
-#print axioms p3_lives_over_a_covering_class
+#print axioms p3_lives_over_the_wdrlPair_class
+#print axioms wdrlPair_char
 
 end Coverage
 end WSC

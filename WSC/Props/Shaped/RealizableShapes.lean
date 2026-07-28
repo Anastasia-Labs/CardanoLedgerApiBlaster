@@ -101,7 +101,7 @@ import WSC.Props.Shaped.P2ShapedR
 import WSC.Props.Shaped.P4Shaped
 import WSC.Props.Shaped.P4LocalShaped
 import WSC.Props.Shaped.P4DelegateShaped
-import WSC.Props.Shaped.P2Shaped
+import WSC.Shaped.S1Witnesses
 
 namespace WSC.RealizableShapes
 

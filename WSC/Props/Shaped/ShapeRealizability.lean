@@ -639,12 +639,22 @@ theorem t1_no_honest_step (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
     (ctx : ScriptContext) (htx : Composition.HonestTx hp (t1Shape hp) ctx) : False :=
   t1Shape_is_empty hp ctx hdep htx.1 htx.2.2
 
+/-- SHAPE T1's withdrawal map is `WSC.p1ShapedWdrl`, which is `WSC.bwWdrl`, so
+the class satisfies the side condition wsc-poc PR #112 forced into
+`Composition.top_claim` (task N6).  `rfl` on the two leaves. -/
+theorem t1Shape_wdrlPair (hp : WSC.HonestParams) :
+    Composition.WdrlPairShaped (t1Shape hp) := by
+  rintro ctx ⟨plc, _, cs, tn, owner, inAda, qIn, ext, in2Ada, qIn2, outAda, qOut, dest,
+    escAda, qEsc, pHash, pCS, pTn, pAda, pQty, dirCS, glc, slc, nHash, nCS, nTn, nAda, nQty,
+    key, next, tlsH, ilsH, gsCS, w0, w1, a0, a1, fee, hti⟩
+  exact ⟨w0, w1, a0, a1, by rw [hti]; rfl⟩
+
 /-- The instantiated top claim at SHAPE T1 — TRUE, and VACUOUS. Kept next to
 `t1_no_honest_step` so the two cannot be quoted apart. -/
 theorem t1_top_claim_is_vacuous (hp : WSC.HonestParams) (hdep : WSC.Deployed hp) :
     ∀ (L : Composition.Ledger), Composition.Reachable hp (t1Shape hp) L →
       Composition.I hp L :=
-  Composition.top_claim hp (t1Shape hp) (t1VacuousLeaves hp hdep) hdep
+  Composition.top_claim hp (t1Shape hp) (t1VacuousLeaves hp hdep) (t1Shape_wdrlPair hp) hdep
 
 /-! # §5 THE CLAB-FIDELITY COROLLARY — why every witness looked ledger-legal
 

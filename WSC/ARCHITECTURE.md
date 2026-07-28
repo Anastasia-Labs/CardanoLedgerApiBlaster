@@ -1,5 +1,25 @@
 I have complete, verified grounding. Notably I confirmed several facts that correct or strengthen the investigations: `MintValue := V2.Value` (no `mintToValue` needed), `validTxOutValue` already forces ada-first (discharges skeptic 1.3 via the precondition), `validXContext` bakes in value conservation (`isBalanced`) yet leaves the redeemer wholly unconstrained, and the import smoke test already exists. Here is the synthesized architecture.
 
+> # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
+>
+> This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
+> (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
+> minting policy is byte-identical. Tasks N1–N6 re-based everything.
+>
+> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
+> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable, 102 WSC modules, two clean-room runs, wall ≈ 9.5 min,
+> peak RSS ≈ 4.35 GB.** Both composed results survive with **28** project axioms
+> each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
+> — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
+>
+> Everything that changed, with measurements: `WSC/AUDIT.md` (top banner) and
+> `WSC/status-fragments/N6-compose-and-reaudit.md`. Numbers in the body below
+> that disagree with the ones above are the pre-#112 record.
+
+---
+
+
 ---
 
 # WSC Programmable-Tokens Containment: Lean4 + Blaster Proof Architecture
@@ -16,7 +36,7 @@ I have complete, verified grounding. Notably I confirmed several facts that corr
 
 | Fact | Location | Consequence |
 |---|---|---|
-| Project is `lakefile.lean`, Lean `v4.24.0`, requires `PlutusCore` (PlutusCoreBlaster @ `main`) + `Blaster` (@ `beta-lambda-cache-optimization`) via git — **PlutusCore pin SUPERSEDED by ADDENDUM E11 (local path, `cip153-value-builtins` @ `9f9ca8c`)** | `CardanoLedgerApiBlaster/lakefile.lean` | New project depends on CLAB, which transitively brings PlutusCore+Blaster. |
+| Project is `lakefile.lean`, Lean `v4.24.0`, requires `PlutusCore` (PlutusCoreBlaster @ `main`) + `Blaster` (@ `beta-lambda-cache-optimization`) via git — **BOTH pins SUPERSEDED by ADDENDUM E11; as of task N6 both are LOCAL PATHS: PlutusCore `cip153-value-builtins` @ `3fdd3fb`, Blaster `wsc-d6-dite-branch-retype` @ `4d320dd`** | `CardanoLedgerApiBlaster/lakefile.lean` | New project depends on CLAB, which transitively brings PlutusCore+Blaster. |
 | Proof idiom: `#import_uplc n PlutusV3 double_cbor_hex "x.flat"` → `def nInputs p ctx : List Term := toTerm p :: xInputs ctx` → `#prep_uplc appliedN n nInputs BUDGET` → `theorem … validXContext ctx → isSuccessful (appliedN.prop p ctx) → POST := by blaster` | `Tests/Scripts/MintingPolicy/{MintingPolicy,Properties}.lean` | Canonical template for all six. |
 | `MintValue := V2.Value` (abbrev) | `V3/Contexts.lean:295` | **Corrects property-statements:** `mintOf cs tn ctx := valueOf cs tn ctx.scriptContextTxInfo.txInfoMint` — no `mintToValue` accessor exists or is needed. |
 | `validTxOutValue` **requires** `(Data.B "", Data.Map [(Data.B "", Data.I n)]) :: rest` with `n > 0`, `rest` sorted & positive | `V1/Contexts.lean:769-784` | **Discharges skeptic 1.3 (ada-first) via the precondition, not a new axiom.** Every input/output value is guaranteed lovelace-first; the `pstripAdaH`/`ptail#pasMap` sites are sound on ledger TxOut values. |
@@ -583,7 +603,24 @@ Never "PROVEN-BY-DESIGN".
 
 **Current pins** (`CardanoLedgerApiBlaster/lakefile.lean`, branch `wsc-containment-proofs`):
 
-| Dependency | Pin | Why |
+> **⚠️ SUPERSEDED AT TASK N6 (2026-07-28). BOTH PINS MOVED because of wsc-poc
+> PR #112, and Blaster is no longer a public git rev.** The table immediately
+> below is the CURRENT state; the historical X4 text follows it unchanged.
+
+| Dependency | Pin (CURRENT, task N6) | Why |
+|---|---|---|
+| `Blaster` | **local path** `/home/gumbo/iohk/Lean-blaster-wsc`, branch `wsc-d6-dite-branch-retype` @ `4d320dd5f70ac953945b5126f5cfd45128da8131` (= public `59db213` **+ 1 commit**) | **CHANGED at N5.** The defect-**D6** fix (`optimizeDITE` re-types both branch binders from the final condition). Without it `WSC/Prep/Global1600` and the seize shaped prep both die with a kernel `application type mismatch`, so P1/P5/P6/P2 are **unstatable**. Offline artifact: `WSC/substrate/blaster-d6-dite-4d320dd.bundle`. |
+| `PlutusCore` | **local path** `/home/gumbo/iohk/PlutusCoreBlaster`, branch `cip153-value-builtins` @ `3fdd3fb5cb259f039b60cc584cd954de18c819dc` | **CHANGED at N5** (was `9f9ca8c`). Adds the CIP-153 **`ScaleValue`** builtin at flat tag **100**, without which the post-#112 `programmableSeize` flat does not decode at all; and corrects `unValueData`/`valueData` costs from plutus 1.57 to 1.63 coefficients. Offline artifact: the incremental `WSC/substrate/pcb-scalevalue-3fdd3fb.bundle`. |
+
+**Neither pin is machine-enforced.** `lake` does not verify the `rev` key on a
+`"type": "path"` entry, and both dependencies are now paths. `lake-manifest.json`
+records both revisions for the record only.
+
+---
+
+*Historical X4 text, retained:*
+
+| Dependency | Pin (X4, HISTORICAL) | Why |
 |---|---|---|
 | `Blaster` | git `https://github.com/input-output-hk/Lean-blaster` @ `beta-lambda-cache-optimization` (resolved `59db213`) | UNCHANGED — the solver pin stays on its git rev. |
 | `PlutusCore` | **local path** `/home/gumbo/iohk/PlutusCoreBlaster`, branch `cip153-value-builtins` @ `9f9ca8c76baf3b5efdb63c33ca0091efa606b474` | The CIP-153 Value builtins live only on this (unpushed) branch; without them the global validator does not even DECODE. |

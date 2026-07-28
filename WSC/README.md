@@ -1,5 +1,25 @@
 # WSC programmable-token containment — what this formalization establishes
 
+> # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
+>
+> This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
+> (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
+> minting policy is byte-identical. Tasks N1–N6 re-based everything.
+>
+> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
+> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable, 102 WSC modules, two clean-room runs, wall 10:34 / 10:36,
+> peak RSS ≈ 4.3 GB.** Both composed results survive with **28** project axioms
+> each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
+> — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
+>
+> Everything that changed, with measurements: `WSC/AUDIT.md` (top banner) and
+> `WSC/status-fragments/N6-compose-and-reaudit.md`. Numbers in the body below
+> that disagree with the ones above are the pre-#112 record.
+
+---
+
+
 **Audience.** A senior engineer or auditor deciding what to believe. Everything below
 is machine-checked in this repository or measured in a clean-room rebuild, with the
 theorem name, file/line or measurement cited. Where something is assumed or open, it
@@ -127,21 +147,40 @@ proved empty and **must not be quoted**.)
 
 | # | Property, in words | Budget / shape | Witness K |
 |---|---|---|---|
-| **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R | 2603 / 3572 / 3150 / 3572 |
-| **P2** | Seizure preserves structure, and cannot reduce the base-credential total below inputs plus mint | 3800 / S1R | 3004 (accept), 3328 |
-| **P3** | Spending at the base credential requires the global **or** the seize validator to run — the keystone | 600 / unshaped | golden 208 |
+| **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R, **T8R** | 2343 / 2567 / 2777 / 2567 / **— (F23)** |
+| **P2** | Seizure preserves structure **modulo an ada top-up #112 legalised**, and cannot reduce the base-credential total below inputs plus mint | 3800 / S1R | 2301 (accept), 2412 |
+| **P3** | Spending at the base credential requires the global **or** the seize validator to run — the keystone | 600 / **B1RG, B1RS, B1W** (no longer unshaped) | 194 |
 | **P4** | Any accepted mint runs the minting-logic script; the four redeemer arms are exhaustive and each is constrained | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 |
-| **P5** | A non-member transfer cannot register a new policy in the directory | 1600 / G1R | 1541 |
-| **P6** | A directory member's transfer adds its transfer-logic script to the withdrawal requirement, and its mint stays at base | 3300 / G6R | 2837 |
+| **P5** | A non-member transfer cannot register a new policy in the directory | 1600 / G1R | 1402 |
+| **P6** | A directory member's transfer adds its transfer-logic script to the withdrawal requirement, and its mint stays at base | 3300 / G6R | 2196 |
 
-**P3 is the only unshaped property, and therefore the only one that needs no coverage
-argument at all** (`Coverage.p3_lives_over_a_covering_class`). That fact drives the
-recommendation in §5.4.
+**⚠️ THIS PARAGRAPH WAS THE LIBRARY'S MOST-QUOTED SENTENCE AND PR #112 MADE IT FALSE.**
+It used to read *"P3 is the only unshaped property, and therefore the only one that
+needs no coverage argument at all"* (`Coverage.p3_lives_over_a_covering_class`).
+The post-#112 base validator reads an index out of a real redeemer and `pdropList`s
+into the withdrawal map; the unshaped goal now returns **no verdict** at a 600 s Z3
+cap, at 2400 s, with the redeemer skeleton frozen, or at a smaller prep budget (task
+N3). **No property in this library is proved unshaped any more**, and the theorem
+that sentence named no longer exists.
+
+What replaces it is weaker but still real, and is the reason the §5.4 recommendation
+survives in modified form: P3 is now proved over `WSC.WdrlPair`
+(`Coverage.p3_lives_over_the_wdrlPair_class`) — the class of contexts whose
+withdrawal map has length 2 with both credentials script credentials — and **that
+class has a complete, both-directions, non-circular characterisation in ledger
+vocabulary** (`Coverage.wdrlPair_char`, axioms `[propext]` only). So P3 is the one
+property whose coverage question is a fifteen-line theorem rather than a research
+programme; it is no longer the property that needs no such theorem at all.
 
 ### 2.1 The measurement that makes the re-cut credible
 
-**Every witness K is byte-identical before and after the re-cut** (2603 / 3572 / 3150
-/ 3572 / 1541 / 2837 / 784 / 784 / 1681 / 1257 / 1466 / 3004+3328). That is direct
+**Every witness K was byte-identical before and after the RE-CUT** — that was the
+C1/C2 measurement and it still holds of the re-cut itself. It is **not** true across
+PR #112, which changed three of the four validators: at 2306678 the same witnesses
+cost 2343 / 2567 / 2777 / 2567 / 1402 / 2196 / 784 / 784 / 1681 / 1257 / 1466 /
+2301+2412. **The six minting K's are unchanged to the step**, which is exactly what
+should happen — the minting bytecode is byte-identical across #112 — and is the
+control that makes the other six movements credible. That is direct
 evidence that none of the four validators dereferences `txInfoRedeemers` except
 `DelegateSeize`, whose K was re-measured (1466). Enlarging the redeemer map to satisfy
 the ledger cost the machine nothing, which is what you would expect if — and only if —
@@ -150,8 +189,14 @@ the map is not read.
 ### 2.2 Scope caveats, one per property, and they are binding
 
 * **P1** — Path A (the direct dispatch) only. Paths B and C and input-side aggregation
-  are unreachable at any shape because of Blaster defect **D6** (kernel-ill-typed
-  `dite'` on a symbolic CIP-153 `Value` result).
+  are **not proved**. Until 2026-07-28 the reason was Blaster defect **D6**
+  (kernel-ill-typed `dite'` on a symbolic CIP-153 `Value` result), which made the
+  T3/T4 preps impossible. **D6 is now fixed**, those preps build, and SHAPE T3's
+  accept class is measured non-empty — so the paths ARE reachable at UPLC. The
+  remaining obstacle is different and smaller: SHAPES T3/T4 are pre-re-cut and
+  therefore not node-realizable (T3 needs 3 redeemer entries and supplies 1), so a
+  theorem there would live over an unbuildable class. Closing this needs a **T3R/T4R
+  re-cut**, which is mechanical and not done.
 * **P2** — the containment conjunct is **false in general on the source model**: two
   machine-checked counterexamples show `ptokenPairsContain` is unsound with duplicate
   token names or unsorted maps. It closes at SHAPE S1R *because* S1R gives every value
@@ -223,8 +268,10 @@ layer adds no assumption, machine-verified.
    constraint on the whole deliverable. Enumeration cannot close it: the smallest
    bound admitting a real transfer already contains ≈9.27×10⁹ `Data` skeletons ≈
    **971 CPU-years** for one property at the measured cost.
-2. **D6 — HIGH.** Blaster emits kernel-ill-typed `dite'` on symbolic CIP-153 `Value`
-   results, blocking P1's remaining dispatch paths. Needs an upstream fix.
+2. **The T3R/T4R re-cut — MEDIUM.** (This slot used to read "D6 — HIGH"; **D6 is
+   fixed**, Blaster `4d320dd`, and both reproductions now build.) P1's remaining
+   dispatch paths are reachable at UPLC but have no node-realizable shape to be
+   proved over. Mechanical, ~a day, no upstream dependency.
 3. **`PropExecFaithful` (F8) — MEDIUM.** Theorems are on `.prop`; witnesses and every
    measured K are on `.exec`; the equality is unproved and deliberately **not**
    axiomatized. It binds all 12 re-cut groups and **both** composed results.

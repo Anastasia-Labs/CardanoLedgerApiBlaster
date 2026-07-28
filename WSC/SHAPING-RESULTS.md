@@ -1,4 +1,24 @@
 > ## ⚠️ HISTORICAL — task Z2's own record. SUPERSEDED for every status claim.
+
+> # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
+>
+> This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
+> (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
+> minting policy is byte-identical. Tasks N1–N6 re-based everything.
+>
+> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
+> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable, 102 WSC modules, two clean-room runs, wall ≈ 9.5 min,
+> peak RSS ≈ 4.35 GB.** Both composed results survive with **28** project axioms
+> each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
+> — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
+>
+> Everything that changed, with measurements: `WSC/AUDIT.md` (top banner) and
+> `WSC/status-fragments/N6-compose-and-reaudit.md`. Numbers in the body below
+> that disagree with the ones above are the pre-#112 record.
+
+---
+
 > **Dated pointer added at the G stage (H1, 2026-07-25).** This document is the
 > measurement ladder of **task Z2**, an early stage, and it is deliberately **not
 > rewritten**: its value is that it records what was true then, including the

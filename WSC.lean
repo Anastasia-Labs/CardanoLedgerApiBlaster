@@ -39,6 +39,17 @@ import WSC.Props.P3_BaseRun
 -- including class- and point-level realizability.  Read the header of
 -- WSC/Shaped/BaseShapedR.lean for the cut and what it costs.
 import WSC.Props.Shaped.P3ShapedR
+-- ── task N6: P3 at SHAPE B1W, and the RESTORED composition keystone ─────────
+-- SHAPES B1RG/B1RS freeze the whole `TxInfo`, so they are disjoint from the
+-- classes the composed results live over and cannot close branch C of
+-- `Composition.nonEscape_of_registered`.  SHAPE B1W freezes ONLY the withdrawal
+-- map (two script entries — what SHAPES T1R and S1R already have) and leaves the
+-- redeemer, both parameters and every other `TxInfo` field symbolic.  It closes
+-- in ≈ 5 s and is what `Composition.p3_lifted` now consumes.
+import WSC.Props.P3_BaseWdrl
+-- The measured boundary of that cut: withdrawal maps of length 1 and 2 close
+-- with the credentials fully symbolic too; length 3 returns no verdict at 900 s.
+import WSC.Shaped.Probe.P3WdrlLadder
 -- P4/P4a (issuance minting policy) at budget 900: statements + the machine-checked
 -- budget characterization and both positive witnesses. See the SOLVER COST stanza
 -- in that file for what is and is not closed.
@@ -131,13 +142,17 @@ import WSC.Props.Shaped.P1Shaped
 -- top theorem is a machine-checked REDUCTION of the claim to four named leaf
 -- obligations, none of which is fully discharged today.
 import WSC.Composition
--- P2 (seize/clawback) at UPLC over SHAPE S1, budget 3800 (task Z6): BOTH
--- conjuncts, including the containment conjunct that WSC/Props/P2_Seize.lean §5
--- records as unproven on the source model.  READ the SCOPE block: two binding
--- bounds (budget + shape) plus three by-construction equalities forced by the
--- `#prep_uplc` defect D4 documented in WSC/Shaped/SeizeShaped.lean's header.
+-- SHAPE S1 — the PRE-re-cut seize shape.  `WSC/Props/Shaped/P2Shaped.lean`, which
+-- proved P2 over it at budget 3800 (task Z6), was DELETED by task N6: it is
+-- REFUTED at wsc-poc `main` @ 2306678 (PR #112) — `P2a_shaped_structure`
+-- `❌ Falsified` on the ada top-up #112 legalised, and its K measurement
+-- `native_decide`-false because the seize step counts moved.  It is superseded by
+-- `WSC/Props/Shaped/P2ShapedR.lean` over the node-realizable SHAPE S1R.  The four
+-- SHAPE-S1 witness contexts survive in WSC/Shaped/S1Witnesses.lean, because
+-- WSC/Props/Shaped/RealizableShapes.lean's measurement "none of them is
+-- redeemer-covered" is the historical justification for the S1 → S1R re-cut.
 import WSC.Shaped.SeizeShaped
-import WSC.Props.Shaped.P2Shaped
+import WSC.Shaped.S1Witnesses
 import WSC.Shaped.Probe.S1K
 -- ── task V3: the remaining P4 arms, the four-way disjunction, and P6 ─────────
 -- SHAPE L1 (Local), DT1 (DelegateTransfer), DS1 (DelegateSeize) complete the

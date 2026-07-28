@@ -48,11 +48,17 @@ package «CardanoLedgerApi» where
   --     not itself check them for a path dep; `lake update` would drop them.)
   --   * `WSC/ARCHITECTURE.md` ADDENDUM E11.
   --
-  -- OFFLINE ARTIFACT: `WSC/substrate/pcb-cip153-value-builtins.bundle`
-  -- (39,068 bytes, sha256 3d34a23d5e25ac09beddcdf6032ecb3d13c47d064239b09be8040842d1a82789)
-  -- carries exactly the two commits above on top of the public base. E3 verified
-  -- it reconstructs HEAD 9f9ca8c and tree e75862b26b5055e8cc36ea8cf393054e2417ca62
-  -- byte-identically (`diff -r` clean). See `WSC/substrate/README.md`.
+  -- OFFLINE ARTIFACTS (TWO, and both are needed — task N6):
+  --   1. `WSC/substrate/pcb-cip153-value-builtins.bundle`
+  --      (39,068 bytes, sha256 3d34a23d5e25ac09beddcdf6032ecb3d13c47d064239b09be8040842d1a82789)
+  --      carries the two commits up to 9f9ca8c on top of the public base. E3
+  --      verified it reconstructs HEAD 9f9ca8c and tree
+  --      e75862b26b5055e8cc36ea8cf393054e2417ca62 byte-identically.
+  --   2. `WSC/substrate/pcb-scalevalue-3fdd3fb.bundle`
+  --      (14,697 bytes, sha256 0e373d0004275db3e9f80c8e4ef994e5b7955d952ca48048434ebc0a19b7d27c)
+  --      is INCREMENTAL on top of 9f9ca8c and reconstructs HEAD 3fdd3fb, tree
+  --      1c9d80221bd59fdd21ab132d1fcec086c7bbf3b9 — the revision ACTUALLY USED.
+  -- See `WSC/substrate/README.md`.
   --
   -- WHAT DEPENDS ON IT: that branch carries the CIP-153 Value builtins — flat
   -- decoder tags 94-99 (`PlutusCore/UPLC/FlatEncoding/Basic.lean:305-310`) plus
@@ -65,7 +71,7 @@ package «CardanoLedgerApi» where
   -- RESIDUAL RISK: the bundle removes the "unpushed branch" objection but not the
   -- "single machine" one — the artifact is only as good as its custody. Publish
   -- the branch, then restore a real git pin by replacing the `require` with:
-  --   require PlutusCore from git "https://github.com/input-output-hk/PlutusCoreBlaster" @ "9f9ca8c…"
+  --   require PlutusCore from git "https://github.com/input-output-hk/PlutusCoreBlaster" @ "3fdd3fb…"
   --
   -- Cross-references: `WSC/REPRODUCE.md` (third-party recipe, rehearsed end to
   -- end), `WSC/substrate/README.md` (bundle verify/apply),
@@ -102,6 +108,16 @@ package «CardanoLedgerApi» where
   --
   -- NOT PUSHED anywhere. To build elsewhere, clone Lean-blaster at 59db213 and
   -- apply that one commit, then edit this path and lake-manifest.json.
+  --
+  -- OFFLINE ARTIFACT (NEW at task N6 — before it, this dependency had NONE, so
+  -- `WSC/substrate/` did not actually reconstruct the substrate):
+  --   `WSC/substrate/blaster-d6-dite-4d320dd.bundle`
+  --   (3,313 bytes, sha256 19e67631d1d5ff30ac0c47377131188031d66c6fa1aebaa37de775dbcb502b8c)
+  --   incremental on public 59db213, reconstructs HEAD 4d320dd, tree
+  --   9550c96b0dff95096d07d29825a19d885fe7c6cd.
+  --   Equivalently `WSC/substrate/patches/0003-Optimize-DITE-re-type-branch-binders-D6.patch`.
+  -- Both bundles verify with `git bundle verify` against the LOCAL repos only;
+  -- they have not been tested against a fresh clone of the public remotes.
   require Blaster from "/home/gumbo/iohk/Lean-blaster-wsc"
 
 @[default_target]

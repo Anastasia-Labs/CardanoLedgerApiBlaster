@@ -1,5 +1,70 @@
 # REPRODUCE — building and re-checking the WSC containment campaign elsewhere
 
+> # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
+>
+> This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
+> (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
+> minting policy is byte-identical. Tasks N1–N6 re-based everything.
+>
+> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
+> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable, 102 WSC modules, two clean-room runs, wall ≈ 9.5 min,
+> peak RSS ≈ 4.35 GB.** Both composed results survive with **28** project axioms
+> each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
+> — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
+>
+> Everything that changed, with measurements: `WSC/AUDIT.md` (top banner) and
+> `WSC/status-fragments/N6-compose-and-reaudit.md`. Numbers in the body below
+> that disagree with the ones above are the pre-#112 record.
+
+---
+
+
+## 0-N6. WHAT CHANGED FOR A THIRD PARTY AFTER wsc-poc PR #112
+
+Three things, and two of them make reproduction HARDER.
+
+1. **Machine requirements moved.** The clean-room rebuild now takes **≈ 9.5
+   minutes** (was 1:46–2:10) and peaks at **≈ 4.35 GB RSS** (was 1.65 GB). Plan
+   for **5 GB of free RAM**. `WSC.Prep.Global1600` alone accounts for **516 s** of
+   the wall — 89 % of it. It is the `#prep_uplc` of the post-#112
+   `programmableLogicGlobal`, whose flat got smaller (6880 → 5624 hex chars) but
+   whose term got much harder because #112 moved the mint merge and the per-pair
+   value delta onto CIP-153 `Value` builtins.
+2. **The PlutusCoreBlaster pin is now needed by TWO validators, not one, and it
+   needs a SEVENTH builtin.** Pre-#112 only `programmableLogicGlobal` failed to
+   decode against stock PCB. Post-#112 **`programmableSeize` fails too**, and it
+   uses `ScaleValue` — plutus-core flat tag **100** — which was NOT among the six
+   the branch originally carried (tags 94–99). The required PCB revision is
+   `cip153-value-builtins` @ **3fdd3fb** (task N5); anything earlier gives
+   `Could not decode program!` on `WSC/flats/programmableSeize.flat`, and any
+   attempt to guess the tag is unsafe (89–91 are present-but-commented in
+   plutus-core, so "next free number" is wrong).
+   The same commit also fixes a **cost-table bug** only seize could expose:
+   `unValueData` and `valueData` carried plutus **1.57** coefficients in an
+   otherwise-1.63 table. With it, PCB's metered budget reproduces the ledger
+   `ExBudget` **exactly on all nine accepting goldens** (was 7 of 9).
+3. **Blaster is now a local path pin too.** `require Blaster from
+   "/home/gumbo/iohk/Lean-blaster-wsc"`, branch `wsc-d6-dite-branch-retype` @
+   **4d320dd** = public `59db213` + ONE commit. Without that commit the seize
+   shaped prep and `WSC/Prep/Global1600` both die with a KERNEL
+   `application type mismatch` on `Blaster.dite'` (defects D6/D8): the condition
+   and the branch lambdas are optimized independently, so a normalisation that
+   rewrites `¬c` without rewriting `c` emits a term the kernel rejects. Two such
+   normalisations fire on #112 bytecode. Verdict-neutrality was controlled: the
+   eight `WSC/Props/Shaped/P4*` modules give byte-identical counts (42 V + 23 F)
+   with and without the patch.
+
+**Net:** reproducing this library off this machine now requires **three**
+unpublished branches (PCB `cip153-value-builtins` @ 3fdd3fb, Blaster
+`wsc-d6-dite-branch-retype` @ 4d320dd, and CLAB `wsc-containment-proofs` itself),
+where before it required one. The offline `git bundle` under `WSC/substrate/`
+carries only the PCB branch **at 9f9ca8c** and is therefore STALE — it predates
+`ScaleValue` and will not decode the post-#112 seize flat.
+
+---
+
+
 This is the third-party recipe. It assumes nothing about the machine the campaign
 was developed on. Every expected number below was measured by task E5 on
 2026-07-25 at branch `wsc-containment-proofs`; where a number is a range, the range
@@ -26,11 +91,30 @@ Two dependencies:
 
 | package | how | pinned to |
 |---|---|---|
-| `Blaster` | git require, public | `59db213ca6396269d2606b7dd9ac2bc26ae7c4ce` on `https://github.com/input-output-hk/Lean-blaster`, branch `beta-lambda-cache-optimization` |
-| `PlutusCore` (PlutusCoreBlaster) | **absolute local path** | `9f9ca8c76baf3b5efdb63c33ca0091efa606b474`, branch `cip153-value-builtins` — **not on the public remote** |
+| `Blaster` | **absolute local path** (was: git require, public) | `4d320dd5f70ac953945b5126f5cfd45128da8131`, branch `wsc-d6-dite-branch-retype`, tree `9550c96b0dff95096d07d29825a19d885fe7c6cd` — = public `59db213` **+ one commit** (the D6 fix) — **not on the public remote** |
+| `PlutusCore` (PlutusCoreBlaster) | **absolute local path** | `3fdd3fb5cb259f039b60cc584cd954de18c819dc`, branch `cip153-value-builtins`, tree `1c9d80221bd59fdd21ab132d1fcec086c7bbf3b9` — **not on the public remote** |
 
-The Blaster pin is a real, verified `rev` in `lake-manifest.json`. Branch names
-move; the manifest rev is what is checked.
+**⚠️ BOTH PINS MOVED, AND BOTH ARE NOW UNPUBLISHED LOCAL PATHS.** This table used
+to say Blaster was a real, verified `rev` in `lake-manifest.json` fetched from a
+public remote — *"branch names move; the manifest rev is what is checked"*. That
+is **no longer true of either dependency**: `lake` does not verify the `rev` key
+on a `"type": "path"` entry, so neither pin is machine-enforced. The revisions
+above are the ones actually used to produce every number in this library, read
+straight off the two working repositories; treat them as documentation, not as a
+lock file.
+
+Both changes are consequences of wsc-poc PR #112:
+
+* PCB `9f9ca8c` → **`3fdd3fb`** — adds the CIP-153 **`ScaleValue`** builtin at flat
+  tag **100**, without which the post-#112 `programmableSeize` script does not
+  decode AT ALL, and fixes `unValueData`/`valueData` costs that were still on
+  plutus 1.57 coefficients in an otherwise-1.63 table (task N5).
+* Blaster `59db213` → **`4d320dd`** — the defect **D6** fix, without which the
+  global prep at budget 1600 and the seize shaped prep both die in the kernel
+  (tasks N5/N4).
+
+Neither is optional and there is no fallback: at the earlier revisions three of
+the six properties are not merely unproved, they are **unstatable**.
 
 ---
 
@@ -54,7 +138,49 @@ git checkout cip153-value-builtins
 
 git rev-parse HEAD         # 9f9ca8c76baf3b5efdb63c33ca0091efa606b474
 git rev-parse HEAD^{tree}  # e75862b26b5055e8cc36ea8cf393054e2417ca62
+
+# …then the SECOND, incremental bundle (task N5) that adds ScaleValue:
+git bundle verify  <CLAB>/WSC/substrate/pcb-scalevalue-3fdd3fb.bundle
+git fetch          <CLAB>/WSC/substrate/pcb-scalevalue-3fdd3fb.bundle \
+    'refs/heads/cip153-value-builtins:refs/heads/cip153-value-builtins'
+git checkout cip153-value-builtins
+git rev-parse HEAD         # 3fdd3fb5cb259f039b60cc584cd954de18c819dc
+git rev-parse HEAD^{tree}  # 1c9d80221bd59fdd21ab132d1fcec086c7bbf3b9
 ```
+
+### 1b. Blaster — NEW at task N6, and previously missing entirely
+
+`Blaster` is no longer a public git require: it carries the D6 fix as one commit
+on top of the public base. Until task N6 the repository shipped **no offline
+artifact for it at all**, so `WSC/substrate/` did not in fact reconstruct the
+substrate. It now does:
+
+```bash
+git clone https://github.com/input-output-hk/Lean-blaster /some/path/Lean-blaster-wsc
+cd /some/path/Lean-blaster-wsc
+git checkout 59db213ca6396269d2606b7dd9ac2bc26ae7c4ce   # the public base
+
+git bundle verify  <CLAB>/WSC/substrate/blaster-d6-dite-4d320dd.bundle
+git fetch          <CLAB>/WSC/substrate/blaster-d6-dite-4d320dd.bundle \
+    'refs/heads/wsc-d6-dite-branch-retype:refs/heads/wsc-d6-dite-branch-retype'
+git checkout wsc-d6-dite-branch-retype
+
+git rev-parse HEAD         # 4d320dd5f70ac953945b5126f5cfd45128da8131
+git rev-parse HEAD^{tree}  # 9550c96b0dff95096d07d29825a19d885fe7c6cd
+```
+
+Equivalently, `WSC/substrate/patches/0003-Optimize-DITE-re-type-branch-binders-D6.patch`
+is the same commit as a `git am`-able patch (6,073 bytes).
+
+Then point `lakefile.lean`'s `require Blaster from "…"` at that path.
+
+**Caveat, stated because it is the kind of thing this document exists to catch:**
+both bundles are INCREMENTAL and were verified with `git bundle verify` **against
+the local working repositories**, which is the only check available offline. They
+have NOT been verified against a fresh clone of either public remote, because
+that needs network access this machine did not use. The prerequisite commits
+(`9f9ca8c` for PCB's second bundle, `59db213` for Blaster's) are public, so the
+fetch should succeed — but it is untested.
 
 If those last two hashes do not match, **stop** — nothing below means anything,
 because the CIP-153 `Value` builtins on that branch are what let the production

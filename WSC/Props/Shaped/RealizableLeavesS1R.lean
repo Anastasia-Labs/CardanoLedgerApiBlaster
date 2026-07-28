@@ -68,7 +68,7 @@ class, each stated here because each is doing work:
 
 **THE CLASS IS NOT EMPTY.** §5 re-certifies `WSC.P2RWitness.ctxAccept` — the
 SHAPE-S1R witness that satisfies `validRewardingContext`, both halves of Conway's
-`redeemersExactAllPlutus`, and real-CEK acceptance at K = 3004 — as a member (`mlCS = mCS
+`redeemersExactAllPlutus`, and real-CEK acceptance at K = 2301 (was 3004 pre-#112) — as a member (`mlCS = mCS
 = key = "MMM"`, withdrawals at `AASEIZE`/`ZZILS`, base `PROGLOGIC`).
 
 ════════════════════════════════════════════════════════════════════════════
@@ -202,6 +202,27 @@ def S1RCore (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
 def S1RShape (hp : WSC.HonestParams) (ctx : ScriptContext) : Prop :=
   S1RCore hp ctx ∧ NoGlobalWdrl hp ctx ∧ SeizeWithinBudget hp ctx
 
+/-! ## §2W THE SIDE CONDITION wsc-poc PR #112 FORCED INTO THE COMPOSITION
+
+`Composition.top_claim` now also takes `WdrlPairShaped Shape` — see
+`WSC/Props/P3_BaseWdrl.lean` and `WSC/Props/Shaped/RealizableLeaves.lean` §2W.
+SHAPE S1R's withdrawal map is `WSC.seizeShapedWdrl`, which is literally
+`[(.ScriptCredential w0, a0), (.ScriptCredential w1, a1)]` = `WSC.bwWdrl`, so the
+obligation costs this class nothing either. -/
+
+/-- SHAPE S1R's `txInfoWdrl` IS SHAPE B1W's, definitionally. -/
+theorem seizeShapedWdrl_is_bwWdrl (w0 w1 : ByteString) (a0 a1 : Integer) :
+    seizeShapedWdrl w0 w1 a0 a1 = WSC.bwWdrl w0 w1 a0 a1 := rfl
+
+/-- **The side condition holds over SHAPE S1R.** -/
+theorem s1RShape_wdrlPair (hp : WSC.HonestParams) :
+    Composition.WdrlPairShaped (S1RShape hp) := by
+  rintro ctx ⟨⟨plc, w0, key, _, _, mlH, inStk, i0Ada, mlTn, i0Qty, dIn, wallet, i1Ada,
+    i1CS, i1Tn, i1Qty, oStk, o0Ada, o0Qty, dOut, escH, o1Ada, o1CS, o1Tn, o1Qty, mTn, mQ,
+    pHash, pCS, pTn, pAda, pQty, dirCS, glc, slc, nHash, nCS, nTn, nAda, nQty,
+    next, tlsH, ilsH, gsCS, w1, a0, a1, spRed, mtRed, ilRed, fee, hti⟩, _, _⟩
+  exact ⟨w0, w1, a0, a1, by rw [hti]; rfl⟩
+
 /-! ## §3 The four leaves -/
 
 /-! ### §3.1 `LeafSet.p1` — BY THE SHAPE, through the same ledger rule as
@@ -296,7 +317,7 @@ The seize-side twin of `RealizableLeaves.§4`, link for link:
    budgets were consumed by nothing; this makes it four).
 4. `bridge_S1R` (§1) turns that into the `.prop` term the P2 theorems quantify
    over. `PropExecFaithful` (audit F8) binds this step exactly as it binds T1R's.
-5. `WSC.P2b_R_containment` — `✅ Valid`, budget 3800, witness K = 3004 — gives the
+5. `WSC.P2b_R_containment` — `✅ Valid`, budget 3800, witness K = 2301 (was 3004 pre-#112) — gives the
    containment inequality at the SEIZED policy `key`, for every token name.
 6. Every other policy holds nothing at the mini-ledger and is not minted (the
    class's conjuncts 5/6), so containment there is `0 ≥ 0 + 0` — with the ONE
@@ -514,11 +535,12 @@ one other; a one-policy mint of the SEIZED policy; two script withdrawals, one o
 them the seize script; a four-entry redeemer map covering all four script
 witnesses; two reference inputs — protocol params and the directory node whose
 key is the seized policy) and whose seize-validator run halts within
-`K_seize = 3800` CEK steps. The accepting witness costs **K = 3004**. -/
+`K_seize = 3800` CEK steps. The accepting witness costs **K = 2301** (was 3004 pre-#112). -/
 theorem containment_on_seize_class (hp : WSC.HonestParams) (hdep : WSC.Deployed hp) :
     ∀ (L : Composition.Ledger), Composition.Reachable hp (S1RShape hp) L →
       Composition.I hp L :=
-  Composition.top_claim hp (S1RShape hp) (realizableLeavesS1R hp) hdep
+  Composition.top_claim hp (S1RShape hp) (realizableLeavesS1R hp)
+    (s1RShape_wdrlPair hp) hdep
 
 /-- The plain-English form. -/
 theorem no_tokens_outside_mini_ledger_on_seize_class
@@ -529,7 +551,7 @@ theorem no_tokens_outside_mini_ledger_on_seize_class
     ∀ u ∈ L, WSC.payCred u.utxoOut ≠ hp.progLogicCred →
       valueOf cs tn u.utxoOut.txOutValue = (0:Int) :=
   Composition.no_programmable_tokens_outside_mini_ledger hp (S1RShape hp)
-    (realizableLeavesS1R hp) hdep L hR cs tn hcs hreg
+    (realizableLeavesS1R hp) (s1RShape_wdrlPair hp) hdep L hR cs tn hcs hreg
 
 /-! ## §5 THE SEIZE CLASS IS NOT EMPTY
 
@@ -578,8 +600,9 @@ theorem s1RShape_witness :
 /-- **THE INHABITANT IS ACCEPTED BY THE PRODUCTION BYTECODE, on the very term the
 budget bridge names.** `WSC.P2RWitness.exec_accepts_at_3800` is `native_decide` on
 the real CEK through `appliedSeizeRShaped3800.exec`; `exec_S1R` (§1, `rfl`) is what
-carries it to `Runs.seizeRun 3800`. Exact cost K = 3004, pinned two-sided by
-`WSC.P2RWitness.K_is_3004_and_3328`.
+carries it to `Runs.seizeRun 3800`. Exact cost K = 2301, pinned two-sided by
+`WSC.P2RWitness.K_is_2301_and_2412` (pre-#112 this was 3004, pinned by
+`K_is_3004_and_3328`, which is now `native_decide`-FALSE and retired).
 
 This matters more here than on the transfer side, because §2's conjuncts 5 and 6
 RESTRICT the class: the check that they did not restrict it out of the accept
@@ -604,6 +627,7 @@ theorem realizable_inhabitant_S1R :
 
 /-! ## §6 AXIOM AUDIT, printed at build time -/
 
+#print axioms s1RShape_wdrlPair
 #print axioms exec_S1R
 #print axioms bridge_S1R
 #print axioms p1_of_noGlobalWdrl

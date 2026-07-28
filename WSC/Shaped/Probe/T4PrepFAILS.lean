@@ -1,46 +1,42 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
-WSC/Shaped/Probe/T4PrepFAILS.lean — **THIS MODULE DOES NOT BUILD. IT IS KEPT AS
-THE REPRODUCTION OF AN UPSTREAM BLASTER DEFECT.** Nothing imports it. Run it
-deliberately:
+WSC/Shaped/Probe/T4PrepFAILS.lean — **REGRESSION TEST for upstream Blaster
+defect D6. THE FILENAME IS HISTORICAL: THIS MODULE NOW BUILDS.**
 
-    lake build WSC.Shaped.Probe.T4PrepFAILS      # expected: kernel errors
+Companion to `T3PrepFAILS.lean`; read that module's header first, it carries the
+full account. Kept under its old name for the same reason (cited by path across
+`WSC/`).
 
-WHAT IT TRIES TO DO (task V1 step 4, the task's preferred growth step). SHAPES
-T4/T5 (WSC/Shaped/GlobalShapedP1Agg.lean) give SHAPE T1/T2 a SECOND mini-ledger
-input, so containment has to aggregate on the INPUT side. Two contributing inputs
-put `pvalueFromCred` into PHASE 3 `goBuiltin` (ProgrammableLogicBase.hs:446-458),
-whose accumulator is the CIP-153 builtin `punionValue` and whose exit bridge is
-`pinsertCoin # "" # "" # 0`.
+SHAPES T4/T5 exercise INPUT-SIDE aggregation: two mini-ledger inputs, so
+`pvalueFromCred` reaches phase 3 and merges them with the CIP-153 builtin
+`punionValue`. Until 2026-07-28 both preps died in the kernel with the D6
+`Blaster.dite'` motive mismatch — here the offending rewrite is De Morgan on
+`¬(A ∧ B)` rather than T3's `¬(true = b)`, which is why the pair is worth
+keeping: they cover the two DISTINCT normalisations that trigger the defect.
 
-WHAT HAPPENS. `#prep_uplc` completes with a CORRECT residual — the error dump
-shows `Blaster.dite' (qOut < qIn0.add qIn1) (fun x => Error) (fun x => Halt)`,
-i.e. the aggregated containment test, exactly as intended — but the term is
-KERNEL-ILL-TYPED at the builtin's 128-bit range guard:
+**D6 IS FIXED** (Blaster `wsc-d6-dite-branch-retype` @ `4d320dd`, task N5:
+`optimizeDITE` rebuilds both branch binder types from the final condition).
+MEASURED at that commit, warm: `lake build WSC.Shaped.Probe.T4PrepFAILS` →
+**exit 0, 0 errors, 9.4 s**, both `#prep_uplc` commands completing.
 
-    (kernel) application type mismatch
-      Blaster.dite' (¬ qIn0+qIn1 < -2^127 ∧ ¬ -1+2^127 < qIn0+qIn1) …
-    argument has type    (qIn0+qIn1 < -2^127 ∨ -1+2^127 < qIn0+qIn1) → State
-    but function has type (¬(¬ qIn0+qIn1 < -2^127 ∧ ¬ -1+2^127 < qIn0+qIn1) → State) → State
+**RETRACTED.** This docstring used to say:
 
-i.e. the optimizer De-Morgan-normalized the ELSE branch's binder TYPE without
-updating the `Blaster.dite'` motive. Same root cause as
-WSC/Shaped/Probe/T3PrepFAILS.lean (there the rewrite is Bool polarity
-`¬(true = b)` ⇝ `false = b`).
+> Phase 3 of `pvalueFromCred` is therefore unreachable at UPLC with this
+> substrate, and with it ARCHITECTURE.md §3-P1's lemma L1.3 on shapes with more
+> than one mini-ledger input.
 
-SCOPE OF THE BLOCKAGE — WIDER THAN THIS SHAPE. `punionValue` sums the LOVELACE
-entry of the two canonical values it merges, so the guard fires on
-`inAda0 + inAda1` for EVERY two-contributing-input shape, whatever the policies
-are. Phase 3 of `pvalueFromCred` is therefore unreachable at UPLC with this
-substrate, and with it ARCHITECTURE.md §3-P1's lemma L1.3 on shapes with more
-than one mini-ledger input. The OUTPUT-side aggregation dimension does not go
-through any builtin (Path A adds with plain Integer addition) and IS proved —
-SHAPES T6/T7, `WSC/Props/Shaped/P1Shaped.lean` §5.
+That is now FALSE and is withdrawn: phase 3 preps. What is still true, and is
+the reason no P1 result is claimed here, is that SHAPES T4/T5 are PRE-RE-CUT and
+so are not node-realizable (their redeemer maps are not exact — audit **F2**);
+input-side aggregation needs a re-cut T4R before it can be proved to this
+library's four-point bar. Unlike T3 no vacuity probe is stated here, so the
+non-emptiness of T4/T5's accept classes is UNMEASURED — do not assume it.
 
 The shape definitions themselves are fine and are still used: the K measurements
-and the source-model cross-check in WSC/Shaped/Probe/T4Probe.lean build and pass
-(SHAPE T4 K = 3001, SHAPE T5 burn K = 3970, model accepts/rejects as expected).
-Recorded in WSC/status-fragments/V1-P1-shaped.md.
+and the source-model cross-check in `WSC/Shaped/Probe/T4Probe.lean` build and
+pass (SHAPE T4 K = 3001, SHAPE T5 burn K = 3970). The OUTPUT-side aggregation
+dimension does not go through any builtin (Path A adds with plain Integer
+addition) and IS proved — SHAPES T6/T7, `WSC/Props/Shaped/P1Shaped.lean` §5.
+Recorded in `WSC/status-fragments/V1-P1-shaped.md`.
 -/
 import WSC.Shaped.GlobalShapedP1Agg
 import WSC.Prep.Global1600

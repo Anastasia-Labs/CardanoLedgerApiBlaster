@@ -89,6 +89,16 @@ import WSC.Props.P3_Base
 -- `WSC.P3_base_requires_global_or_seize_run` and no `#prep_uplc` output appears
 -- anywhere on the composition's keystone path (see that module's header).
 import WSC.Props.P3_BaseRun
+-- Task N6: the RUN-form keystone AT SHAPE B1W.  After wsc-poc PR #112 the base
+-- validator reads an index out of its redeemer and `pdropList`s into the
+-- withdrawal map, so the UNSHAPED P3 no longer closes (task N3).  N3's re-proof
+-- is over SHAPES B1RG/B1RS, which freeze the WHOLE `TxInfo` and are therefore
+-- DISJOINT from the classes this file's leaves are discharged over.  SHAPE B1W
+-- freezes only `txInfoWdrl` (a two-entry script map — exactly what SHAPES T1R
+-- and S1R already have) and leaves the redeemer, the parameters and every other
+-- `TxInfo` field symbolic; `p3_lifted` below consumes it.  Read that module's
+-- header for the measurement table and for what is still lost.
+import WSC.Props.P3_BaseWdrl
 -- Task U2: `WSC.P4Witness` (the concrete `BurnOnly` minting context) and
 -- `appliedMinting900`, used to DISCHARGE `WSC.MintingNonVacuous` as a theorem in
 -- §9.5a. This module does NOT import `WSC.Honest`, so there is no cycle, and it
@@ -1161,6 +1171,21 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
     WSC.registeredIn hp.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoOutputs →
       OutOfBase hp.progLogicCred cs tn L = 0 ∧ NonEscape hp.progLogicCred cs tn ctx
 
+/-- **`LeafSet` IS ANTITONE IN `Shape`** (task N6).  Every field takes `Shape ctx`
+(or `HonestTx hp Shape ctx`) as a HYPOTHESIS, so a `LeafSet` over a class
+restricts to any subclass for free.  Used to intersect the two §11 bonus classes
+with `WSC.WdrlPair`, which wsc-poc PR #112 made necessary for `p3_lifted`.
+Nothing is re-proved and nothing is weakened; the narrowing is visible in the
+statements of the two theorems that use it. -/
+theorem LeafSet.narrow {hp : WSC.HonestParams} {Shape Shape' : ScriptContext → Prop}
+    (leaves : LeafSet hp Shape) (h : ∀ ctx, Shape' ctx → Shape ctx) :
+    LeafSet hp Shape' :=
+  { p4 := fun ctx ctx' cs mlh hdep hoc hsh => leaves.p4 ctx ctx' cs mlh hdep hoc (h ctx hsh)
+  , p1 := fun ctx ctx' cs tn hdep hoc hsh => leaves.p1 ctx ctx' cs tn hdep hoc (h ctx hsh)
+  , p2 := fun ctx ctx' cs tn hdep hoc hsh => leaves.p2 ctx ctx' cs tn hdep hoc (h ctx hsh)
+  , nopre := fun L ctx L' cs tn hdep hstep htx =>
+      leaves.nopre L ctx L' cs tn hdep hstep ⟨htx.1, htx.2.1, h ctx htx.2.2⟩ }
+
 /-! # §7 Preservation
 
 The branch analysis of ARCHITECTURE.md §5.2, proved from `LeafSet` and the
@@ -1248,6 +1273,22 @@ the plumbing itself instead of assuming it:
 `WSC.P3_base_requires_global_or_seize_run`, a `by blaster` theorem over the REAL
 compiled `programmableLogicBase` bytecode with no shape restriction.
 
+**RE-CUT BY TASK N6 AFTER wsc-poc PR #112, AND THE RE-CUT IS VISIBLE IN THE
+SIGNATURE.** Pre-#112 this theorem held for a transaction with ANY withdrawal
+map: the base validator scanned `txInfoWdrl` with a `pfix` loop and `blaster`
+closed the unshaped goal. #112 replaced the scan with `pdropList <index from the
+redeemer>`, and a symbolic index into a symbolic-length list does not close
+(task N3, measured `⚠️ Undetermined` at 600 s and at 2400 s). So this theorem
+now carries `hw : WSC.WdrlPair ctx` — *the transaction's withdrawal map is a
+two-entry map at two script credentials*. That is the ONLY new hypothesis:
+nothing is assumed about the redeemer, the inputs, the outputs, the mint, the
+redeemer map or the parameters' constructor tags. It is satisfied by `rfl` at
+both classes the library composes over (SHAPES T1R and S1R both have exactly
+that map), and the requirement is threaded upward — `nonEscape_of_registered`,
+`preservation`, `top_claim` — as `WdrlPairShaped Shape`, so the narrowing is in
+the type of the top claim and cannot be forgotten. **This is a genuine loss of
+reach and is reported as one** (`WSC/AUDIT.md`, `WSC/IMPACT-PR112.md` §N6).
+
 **RE-PLUMBED BY TASK A1, and this is the one place in the library where the
 `prop`-vs-`exec` residual (audit F8) is actually REMOVED rather than relocated.**
 `WSC.LR_BUDGET_base` now delivers `isSuccessful (Runs.baseRun K_base …)` — the
@@ -1266,7 +1307,8 @@ SCOPE: `WithinBudget`'s base clause (600 CEK steps) is where E1 bites. -/
 theorem p3_lifted (hp : WSC.HonestParams) (ctx : ScriptContext) (t : TxInInfo)
     (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx) (hb : WithinBudget hp ctx)
     (ht : t ∈ ctx.scriptContextTxInfo.txInfoInputs)
-    (hpc : WSC.payCred t.txInInfoResolved = hp.progLogicCred) :
+    (hpc : WSC.payCred t.txInInfoResolved = hp.progLogicCred)
+    (hw : WSC.WdrlPair ctx) :
     credentialInWithdrawals hp.globalLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true ∨
     credentialInWithdrawals hp.seizeLogicCred ctx.scriptContextTxInfo.txInfoWdrl = true := by
   obtain ⟨r, d, hoc', hacc⟩ := WSC.LR_SPEND_RUNS_VALIDATOR hp ctx t hdep hoc ht hpc
@@ -1274,9 +1316,26 @@ theorem p3_lifted (hp : WSC.HonestParams) (ctx : ScriptContext) (t : TxInInfo)
   have hsucc :=
     (WSC.LR_BUDGET_base WSC.K_base baseNonVacuous
       hp.globalLogicCred hp.seizeLogicCred _ hoc' hsteps).mp hacc
-  have := WSC.P3_base_requires_global_or_seize_run hp.globalLogicCred hp.seizeLogicCred _
-    (validSpendingContext_of_onChain ctx r t.txInInfoOutRef d hoc') hsucc
+  -- `WSC.withPurpose` keeps the `TxInfo`, so the side condition transports.
+  have hw' : WSC.WdrlPair (WSC.withPurpose ctx r (.SpendingScript t.txInInfoOutRef d)) := by
+    simpa [WSC.WdrlPair, WSC.withPurpose] using hw
+  have := WSC.P3_base_requires_global_or_seize_run_W hp.globalLogicCred hp.seizeLogicCred _
+    hw' hsucc
   simpa [WSC.withPurpose] using this
+
+/-- **THE SHAPE SIDE CONDITION `p3_lifted` NEEDS, AT CLASS LEVEL** (task N6).
+
+*Every transaction of the class has a two-entry, both-script withdrawal map.*
+
+This is the ONE thing wsc-poc PR #112 forced into the composition's statement:
+the post-#112 base validator indexes into `txInfoWdrl` instead of scanning it,
+and a symbolic index into a symbolic-length list does not close (task N3's
+measurement table, `WSC/Props/P3_BaseWdrl.lean` header).  It is a statement about
+the SHAPE, in ground-truth ledger vocabulary, discharged by `rfl` at both classes
+the library composes over — but it is carried explicitly rather than folded into
+`LeafSet`, so it does not masquerade as a leaf discharged by the bytecode. -/
+def WdrlPairShaped (Shape : ScriptContext → Prop) : Prop :=
+  ∀ ctx, Shape ctx → WSC.WdrlPair ctx
 
 /-- **`covering_excludes_ledger_registration`** — the LEDGER-level half of
 ADDENDUM E3's bridge, proved from `DIRWF_L` (below) rather than assumed. Stated
@@ -1554,7 +1613,7 @@ P-theorem. Every context handed to a leaf is `WSC.withPurpose ctx _ _`, so
 `SameTx` holds by `rfl` and the whole analysis lives on ONE shared `TxInfo`
 (Tier 5.1). -/
 theorem nonEscape_of_registered (hp : WSC.HonestParams) (Shape : ScriptContext → Prop)
-    (leaves : LeafSet hp Shape)
+    (leaves : LeafSet hp Shape) (hwd : WdrlPairShaped Shape)
     (L : Ledger) (ctx : ScriptContext) (L' : Ledger)
     (cs : CurrencySymbol) (tn : TokenName)
     (hdep : WSC.Deployed hp)
@@ -1600,7 +1659,7 @@ theorem nonEscape_of_registered (hp : WSC.HonestParams) (Shape : ScriptContext �
         WSC.payCred t.txInInfoResolved = hp.progLogicCred
     · -- BRANCH C (exit: a mini-ledger UTxO is spent)
       obtain ⟨t, ht, hpc⟩ := hbi
-      rcases p3_lifted hp ctx t hdep hoc hb ht hpc with hglob | hseize
+      rcases p3_lifted hp ctx t hdep hoc hb ht hpc (hwd ctx hsh) with hglob | hseize
       · exact nonEscape_of_contain hp ctx cs tn hoc hcs hin (viaGlobal hglob)
       · exact nonEscape_of_contain hp ctx cs tn hoc hcs hin (viaSeize hseize)
     · -- BRANCH A (no mini-ledger input at all, nothing minted): pure conservation
@@ -1625,7 +1684,7 @@ The reduction: `lr_utxo_semantics` turns the goal into
 `nonEscape_of_registered` gives `outOff = 0`. The newly-registered case is the
 `LeafSet.nopre` obligation. -/
 theorem preservation (hp : WSC.HonestParams) (Shape : ScriptContext → Prop)
-    (leaves : LeafSet hp Shape)
+    (leaves : LeafSet hp Shape) (hwd : WdrlPairShaped Shape)
     (L : Ledger) (ctx : ScriptContext) (L' : Ledger)
     (hdep : WSC.Deployed hp)
     (hnn : ∀ u ∈ L, ∀ (cs : CurrencySymbol) (tn : TokenName),
@@ -1638,7 +1697,7 @@ theorem preservation (hp : WSC.HonestParams) (Shape : ScriptContext → Prop)
   by_cases hreg : RegisteredIn hp L cs
   · have hI0 := hI cs tn hcs hreg
     have hin := inOff_zero hp L ctx L' cs tn (fun u hu => hnn u hu cs tn) hstep hI0
-    have hne := nonEscape_of_registered hp Shape leaves L ctx L' cs tn hdep hno htx hstep
+    have hne := nonEscape_of_registered hp Shape leaves hwd L ctx L' cs tn hdep hno htx hstep
       hreg hcs hin
     exact int_step_zero hbal hI0 hin hne
   · rcases lr_registration_source hp L ctx L' cs hstep hreg' with h | hnew
@@ -1754,27 +1813,27 @@ slot at every UTxO whose payment credential is not `hp.progLogicCred`.
    the P2′ obligation (a seized-policy mint bypassing the seize), which is
    DEFERRED. -/
 theorem top_claim (hp : WSC.HonestParams) (Shape : ScriptContext → Prop)
-    (leaves : LeafSet hp Shape) (hdep : WSC.Deployed hp) :
+    (leaves : LeafSet hp Shape) (hwd : WdrlPairShaped Shape) (hdep : WSC.Deployed hp) :
     ∀ (L : Ledger), Reachable hp Shape L → I hp L := by
   intro L hR
   induction hR with
   | genesis h => exact ts_genesis hp _ hdep h
   | step hR hT hS ih =>
-      exact preservation hp Shape leaves _ _ _ hdep
+      exact preservation hp Shape leaves hwd _ _ _ hdep
         (NONNEG_L hp Shape _ hR) (DIRWF_L hp Shape _ hdep hR) hT hS ih
 
 /-- The top claim, unfolded into the plain-English shape: no UTxO outside the
 mini-ledger holds any registered programmable token. -/
 theorem no_programmable_tokens_outside_mini_ledger
     (hp : WSC.HonestParams) (Shape : ScriptContext → Prop)
-    (leaves : LeafSet hp Shape) (hdep : WSC.Deployed hp)
+    (leaves : LeafSet hp Shape) (hwd : WdrlPairShaped Shape) (hdep : WSC.Deployed hp)
     (L : Ledger) (hR : Reachable hp Shape L)
     (cs : CurrencySymbol) (tn : TokenName)
     (hcs : cs ≠ adaSymbol) (hreg : RegisteredIn hp L cs) :
     ∀ u ∈ L, WSC.payCred u.utxoOut ≠ hp.progLogicCred →
       valueOf cs tn u.utxoOut.txOutValue = (0:Int) := by
   intro u hu hpc
-  have hI := top_claim hp Shape leaves hdep L hR cs tn hcs hreg
+  have hI := top_claim hp Shape leaves hwd hdep L hR cs tn hcs hreg
   have hmem : u ∈ L.filter (offBase hp.progLogicCred) :=
     List.mem_filter.mpr ⟨hu, by simpa [offBase] using hpc⟩
   exact sumHoldU_elim cs tn _
@@ -2319,19 +2378,20 @@ SCOPE — read every line before quoting this.
    is preserved", with the base case audited off-chain, not "the invariant holds
    because we proved the deployment transaction". -/
 theorem containment_on_contained_class (hp : WSC.HonestParams) (hdep : WSC.Deployed hp) :
-    ∀ (L : Ledger), Reachable hp (ContainedTx hp) L → I hp L :=
-  top_claim hp (ContainedTx hp) (containedLeaves hp) hdep
+    ∀ (L : Ledger),
+      Reachable hp (fun ctx => ContainedTx hp ctx ∧ WSC.WdrlPair ctx) L → I hp L :=
+  top_claim hp _ ((containedLeaves hp).narrow (fun _ h => h.1)) (fun _ h => h.2) hdep
 
 /-- The same, in the plain-English shape: on that class, no UTxO outside the
 mini-ledger holds any registered programmable token. -/
 theorem no_escape_on_contained_class (hp : WSC.HonestParams) (hdep : WSC.Deployed hp)
-    (L : Ledger) (hR : Reachable hp (ContainedTx hp) L)
+    (L : Ledger) (hR : Reachable hp (fun ctx => ContainedTx hp ctx ∧ WSC.WdrlPair ctx) L)
     (cs : CurrencySymbol) (tn : TokenName)
     (hcs : cs ≠ adaSymbol) (hreg : RegisteredIn hp L cs) :
     ∀ u ∈ L, WSC.payCred u.utxoOut ≠ hp.progLogicCred →
       valueOf cs tn u.utxoOut.txOutValue = (0:Int) :=
-  no_programmable_tokens_outside_mini_ledger hp (ContainedTx hp) (containedLeaves hp)
-    hdep L hR cs tn hcs hreg
+  no_programmable_tokens_outside_mini_ledger hp _
+    ((containedLeaves hp).narrow (fun _ h => h.1)) (fun _ h => h.2) hdep L hR cs tn hcs hreg
 
 /-! ## §11.5 THE CLASS IS INHABITED, and not only by trivial transactions
 
@@ -2450,15 +2510,18 @@ theorem containment_on_inert_class_of_nopre (hp : WSC.HonestParams) (hdep : WSC.
       ¬ RegisteredIn hp L cs →
       WSC.registeredIn hp.directoryNodeCS cs ctx.scriptContextTxInfo.txInfoOutputs →
         OutOfBase hp.progLogicCred cs tn L = 0 ∧ NonEscape hp.progLogicCred cs tn ctx) :
-    ∀ (L : Ledger), Reachable hp (InertOffBase hp) L → I hp L :=
-  top_claim hp (InertOffBase hp)
-    { p4 := fun ctx ctx' cs mlh _ _ hsh _ _ _ _ _ hcs =>
-        Or.inl (noEscape_of_inertOffBase hp.progLogicCred cs hcs _ hsh)
-    , p1 := fun ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs _ =>
-        contain_of_inertOffBase hp ctx cs tn hoc hcs hsh
-    , p2 := fun ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs =>
-        contain_of_inertOffBase hp ctx cs tn hoc hcs hsh
-    , nopre := nopre } hdep
+    ∀ (L : Ledger),
+      Reachable hp (fun ctx => InertOffBase hp ctx ∧ WSC.WdrlPair ctx) L → I hp L :=
+  top_claim hp _
+    (LeafSet.narrow (Shape := InertOffBase hp)
+      { p4 := fun ctx ctx' cs mlh _ _ hsh _ _ _ _ _ hcs =>
+          Or.inl (noEscape_of_inertOffBase hp.progLogicCred cs hcs _ hsh)
+      , p1 := fun ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs _ =>
+          contain_of_inertOffBase hp ctx cs tn hoc hcs hsh
+      , p2 := fun ctx ctx' cs tn _ hoc hsh _ _ _ _ _ hcs =>
+          contain_of_inertOffBase hp ctx cs tn hoc hcs hsh
+      , nopre := nopre } (fun _ h => h.1))
+    (fun _ h => h.2) hdep
 
 /-! # §9 DISCHARGE STATUS — what the library actually supplies, per hypothesis
 

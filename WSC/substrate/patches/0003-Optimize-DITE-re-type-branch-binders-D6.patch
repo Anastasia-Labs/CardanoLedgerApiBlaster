@@ -1,0 +1,110 @@
+From 4d320dd5f70ac953945b5126f5cfd45128da8131 Mon Sep 17 00:00:00 2001
+From: Philip DiSarro <philipdisarro@gmail.com>
+Date: Tue, 28 Jul 2026 14:39:59 -0500
+Subject: [PATCH] Optimize/DITE: re-type branch binders from the final
+ condition (defect D6)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`Blaster.dite' c (fun _ : c => _) (fun _ : ¬c => _)` is well typed only when the
+branch binders are SYNTACTICALLY `c` and `¬c`. But the condition and the branches
+are optimized INDEPENDENTLY — `OptimizeStack.DiteChoiceWaitForCond` optimizes
+argument 1, and the branch lambdas' binder types are then optimized separately
+via `.LambdaWaitForType`. Whenever `optimize (¬c)` is not syntactically
+`¬ (optimize c)`, the rebuilt `dite'` is KERNEL-ILL-TYPED and the entire
+`#prep_uplc` dies with "(kernel) application type mismatch / Blaster.dite'".
+
+Two normalisations were measured to trigger this on real production bytecode
+(the IOG wsc-poc CIP-113 validators at main 2306678):
+
+  * `¬(a ∧ b)`    optimized to `¬a ∨ ¬b`    while the condition stays `a ∧ b`;
+  * `¬(true = x)` optimized to `false = x`  while the condition stays `true = x`.
+
+The first blocks `#prep_uplc` of the programmableLogicGlobal validator at budget
+1600 (over `eqDataMap`); the second blocks the programmableSeize validator's
+shaped prep (over `eqData` on a TxOut address/datum pair). Both are hard stops:
+the goal never reaches the solver.
+
+FIX. `dite'` ignores the `Decidable` instance and its branches take a proof
+argument that is computationally irrelevant. When a branch lambda does not USE
+its binder — `!body.hasLooseBVars`, true of every branch the optimizer builds by
+normalisation — the binder's TYPE is unconstrained by the body, so it can be
+restated as whatever `dite'` requires. `optimizeDITE` now rebuilds both binder
+types from the FINAL condition (`c` and `Not c`) before reassembling the
+application. If the body does use its binder, nothing is changed.
+
+This can only repair a term the kernel would have rejected; it never alters a
+term that already typechecked, and it never touches a branch BODY.
+
+MEASURED, on the wsc-poc formalization:
+  * programmableSeize shaped prep at budget 3800: was a kernel error, now
+    elaborates in 28 s, and the six theorems over it come back ✅ Valid with
+    three ✅ Expected Falsified probes.
+  * WSC/Prep/Global1600: was an 8-minute run ending in the kernel error, now
+    builds successfully in 8 m 19 s.
+  * VERDICT-NEUTRALITY CONTROL: the eight P4/minting shaped modules, which were
+    unaffected by the defect, give 42 ✅ Valid + 23 ✅ Expected Falsified both
+    with and without this patch — identical counts, zero failures.
+---
+ Blaster/Optimize/Rewriting/OptimizeITE.lean | 38 ++++++++++++++++++++-
+ 1 file changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/Blaster/Optimize/Rewriting/OptimizeITE.lean b/Blaster/Optimize/Rewriting/OptimizeITE.lean
+index dbe4903..f74e8af 100644
+--- a/Blaster/Optimize/Rewriting/OptimizeITE.lean
++++ b/Blaster/Optimize/Rewriting/OptimizeITE.lean
+@@ -366,6 +366,40 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
+      then mkAppExpr t p
+      else return none
+ 
++/-- ══ DEFECT D6 FIX (task N5) ══════════════════════════════════════════════
++    `Blaster.dite' c (fun _ : c => _) (fun _ : ¬c => _)` is only well typed when
++    the branch binders are SYNTACTICALLY `c` and `¬c`.  But the condition and the
++    branches are optimized INDEPENDENTLY: `OptimizeStack.DiteChoiceWaitForCond`
++    optimizes argument 1 (the condition), and the branch lambdas' binder types
++    are then optimized separately through `.LambdaWaitForType`.  Whenever
++    `optimize (¬c)` is not syntactically `¬ (optimize c)` the rebuilt `dite'` is
++    KERNEL-ILL-TYPED and the whole `#prep_uplc` fails with an "application type
++    mismatch" naming `Blaster.dite'`.
++
++    Two normalisations measured to trigger it on real production bytecode:
++      * `¬(a ∧ b)`    is optimized to `¬a ∨ ¬b`    (condition stays `a ∧ b`);
++      * `¬(true = x)` is optimized to `false = x`  (condition stays `true = x`).
++    The first blocks `WSC/Prep/Global1600` (defect D8, over `eqDataMap`); the
++    second blocks the post-PR-#112 `programmableSeize` shaped prep, over
++    `eqData` on a TxOut address/datum pair.
++
++    THE FIX, and why it is sound.  `Blaster.dite'` ignores the `Decidable`
++    instance and its branches take a PROOF argument that is computationally
++    irrelevant.  When a branch lambda does not USE its proof binder
++    (`!body.hasLooseBVars`, true of every branch Blaster builds by
++    normalisation) the binder's TYPE is unconstrained by the body, so it may be
++    restated as whatever `dite'` requires.  We rebuild the binder types from the
++    FINAL condition: `c` for the then-branch, `Not c` for the else-branch.  When
++    the body DOES use the binder nothing is changed.  So this can only repair a
++    term the kernel would have rejected; it never alters an accepted one and
++    never touches a branch BODY. -/
++private def retypeBranch (ty : Expr) (b : Expr) : TranslateEnvT Expr := do
++  match b with
++  | Expr.lam n bty body bi =>
++      if body.hasLooseBVars || exprEq bty ty then return b
++      else mkLambdaExpr n bi ty body
++  | _ => return b
++
+ /-- Apply simplification/normalization rules on `Blaster.dite'` in the given order.
+     Note that dependent ite is written with notation `if h : c then t else e`, which
+     is now replaced with `Blaster.dite' c (fun h : c => t) (fun h : ¬ c => e)` to ignore
+@@ -420,6 +454,8 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+     setRestart
+     return r
+  if let some r ← diteFactorize? c t e then return r
+- mkApp4Expr f iteType c t e
++ let t' ← retypeBranch c t
++ let e' ← retypeBranch (← mkAppExpr (← mkPropNotOp) c) e
++ mkApp4Expr f iteType c t' e'
+ 
+ end Blaster.Optimize
+-- 
+2.43.0
+

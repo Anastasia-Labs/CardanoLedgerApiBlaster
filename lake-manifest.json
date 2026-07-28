@@ -8,7 +8,9 @@
       "manifestFile": "lake-manifest.json",
       "inherited": false,
       "dir": "/home/gumbo/iohk/Lean-blaster-wsc",
-      "configFile": "lakefile.lean"
+      "configFile": "lakefile.lean",
+      "rev": "4d320dd5f70ac953945b5126f5cfd45128da8131",
+      "inputRev": "wsc-d6-dite-branch-retype"
     },
     {
       "type": "path",
@@ -18,7 +20,7 @@
       "inherited": false,
       "dir": "/home/gumbo/iohk/PlutusCoreBlaster",
       "configFile": "lakefile.lean",
-      "rev": "9f9ca8c76baf3b5efdb63c33ca0091efa606b474",
+      "rev": "3fdd3fb5cb259f039b60cc584cd954de18c819dc",
       "inputRev": "cip153-value-builtins"
     }
   ],

@@ -1,5 +1,27 @@
 # PR SUBMISSION PLAN — the WSC containment campaign, unbundled
 
+> # ⚠️ RE-SCOPED AFTER wsc-poc PR #112 (task N6, 2026-07-28)
+>
+> This plan was written at task H2 against wsc-poc `f918ec6`. wsc-poc PR #112 has
+> since merged as `main` @ **2306678** and it changes **three of the five
+> deliverables**. Read this banner before acting on the table below.
+>
+> | # | deliverable | what changed |
+> |---|---|---|
+> | **1** | PCB CIP-153 `Value` builtins | **SCOPE GREW.** Six builtins at tags 94–99 → **seven at 94–100** (`ScaleValue`), plus a cost-coefficient fix for `unValueData`/`valueData` (plutus 1.57 → 1.63). Branch is now `cip153-value-builtins` @ **`3fdd3fb`**, 3 commits. See `01-…md`'s banner. |
+> | **2** | CLAB ledger-API bug fixes | **unchanged.** Still 3 files, still no self-contained tests. |
+> | **3** | Blaster defect **D6** | **PROMOTED FROM AN ISSUE TO A PATCH, AND IT IS NOW A HARD DEPENDENCY.** Task N5 fixed it in one function (`Blaster/Optimize/Rewriting/OptimizeITE.lean`, `optimizeDITE` rebuilds both branch binder types from the FINAL condition). Without it, `WSC/Prep/Global1600` AND the seize shaped prep both die with a kernel `application type mismatch` on `Blaster.dite'`, so P1, P2, P5 and P6 are all unstatable. Blaster is therefore now a **local unpublished path pin** in `lakefile.lean` (`/home/gumbo/iohk/Lean-blaster-wsc`, branch `wsc-d6-dite-branch-retype` @ `4d320dd` = public `59db213` + one commit). **This is a NEW upstream submission**, not merely a report, and it should be numbered alongside the others. Verdict-neutrality control: the eight `WSC/Props/Shaped/P4*` modules give byte-identical counts (42 V + 23 F) with and without the patch. |
+> | **4** | wsc-poc benchmark/builder fixes | **LANDED UPSTREAM.** Task N2 verified against `2306678` that the catalogue builds every context through `buildLedgerShapedScriptContext`, and measured the consequence: **10 of 13 goldens satisfy `validXContext` (was 8) and all 9 accepting ones do**. The separate `scratch-goldens` driver was 535 diff lines stale and is now compiled live from the repo (`hs-source-dirs: . ../src/programmable-tokens-test/exe`). |
+> | **5** | the WSC proof library | **now blocked on THREE unpublished branches, not two** — PCB `cip153-value-builtins` @ 3fdd3fb, Blaster `wsc-d6-dite-branch-retype` @ 4d320dd, and CLAB `wsc-containment-proofs` itself. It is also bigger (**102** built modules, was 93) and slower (**≈ 9.5 min / 4.35 GB**, was 1:46–2:10 / 1.65 GB), almost all of it in one module, `WSC.Prep.Global1600` at **516 s**. |
+>
+> **The one-paragraph answer, re-stated:** submission **1** is now a prerequisite
+> for **two** of the four production validators rather than one, submission **3**
+> has turned from a courtesy bug report into a blocking dependency of every global
+> and seize result, and the ordering constraint is therefore harder: **1 and 3
+> must both merge before 5 is even buildable by a third party.**
+
+---
+
 **Written at task H2 (2026-07-26), against CardanoLedgerApiBlaster branch
 `wsc-containment-proofs` HEAD `4b49706` (verified), PlutusCoreBlaster branch
 `cip153-value-builtins` HEAD `9f9ca8c` (verified), wsc-poc worktree branch
@@ -59,7 +81,7 @@ four options with costs and a recommendation.
 | file | what it is |
 |---|---|
 | `01-pcb-cip153-value-builtins.md` | PR description + a maintainer-readiness assessment (the four things a PCB maintainer will ask about, answered) |
-| `02-blaster-issue-d6-dite-motive.md` | issue text for `input-output-hk/Lean-blaster`, with both reproductions and the diagnosed root cause |
+| `02-blaster-PR-d6-dite-motive.md` | issue text for `input-output-hk/Lean-blaster`, with both reproductions and the diagnosed root cause |
 | `03-clab-ledger-api-fixes.md` | PR description for the two bug fixes, with the ledger citations, plus the test work that must be written first |
 | `04-wsc-proof-library-placement.md` | the four venue options with costs, a recommendation, and the PR description for whichever venue is chosen |
 | `05-wsc-poc-benchmark-arity-and-ctx-builder.md` | PR description, with this task's re-verification |

@@ -1,5 +1,55 @@
 # SUBMISSION 1 — PlutusCoreBlaster: the CIP-153 `Value` builtins
 
+> # ⚠️ SCOPE CHANGED (task N6, 2026-07-28) — **SEVEN builtins, tags 94–100, plus a cost fix**
+>
+> This document was written when the branch carried **six** builtins at flat tags
+> **94–99** and HEAD `9f9ca8c`. wsc-poc PR #112 (`main` @ 2306678) changed that,
+> and the PR must be re-scoped before it is opened.
+>
+> **1. A seventh builtin is required: `ScaleValue`, flat tag `100`.** The
+> post-#112 `programmableSeize` uses it (`Plutarch/Builtin/Value.hs:164-167`,
+> `pscaleValue = punsafeBuiltin PLC.ScaleValue`, called at
+> `ProgrammableLogicBase.hs:1744`). Without it the flat does not decode at all.
+> The tag was read off BOTH sides of plutus-core 1.63.0.0's
+> `instance Flat DefaultFun` (`PlutusCore/Default/Builtins.hs:2720` decode,
+> `:2616` encode) and NOT inferred — "next free number" would have been wrong,
+> because 89–91 are present-but-commented.
+>
+> **2. A cost-table bug is fixed in the same commit**, and it is worth its own
+> paragraph in the PR body because it is a correctness bug in the existing six:
+> `unValueData` and `valueData` carried plutus **1.57** coefficients in an
+> otherwise-**1.63** table (`EqualsByteString` and `ModInteger` are both 1.63).
+> Seven builtins moved between the two releases; only these two were stale.
+> Nothing caught it earlier because the builtin census is a *static* scan —
+> `programmableLogicGlobal` REFERENCES both builtins but never EXECUTES them on
+> its goldens' paths, and post-#112 `programmableSeize` is the first script that
+> does. The diagnosis closes arithmetically, which is why it is a diagnosis and
+> not a guess: from the MEMORY discrepancy alone, `20 − 10(n₁+n₂) = −120` gives
+> `n₁+n₂ = 14`, and substituting into the CPU model predicts
+> `108971·14 + 199656 = 1,725,250` — the observed CPU gap, to the unit. After the
+> fix PCB's metered budget reproduces the ledger `ExBudget` **exactly on all nine
+> accepting goldens** (was 7 of 9), and `verify-applied.py` reports
+> **ALL-MATCH 13/13, 0 BLOCKED**.
+>
+> **3. The "motivating consequence" is now stronger, and the PR should say so.**
+> The original pitch was *"a real production PlutusV3 script previously failed to
+> decode at all"* — one script. It is now **two of the four** production
+> validators in wsc-poc `main`: `programmableLogicGlobal` (tags 94–99) and
+> `programmableSeize` (tag 100). Both negative controls are committed.
+>
+> **Current branch state:** `cip153-value-builtins` @ **`3fdd3fb`**, base
+> `a04042c` (still `origin/main` as of the N5 check), **3 commits**. Offline
+> artifact: `WSC/substrate/pcb-scalevalue-3fdd3fb.bundle` (14,697 bytes, sha256
+> `0e373d00…`), incremental on top of the existing bundle; verified in task N6 to
+> reconstruct `3fdd3fb` with a byte-identical tree.
+>
+> **What did NOT change:** the 48 `simp` lint warnings in the branch's own new
+> files (§4.1 of `00-PLAN.md`) are still there, the D/E cost variants still carry
+> A/B/C numbers, and the local checkout is still a shallow clone. Those remain the
+> readiness blockers.
+
+---
+
 **Repo** `input-output-hk/PlutusCoreBlaster` · **branch** `cip153-value-builtins`
 (`9f9ca8c76baf3b5efdb63c33ca0091efa606b474`) · **base** `a04042c4b7b19c66e7e6fa5bbcc3b1c985894ed0`,
 which **is** today's `origin/main` — no rebase needed at the time of writing

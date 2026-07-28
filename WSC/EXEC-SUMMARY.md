@@ -1,9 +1,68 @@
 # Programmable-token containment: formal verification — executive summary
 
+> # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
+>
+> This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
+> (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
+> minting policy is byte-identical. Tasks N1–N6 re-based everything.
+>
+> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
+> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable, 102 WSC modules, two clean-room runs, wall 10:34 / 10:36,
+> peak RSS ≈ 4.3 GB.** Both composed results survive with **28** project axioms
+> each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
+> — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
+>
+> Everything that changed, with measurements: `WSC/AUDIT.md` (top banner) and
+> `WSC/status-fragments/N6-compose-and-reaudit.md`. Numbers in the body below
+> that disagree with the ones above are the pre-#112 record.
+
+---
+
+
 *One page, plain English, no formal-methods vocabulary and no code names. The full,
 technical and deliberately self-critical account is in `WSC/AUDIT.md`, which is
 authoritative; `WSC/README.md` is the reviewer-facing version; `WSC/STATUS.md` is the
 per-property table.*
+
+---
+
+## What changed when the code changed (July 2026)
+
+The developers merged a substantial optimisation of three of the four programs
+(wsc-poc PR #112). The verification was re-run from scratch against the new code.
+**It still holds, and the honest summary above still holds**, with five changes a
+reader should know:
+
+* **Nothing silently carried over.** Every program was re-fetched and re-hashed;
+  three of the four are genuinely different code and one — the minting policy — is
+  byte-for-byte unchanged. All the proofs about the three changed programs were
+  redone, not re-labelled.
+* **One earlier result turned out to be FALSE of the new code, and that is the
+  system behaving as intended.** The optimisation deliberately allows a seizure
+  transaction to *add* ordinary Ada to the account it touches. The old statement
+  said "nothing but the seized asset may change, Ada included", and that is now
+  wrong. The new statement allows the addition and proves separately that Ada can
+  only ever be **added, never removed**. A second, older result — a hand-written
+  model of the seizure program used for one unbounded conclusion — was likewise
+  shown to disagree with the real code, and **that unbounded conclusion is
+  withdrawn**. It is a real loss and it is reported as one.
+* **The keystone result got harder to prove and had to be narrowed.** The rule
+  that ties the scheme together — *spending from the mini-ledger forces the
+  transfer or seizure program to run* — used to hold for every conceivable
+  transaction. The optimisation replaced a search with a direct lookup by index,
+  and the automated prover can no longer handle the general case. It now holds
+  for transactions whose *withdrawal list has exactly two entries*, which both
+  verified transaction families have. That restriction is now visible in the
+  statement of the main result and cannot be forgotten. Measured: lists of one
+  and two entries work, three does not.
+* **The count of assumptions did not move** (28 for each of the two strongest
+  results), and neither did the one-quarter-code / three-quarters-narrowness
+  ratio.
+* **Reproducing the work got harder.** Two of the four programs now cannot even
+  be *read* by the verification tool without an unpublished extension to it, and
+  a second tool needs an unpublished one-line-idea fix as well. Until three
+  branches are published, this work can only be re-run on one machine.
 
 ---
 

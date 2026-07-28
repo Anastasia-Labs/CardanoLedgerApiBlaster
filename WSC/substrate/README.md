@@ -1,5 +1,71 @@
 # `WSC/substrate/` — the offline record of the PlutusCoreBlaster pin
 
+
+> **⚠️ UPDATED AT TASK N6 (2026-07-28) — this directory previously did NOT
+> reconstruct the substrate.** Two things were missing after wsc-poc PR #112:
+>
+> 1. **PlutusCoreBlaster moved `9f9ca8c` → `3fdd3fb`** (the CIP-153 `ScaleValue`
+>    builtin at flat tag 100, plus `unValueData`/`valueData` cost corrections to
+>    plutus 1.63). Carried by the INCREMENTAL bundle
+>    `pcb-scalevalue-3fdd3fb.bundle` (14,697 bytes, sha256
+>    `0e373d0004275db3e9f80c8e4ef994e5b7955d952ca48048434ebc0a19b7d27c`),
+>    which sits on top of `9f9ca8c` and yields tree
+>    `1c9d80221bd59fdd21ab132d1fcec086c7bbf3b9`.
+> 2. **Blaster is no longer a public git require** — it carries the defect-D6 fix
+>    as one commit on top of public `59db213`, and this directory shipped **no
+>    artifact for it at all**. Now added:
+>    `blaster-d6-dite-4d320dd.bundle` (3,313 bytes, sha256
+>    `19e67631d1d5ff30ac0c47377131188031d66c6fa1aebaa37de775dbcb502b8c`),
+>    reconstructing HEAD `4d320dd`, tree
+>    `9550c96b0dff95096d07d29825a19d885fe7c6cd`; equivalently
+>    `patches/0003-Optimize-DITE-re-type-branch-binders-D6.patch` (6,073 bytes,
+>    sha256 `1ba2c74cd2a67dc5a07be1f7eb36296ee1688474540e3f370e43f03ab546a374`).
+>
+> Step-by-step reconstruction for both is in `WSC/REPRODUCE.md` §1 and §1b.
+>
+> **Verification caveat.** Every bundle here was checked with `git bundle verify`
+> against the LOCAL working repository, which is the only check available without
+> network access. None has been fetched into a fresh clone of the corresponding
+> public remote. The prerequisite commits are public, so it should work; it is
+> untested, and that is a real residual risk for anyone reproducing this offline.
+
+> # ⚠️ THIS BUNDLE IS NO LONGER SUFFICIENT (task N6, 2026-07-28)
+>
+> `pcb-cip153-value-builtins.bundle` reconstructs PCB `cip153-value-builtins` up to
+> **`9f9ca8c`**, which is one commit SHORT of the pin the library now needs.
+> wsc-poc PR #112 made `programmableSeize` use **`ScaleValue`** (plutus-core flat
+> tag **100**), a SEVENTH CIP-153 builtin that `9f9ca8c` does not have. Against a
+> checkout reconstructed from that bundle alone,
+> `WSC/flats/programmableSeize.flat` fails with `Could not decode program!`, so
+> **no P2 result is statable at all**.
+>
+> **The second artifact in this directory closes the gap:**
+>
+> | file | 14,697 bytes | sha256 `0e373d0004275db3e9f80c8e4ef994e5b7955d952ca48048434ebc0a19b7d27c` |
+> |---|---|---|
+> | `pcb-scalevalue-3fdd3fb.bundle` | contains | `3fdd3fb` on `refs/heads/cip153-value-builtins` |
+> | | requires | `9f9ca8c` — i.e. apply the FIRST bundle first |
+>
+> Verified in this task, not asserted: `git bundle verify` says *"is okay"* against
+> a checkout at `9f9ca8c`; `git fetch` from it yields `FETCH_HEAD =
+> 3fdd3fb5cb259f039b60cc584cd954de18c819dc`; and `git diff` between that commit and
+> the canonical `/home/gumbo/iohk/PlutusCoreBlaster` working tree is **empty**
+> (`TREES IDENTICAL`).
+>
+> Recipe: apply `pcb-cip153-value-builtins.bundle` exactly as below, then
+> ```
+> git fetch <path>/pcb-scalevalue-3fdd3fb.bundle cip153-value-builtins
+> git checkout FETCH_HEAD      # 3fdd3fb
+> ```
+> The commit adds `ScaleValue` (enum entry, arity, flat tag 100, CEK denotation,
+> cost arms) **and** fixes `unValueData`/`valueData` cost coefficients that were
+> still plutus **1.57** in an otherwise-1.63 table — a bug only the post-#112 seize
+> path could expose, because global *references* those builtins but never
+> *executes* them on its goldens' paths. After the fix PCB's metered budget
+> reproduces the ledger `ExBudget` exactly on all nine accepting goldens (was 7).
+
+---
+
 **Why this directory exists.** The `CardanoLedgerApi` package requires
 `PlutusCore` (PlutusCoreBlaster, "PCB") **from an absolute local path**. A lake
 `"type": "path"` dependency has no revision field lake fills in, so for most of

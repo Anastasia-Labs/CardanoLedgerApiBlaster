@@ -276,7 +276,7 @@ Taken verbatim from the campaign's own audit, which is the authoritative documen
 |---|---|---|
 | coverage | **CRITICAL** | not merely absent — **proved false** at the smallest bound the family covers. The binding constraint on the whole deliverable. |
 | the ratio | **CRITICAL** | 1 of 4 leaves is the bytecode, 3 are the shape, on each side. For the general class nothing is proved. |
-| upstream `dite'` | **HIGH** | the optimizer emits a kernel-ill-typed term on symbolic CIP-153 `Value` results, blocking two shape families and two of three containment code paths. Filed upstream — see `02-blaster-issue-d6-dite-motive.md`. |
+| upstream `dite'` | **HIGH** | the optimizer emits a kernel-ill-typed term on symbolic CIP-153 `Value` results, blocking two shape families and two of three containment code paths. Filed upstream — see `02-blaster-PR-d6-dite-motive.md`. |
 | `.prop` vs `.exec` | MEDIUM | unproved, binds both composed results |
 | `"sorry"-free` | MEDIUM | false by nature, quantified above |
 | substrate custody | MEDIUM | *closes when submission 1 merges* |
