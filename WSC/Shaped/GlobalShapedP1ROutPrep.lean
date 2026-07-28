@@ -10,7 +10,7 @@ comparison is at equal budget; the witness K is pinned in the corresponding
 `Props/Shaped/*` module.
 -/
 import WSC.Shaped.GlobalShapedR
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

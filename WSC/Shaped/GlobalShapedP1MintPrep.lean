@@ -6,7 +6,7 @@ proof) at CEK step budget **4400** (task V1).  See
 WSC/Shaped/GlobalShapedP1Prep.lean for the budget justification.
 -/
 import WSC.Shaped.GlobalShapedP1
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

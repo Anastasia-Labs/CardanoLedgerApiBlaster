@@ -665,7 +665,16 @@ def globalModelOpt (ppCS : CurrencySymbol) (ctx : ScriptContext) : Option Bool :
   let ti := ctx.scriptContextTxInfo
   let wdrl := ti.txInfoWdrl
   match decodeRedeemer ctx.scriptContextRedeemer with
-  | some (.TransferAct proofs wdrlIdxs mintProofs paramsRefIdx) =>
+  -- ⚠️ PR #112 ARITY-ONLY FIX (unit N4). `TransferAct` gained `ownerWdrlIdxs`
+  -- as its THIRD field (ProgrammableLogicBase.hs:1046). This binder is widened
+  -- so the module COMPILES; the model is otherwise UNCHANGED and therefore
+  -- SEMANTICALLY STALE — `valueFromCred` below still transcribes the pre-#112
+  -- SCAN of the withdrawal map, not the post-#112 INDEXED lookup at
+  -- ProgrammableLogicBase.hs:386-393. The bound list is deliberately named
+  -- `_ownerWdrlIdxsUnmodelled` so that any future attempt to use it is a
+  -- visible edit. Do NOT read a green build of this module as fidelity.
+  -- See WSC/IMPACT-PR112.md §3(iv).
+  | some (.TransferAct proofs wdrlIdxs _ownerWdrlIdxsUnmodelled mintProofs paramsRefIdx) =>
       -- :1196-1199 — reference inputs + params, resolved by redeemer index.
       match paramsAtRefIdx ppCS ti.txInfoReferenceInputs paramsRefIdx with
       | none => none

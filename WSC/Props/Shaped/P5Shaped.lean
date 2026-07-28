@@ -240,7 +240,7 @@ theorem P5_shaped_indexed :
           (globalShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS).txInInfoResolved = true
       ∧ coversCS cs
           (globalShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS).txInInfoResolved = true
-      := by blaster
+      := by blaster (timeout: 1500)
 
 /-! ## Composition with the already-proved reduction ladder -/
 
@@ -354,7 +354,7 @@ theorem P5_shaped_negative_control :
     isUnsuccessful
       (appliedGlobalShaped1600.prop ppCS cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
         dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
-      := by blaster
+      := by blaster (timeout: 1500)
 
 /-- Tightness stanza: the NEGATION of P5's postcondition under an accepting run
 must be FALSIFIABLE. Expected and MEASURED: `Falsified`. -/
@@ -380,7 +380,7 @@ def P5_shaped_tightness : Prop :=
       ∧ coversCS cs
         (globalShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS).txInInfoResolved = true)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P5_shaped_tightness]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P5_shaped_tightness]
 
 /-- **MANDATORY VACUITY PROBE AT THE SHAPE.** "No accepting shape-G1 context
 exists within 1600 CEK steps" must be FALSIFIED.
@@ -408,7 +408,7 @@ def P5_shaped_vacuity_probe : Prop :=
       (appliedGlobalShaped1600.prop ppCS cs tn q owner inAda dest outAda qOut pHash pCS pTn pAda pQty
         dirCS plc glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P5_shaped_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P5_shaped_vacuity_probe]
 
 /-! ## CONCRETE accepting witness OF EXACTLY SHAPE G1 — executable, no SMT
 

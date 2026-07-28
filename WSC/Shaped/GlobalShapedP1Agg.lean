@@ -36,7 +36,7 @@ SHAPE T5 = SHAPE T4 with the nonzero symbolic mint of SHAPE T2 (redeemer carries
 one `Member` mint proof).
 -/
 import WSC.Shaped.GlobalShapedP1
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

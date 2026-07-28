@@ -22,7 +22,7 @@ budgets (K = 3262 / 3726) at 7-182 YEARS. Shaped prep is budget-independent
 @ 4400**. That is the whole reason P1-at-UPLC is reachable at all.
 -/
 import WSC.Shaped.GlobalShapedP1
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

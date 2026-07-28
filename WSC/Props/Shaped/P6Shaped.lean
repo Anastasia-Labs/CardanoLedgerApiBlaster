@@ -170,6 +170,7 @@ the bridge is `LR_BUDGET_global` in WSC/Honest.lean, which this task does not
 discharge.
 -/
 import WSC.Shaped.GlobalMemberShaped
+import WSC.Props.Shaped.P6Vocab
 import WSC.Spec
 import Blaster
 
@@ -191,29 +192,6 @@ open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 These two belong in `WSC/Spec.lean` alongside `outAtBase` / `inAtBase` / `mintOf`;
 they live here for this stage only, to avoid cross-agent edit collisions in the
 shared spec module. They mention nothing but ledger data. -/
-
-/-- **GROUND TRUTH.** Total quantity of the asset `(cs, tn)` sitting at outputs
-whose payment credential is the mini-ledger base credential `base`.
-
-Validator-side counterpart (commentary only): the accumulator of
-`hasAtLeastAssetInProgOutputs` (ProgrammableLogicBase.hs:601-618), which sums
-`passetQtyInValue` over exactly those outputs. -/
-def outAtBaseQty (base : Credential) (cs : CurrencySymbol) (tn : TokenName) : List TxOut → Integer
-  | [] => 0
-  | o :: rest =>
-      (if payCred o == base then valueOf cs tn o.txOutValue else 0)
-        + outAtBaseQty base cs tn rest
-
-/-- **GROUND TRUTH.** Total quantity of the asset `(cs, tn)` spent from the
-mini-ledger base credential.
-
-Validator-side counterpart (commentary only): `pvalueFromCred`
-(ProgrammableLogicBase.hs:406-443). -/
-def inAtBaseQty (base : Credential) (cs : CurrencySymbol) (tn : TokenName) : List TxInInfo → Integer
-  | [] => 0
-  | i :: rest =>
-      (if payCred i.txInInfoResolved == base then valueOf cs tn i.txInInfoResolved.txOutValue else 0)
-        + inAtBaseQty base cs tn rest
 
 /-- AUDIT (published scope, not a hidden assumption): SHAPE G6 has NO mini-ledger
 inputs, for every leaf assignment. So the signed inequality proved below
@@ -263,7 +241,7 @@ theorem P6_shaped_member_adds_to_requirement :
       outAtBaseQty (Credential.ScriptCredential plc) cs tn
         (memberShapedOutputs cs tn ob0 outAda0 qq0 ob1 outAda1 qq1)
         ≥ inAtBaseQty (Credential.ScriptCredential plc) cs tn [memberShapedInput owner inAda]
-          + mintOf cs tn (Shape.mintOne cs tn q) := by blaster
+          + mintOf cs tn (Shape.mintOne cs tn q) := by blaster (timeout: 1500)
 
 /-- **The same statement in the `mintPos`-free specialised form**, obtained from
 the theorem above by rewriting the (provably zero) input term. This is the shape
@@ -322,7 +300,7 @@ theorem P6_shaped_negative_control :
           + mintOf cs tn (Shape.mintOne cs tn q)) →
     isUnsuccessful
       (appliedGlobalMemberShaped3300.prop ppCS cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
-        pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee) := by blaster
+        pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee) := by blaster (timeout: 1500)
 
 /-- Tightness stanza: the NEGATION of P6's postcondition under an accepting run
 must be FALSIFIABLE. Expected and MEASURED: `Falsified`. -/
@@ -347,7 +325,7 @@ def P6_shaped_tightness : Prop :=
         ≥ inAtBaseQty (Credential.ScriptCredential plc) cs tn [memberShapedInput owner inAda]
           + mintOf cs tn (Shape.mintOne cs tn q))
 
-#blaster (gen-cex: 0) (solve-result: 1) [P6_shaped_tightness]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P6_shaped_tightness]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE G6.** "No accepting shape-G6 context exists
 within 3300 CEK steps" must be FALSIFIED.
@@ -373,7 +351,7 @@ def P6_shaped_vacuity_probe : Prop :=
       (appliedGlobalMemberShaped3300.prop ppCS cs tn q owner inAda ob0 outAda0 qq0 ob1 outAda1 qq1
         pHash pCS pTn pAda pQty dirCS plc glc slc w0 w1 a0 a1 fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P6_shaped_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P6_shaped_vacuity_probe]
 
 /-! ## CONCRETE accepting witness OF EXACTLY SHAPE G6 — executable, no SMT
 
@@ -389,10 +367,8 @@ namespace P6ShapedWitness
 
 set_option maxRecDepth 4000000
 
-def ppCS  : CurrencySymbol := ByteString.mk "PARAMS"
-def base  : Credential     := .ScriptCredential (ByteString.mk "PROGLOGIC")
-def cs    : CurrencySymbol := ByteString.mk "MMM"
-def tn    : TokenName      := ByteString.mk "TOK"
+-- `ppCS` / `base` / `cs` / `tn` / `isHaltB` / `isHaltB_sound` moved to
+-- WSC/Props/Shaped/P6Vocab.lean (task N4) and are in scope from there.
 
 def ctx : ScriptContext :=
   memberShapedCtx (ByteString.mk "MMM") (ByteString.mk "TOK") 7
@@ -404,14 +380,6 @@ def ctx : ScriptContext :=
     (ByteString.mk "SEIZE")
     (ByteString.mk "GLOBAL") (ByteString.mk "ZZZZ") 0 0
     50
-
-def isHaltB : PlutusCore.UPLC.CekMachine.State → Bool
-  | .Halt _ => true
-  | _ => false
-
-theorem isHaltB_sound (s : PlutusCore.UPLC.CekMachine.State) :
-    isHaltB s = true → isSuccessful s := by
-  intro h; cases s <;> simp [isHaltB] at h <;> trivial
 
 /-- The witness satisfies the theorem's ledger-normalization hypothesis IN FULL. -/
 theorem ctx_valid : validRewardingContext ctx = true := by native_decide

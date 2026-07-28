@@ -343,10 +343,12 @@ theorem dirNodeKeyRaw_of_datum (o : TxOut) (d : DirectorySetNode)
 /-! ## Redeemer / context projections that NAME the objects (no honesty assumed) -/
 
 /-- The `paramsRefIdx` field of a `TransferAct` redeemer
-(ProgrammableLogicBase.hs:1053, mirrored in WSC/Redeemer.lean). -/
+(ProgrammableLogicBase.hs:1054, mirrored in WSC/Redeemer.lean). It is still the
+LAST field after PR #112, but there are now FIVE, not four (`ownerWdrlIdxs`
+inserted third at :1046) — hence the extra wildcard. -/
 def transferParamsRefIdx (r : Data) : Option Integer :=
   match (IsData.fromData r : Option PLGRedeemer) with
-  | some (.TransferAct _ _ _ i) => some i
+  | some (.TransferAct _ _ _ _ i) => some i
   | _ => none
 
 /-- `pdirectoryNodeCS` as the bytecode reads it out of the params datum:

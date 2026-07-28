@@ -492,3 +492,88 @@ Everything else listed above is INVALIDATED or STALE and is retained only as a
 template. Each such module carries a `⚠️ PRE-#112` marker on its first line
 naming this file. **Do not quote a marked module's theorem as a statement about
 production.**
+
+---
+
+## §7 UPDATE FROM UNIT N4 (global reprove: P1 / P5 / P6), 2026-07-28
+
+This section supersedes §6's substrate verdicts for the GLOBAL side. Nothing
+here changes §1-§5.
+
+### 7.1 D8 IS CLOSED — it was a duplicate of D6
+
+N1 reported D8 (`Prep/Global1600` fails in the kernel after ~8 min, `dite'`
+polarity mismatch) as a NEW blocker distinct from D6. It is not: it is D6, on a
+bigger term. Both are `Optimize.main` emitting a `Blaster.dite'` whose branch
+binder type was `Not`-normalised without the head's `p` following.
+
+Root cause, fix, and the measured before/after table: `WSC/pr/03-blaster-d6-FIX.md`.
+The fix is two files in `Lean-blaster` @ `59db213`; **it is unpushed and lives
+only in this task's workspace, so every global result below is unreproducible
+until it is upstreamed or vendored.**
+
+After the fix `WSC.Prep.Global1600` builds in **1826 s** (30.4 min), and all
+seven global shaped preps build in 2-3 s each.
+
+### 7.2 D6's REACH WAS WIDER THAN RECORDED
+
+Before this unit, D6 was documented as blocking SHAPES T3/T4 only (`COVERAGE.md`,
+`STATUS.md`). Against the #112 bytecode it also blocked **every shaped prep with
+a nonzero mint field** — G1R, G6R, T2R, T7R — because PR #112 moved the mint
+merge onto the CIP-153 `punionValue` builtin. Since P5 and P6 are inherently
+mint-side, D6 was blocking two of this unit's three properties outright. That is
+now fixed.
+
+Not yet re-tested, and worth someone's time: `Probe/T3PrepFAILS.lean` and
+`Probe/T4PrepFAILS.lean` are named for a failure the fix may well have removed.
+If they now prep, P1's containment dispatch Paths B/C and the input-side
+aggregation axis open up.
+
+### 7.3 D9 — NEW, OPEN. It costs the library P6.
+
+`Unexpected smt error: (error "… Overflow encountered when expanding vector")` on
+all four solver stanzas over SHAPE G6R. Two hypotheses (the CIP-153 mint merge;
+the prep budget) were tested and BOTH REFUTED. Full write-up, bisections and the
+next step: `WSC/pr/05-blaster-issue-d9-bv-overflow.md`.
+
+P6's EXECUTABLE evidence is unaffected and was re-run green. It is the
+universally quantified theorem and its probes that have no verdict.
+
+### 7.4 D7 (seize flat does not decode) TRANSITIVELY BLOCKS P1 AND P5
+
+Not obvious and worth recording: `Props/P1_Transfer` and `Props/P5_NonMember`
+import `WSC.Honest`, which imports `WSC.Runs`, which imports `WSC.Prep.Seize` for
+`seizeRun`. So the seize decode failure takes the two global properties down with
+it even though neither mentions seize. Unit N5 owns the PCB `ScaleValue` fix.
+
+### 7.5 STRUCTURAL CHANGES MADE HERE
+
+* **`WSC/Prep/GlobalImport.lean` (new)** — the `#import_uplc` plus
+  `globalInputs1600`, split out of `Prep/Global1600.lean` so the shaped preps
+  stop inheriting the unshaped prep's failures. The shaped preps never used
+  `appliedGlobal1600`; this is an isolation, not a weakening.
+* **`WSC/Props/Shaped/P6Vocab.lean` (new)** — P6's ground-truth vocabulary
+  (`outAtBaseQty`, `inAtBaseQty`) and witness helpers, split out of `P6Shaped`
+  so `P6ShapedR` is not held hostage to the INVALIDATED shape's solver results.
+  Both modules import it, which keeps the two postconditions structurally the
+  same object.
+* **`ownerWdrlIdxs = []` in all pre-existing global shapes** — forced, not
+  chosen: every one of them witnesses its mini-ledger owner by SIGNATURE, so the
+  script arm at `ProgrammableLogicBase.hs:386-393` is never reached. Corroborated
+  by all four regenerated transfer goldens carrying `[]`.
+* **SHAPE T8R (new)** — `WSC/Shaped/GlobalShapedR.lean` §7 plus
+  `Shaped/GlobalShapedP1SOwnPrep.lean`. A mini-ledger input owned by a SCRIPT,
+  no signatories, three script withdrawals, `ownerWdrlIdxs = [2]`. It exists
+  because otherwise PR #112's most security-relevant new line would be covered by
+  nothing — no golden, no shape, no theorem. N2 flagged the same gap on the
+  goldens side.
+* **Explicit `(timeout: 1500)` on every solver call** in the six global P-modules.
+  They had none, and Blaster's default is infinite — a real hang risk now that
+  the bytecode moved. Per house rule this is a hang guard, not a soundness hole.
+
+### 7.6 MEASURED K CHANGE
+
+SHAPE G6R witness: **K = 2837 → 2196** (−22.6 %), two-sided
+(`halts 2196 = true`, `halts 2195 = false`). In line with N2's golden
+measurements. `K_is_2837` in `P6ShapedR` is therefore false and is the
+`native_decide` failure at `:253`.

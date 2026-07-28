@@ -5,7 +5,7 @@ WSC/Shaped/GlobalShapedP1OutPrep.lean — SHAPED `#prep_uplc` over **SHAPE T6**
 symbolic mint) at CEK step budget **4400** (task V1 step 4).
 -/
 import WSC.Shaped.GlobalShapedP1Out
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

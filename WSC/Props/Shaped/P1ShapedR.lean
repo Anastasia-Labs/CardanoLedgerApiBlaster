@@ -57,6 +57,7 @@ MEASURED (this task): all four `✅ Valid`; witness K unchanged at 2603 (T1R),
 `txInfoRedeemers`, so redeemer coverage costs zero CEK steps.
 -/
 import WSC.Shaped.GlobalShapedP1RPrep
+import WSC.Shaped.GlobalShapedP1SOwnPrep
 import WSC.Shaped.GlobalShapedP1RMintPrep
 import WSC.Shaped.GlobalShapedP1ROutPrep
 import WSC.Shaped.GlobalShapedP1ROutMintPrep
@@ -123,7 +124,7 @@ BYTECODE.** Identical statement to `WSC.P1_T1`, over a shape class that is
 inhabited by transactions a node would accept (`WSC.t1R_realizable`) rather than
 by the empty class `t1_class_is_empty` exhibits. Over SHAPE T1R the mint is
 empty, so this is the pure-transfer case `outAtBase ≥ inAtBase`. -/
-theorem P1R_T1 : P1R_T1_stmt := by blaster
+theorem P1R_T1 : P1R_T1_stmt := by blaster (timeout: 1500)
 
 /-! ## §2 — P1 over SHAPE T2R (nonzero symbolic mint — the SIGNED form bites) -/
 
@@ -168,7 +169,7 @@ def P1R_T2_stmt : Prop :=
 
 /-- **P1 OVER THE REALIZABLE SHAPE T2R — PROVED AT UPLC.** `q` is free and its
 SIGN is unconstrained, so mint and burn are covered at once. -/
-theorem P1R_T2 : P1R_T2_stmt := by blaster
+theorem P1R_T2 : P1R_T2_stmt := by blaster (timeout: 1500)
 
 /-! ## §3 — P1 over SHAPE T6R (containment must AGGREGATE over outputs) -/
 
@@ -216,7 +217,7 @@ def P1R_T6_stmt : Prop :=
 requirement is met by the SUM of two independently symbolic mini-ledger outputs,
 so PATH A's accumulate-scan (including its early exit at
 ProgrammableLogicBase.hs:605-607) has to add them up. -/
-theorem P1R_T6 : P1R_T6_stmt := by blaster
+theorem P1R_T6 : P1R_T6_stmt := by blaster (timeout: 1500)
 
 /-! ## §3b — P1 over SHAPE T7R (aggregation AND mint: the strongest P1 form) -/
 
@@ -265,7 +266,7 @@ def P1R_T7_stmt : Prop :=
 outputs with independent free quantities AND a nonzero mint of unconstrained
 sign: the strongest single P1 statement in the library, now over a class proved
 non-empty (`WSC.t7R_realizable`). -/
-theorem P1R_T7 : P1R_T7_stmt := by blaster
+theorem P1R_T7 : P1R_T7_stmt := by blaster (timeout: 1500)
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T7R.** Expected: `Falsified`. -/
 def P1R_T7_vacuity_probe : Prop :=
@@ -289,7 +290,7 @@ def P1R_T7_vacuity_probe : Prop :=
         dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS
         w0 w1 a0 a1 rBase rMint rTls fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1R_T7_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1R_T7_vacuity_probe]
 
 /-! ## §4 — Polarity controls (ADDENDUM E9): the full control set, re-run -/
 
@@ -333,7 +334,7 @@ def P1R_T1_negative_control_stmt : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee)
 
-theorem P1R_T1_negative_control : P1R_T1_negative_control_stmt := by blaster
+theorem P1R_T1_negative_control : P1R_T1_negative_control_stmt := by blaster (timeout: 1500)
 
 /-- Tightness stanza at SHAPE T1R. Expected: `Falsified`. -/
 def P1R_T1_tightness : Prop :=
@@ -369,7 +370,7 @@ def P1R_T1_tightness : Prop :=
               key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls
               fee).scriptContextTxInfo.txInfoMint)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1R_T1_tightness]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1R_T1_tightness]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T1R AND ITS OWN TERM.** Expected:
 `Falsified`. -/
@@ -391,7 +392,7 @@ def P1R_T1_vacuity_probe : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1R_T1_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1R_T1_vacuity_probe]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T2R.** Expected: `Falsified`. -/
 def P1R_T2_vacuity_probe : Prop :=
@@ -413,7 +414,7 @@ def P1R_T2_vacuity_probe : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1R_T2_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1R_T2_vacuity_probe]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T6R.** Expected: `Falsified`. -/
 def P1R_T6_vacuity_probe : Prop :=
@@ -436,7 +437,119 @@ def P1R_T6_vacuity_probe : Prop :=
         dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS
         w0 w1 a0 a1 rBase rTls fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1R_T6_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1R_T6_vacuity_probe]
+
+/-! ## §7 — P1 over SHAPE T8R: the SCRIPT-OWNED mini-ledger input (NEW at #112)
+
+SHAPE T8R (WSC/Shaped/GlobalShapedR.lean §7) is SHAPE T1R with the mini-ledger
+input's owner changed from a pubkey signature to a SCRIPT withdrawal, which is
+the only way to reach the indexed owner-witness check PR #112 introduced at
+ProgrammableLogicBase.hs:386-393. Everything else — the external input, the
+escape output, the two reference inputs, the empty mint, the budget 4400 — is
+SHAPE T1R's. -/
+
+def P1R_T8_stmt : Prop :=
+  ∀ (ppCS : CurrencySymbol) (cs tn plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 rBase rTls rOwn fee : Integer),
+    validRewardingContext
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) →
+    Model.coveringNodeExists dirCS cs
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls
+        rOwn fee).scriptContextTxInfo.txInfoReferenceInputs = false →
+    isSuccessful
+      (appliedGlobalShapedT8R.prop ppCS cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) →
+      Model.outSum (.ScriptCredential plc) cs tn
+          (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+            pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+            key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls
+            rOwn fee).scriptContextTxInfo.txInfoOutputs
+        ≥ Model.inSum (.ScriptCredential plc) cs tn
+            (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+              pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+              key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls
+              rOwn fee).scriptContextTxInfo.txInfoInputs
+          + Model.mintSigned cs tn
+            (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+              pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+              key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls
+              rOwn fee).scriptContextTxInfo.txInfoMint
+
+/-- **P1 OVER SHAPE T8R — PROVED AT UPLC AGAINST THE PRODUCTION BYTECODE.**
+Containment still holds when the mini-ledger input is owned by a SCRIPT and the
+owner witness is the redeemer-supplied withdrawal INDEX rather than a signature.
+The mint is empty here, so this is the pure-transfer case `outAtBase ≥ inAtBase`
+over PR #112's new code path. -/
+theorem P1R_T8 : P1R_T8_stmt := by blaster (timeout: 1500)
+
+/-- **THE OWNER WITNESS IS ACTUALLY ENFORCED — the security content of #112's
+`ownerWdrlIdxs`.** On SHAPE T8R the redeemer says `ownerWdrlIdxs = [2]`, and the
+input's staking credential `sOwn` and the withdrawal-entry-2 credential `w2` are
+INDEPENDENT free variables. This says the bytecode forces them equal: an
+accepting run implies the index really named the input's own owner.
+
+That is the precise sense in which the source's claim — "a wrong index resolves
+to some other credential and fails this equality"
+(ProgrammableLogicBase.hs:381-385) — is true of the compiled program and not just
+of the comment. Note the shape has NO signatories, so there is no signature path
+to fall back on: this equality is the only owner authorisation in the
+transaction. -/
+def P1R_T8_owner_witness_enforced : Prop :=
+  ∀ (ppCS : CurrencySymbol) (cs tn plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 rBase rTls rOwn fee : Integer),
+    validRewardingContext
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) →
+    isSuccessful
+      (appliedGlobalShapedT8R.prop ppCS cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) →
+    sOwn = w2
+
+/-- **MANDATORY VACUITY PROBE AT SHAPE T8R AND ITS OWN TERM.** Expected:
+`Falsified` — an accepting shape-T8R context must exist within 4400 CEK steps,
+otherwise the two theorems above are about the empty set. -/
+def P1R_T8_vacuity_probe : Prop :=
+  ∀ (ppCS : CurrencySymbol) (cs tn plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 rBase rTls rOwn fee : Integer),
+    validRewardingContext
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) →
+    ¬ isSuccessful
+      (appliedGlobalShapedT8R.prop ppCS cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee)
+
+/-- Expected `✅ Valid`: acceptance FORCES the redeemer-named withdrawal entry to
+be the input's own owner. -/
+theorem P1R_T8_owner_witness_enforced_thm : P1R_T8_owner_witness_enforced := by blaster (timeout: 1500)
+
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1R_T8_vacuity_probe]
 
 /-! ## §5 — CONCRETE witnesses of exactly SHAPES T1R / T2R / T6R
 
@@ -663,32 +776,32 @@ theorem exec_rejects_escape :
 /-- **EXACT STEP COUNTS, UNCHANGED BY THE RE-CUT: T1R K = 2603, T2R K = 3572,
 T6R K = 3150** — identical to SHAPES T1/T2/T6 (`K_T1_is_2603`, `K_T2_is_3572`,
 `K_T6_is_3150`). Budget 4400; headroom 828 over the most expensive. -/
-theorem K_T1R_is_2603 :
+theorem K_T1R_is_2343 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2603) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2343) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2602) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2342) = false := by
   native_decide
 
-theorem K_T2R_is_3572 :
+theorem K_T2R_is_2567 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 3572) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 2567) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 3571) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 2566) = false := by
   native_decide
 
-theorem K_T7R_is_3572 :
+theorem K_T7R_is_2567 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 3572) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 2567) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 3571) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 2566) = false := by
   native_decide
 
-theorem K_T6R_is_3150 :
+theorem K_T6R_is_2777 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 3150) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 2777) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 3149) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 2776) = false := by
   native_decide
 
 /-- **ARCHITECTURE.md §3-P1's `mintPos` FORM IS REFUTED AT THE REALIZABLE CUT

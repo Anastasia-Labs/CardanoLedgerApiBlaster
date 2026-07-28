@@ -8,7 +8,7 @@ output aggregation + nonzero symbolic mint)** at CEK step budget **4400**
 The shape and the reason it exists: WSC/Shaped/GlobalShapedR.lean's header.
 -/
 import WSC.Shaped.GlobalShapedR
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

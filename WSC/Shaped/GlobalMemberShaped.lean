@@ -89,7 +89,7 @@ different free variables. Had the shape written the outputs at
 `ScriptCredential plc`, the postcondition would have been ledger-implied and P6
 would have been vacuous at this shape.
 -/
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import WSC.Shaped.GlobalShaped
 import WSC.Shaped.Shape
 import WSC.Redeemer
@@ -110,19 +110,27 @@ open PlutusCore.Integer (Integer)
 open PlutusCore.UPLC.Term (Term)
 open WSC.Shape
 
-/-- SHAPE G6's redeemer: `TransferAct [] [] [Member] 0`, built through
+/-- SHAPE G6's redeemer: `TransferAct [] [] [] [Member] 0`, built through
 WSC/Redeemer.lean's audited `IsData PLGRedeemer` mirror
-(ProgrammableLogicBase.hs:1046-1054 for the field order, :1041-1043 for
-`MintProof`'s `Member = 0`). -/
+(ProgrammableLogicBase.hs:1039-1055 for the field order, :1030-1037 for
+`MintProof`'s `Member = 0`).
+
+**PR #112: FIVE fields, `ownerWdrlIdxs` THIRD, `[]` here.** SHAPE G6's single
+input `memberShapedInput` sits at `PubKeyCredential owner`, so
+`withContributing`'s payment-credential gate (ProgrammableLogicBase.hs:351-352)
+fails and the cursor is passed straight to `skip`; no owner index is ever read.
+See WSC/Shaped/GlobalShaped.lean's `globalShapedRedeemer` for the full citation
+chain. -/
 def memberShapedRedeemer : Data :=
-  IsData.toData (PLGRedeemer.TransferAct [] [] [MintProof.Member] 0)
+  IsData.toData (PLGRedeemer.TransferAct [] [] [] [MintProof.Member] 0)
 
 /-- AUDIT: the shaped redeemer's `Data` encoding, spelled out. Note the mint proof
 is `Constr 0 []` — a `Member` claim carries NO node index, which is the encoding
-fact P6's plain-English statement rests on. -/
+fact P6's plain-English statement rests on. FIVE fields post-#112. -/
 theorem memberShapedRedeemer_eq :
     memberShapedRedeemer =
-      Data.Constr 0 [Data.List [], Data.List [], Data.List [Data.Constr 0 []], Data.I 0] := by
+      Data.Constr 0 [Data.List [], Data.List [], Data.List [],
+                     Data.List [Data.Constr 0 []], Data.I 0] := by
   native_decide
 
 /-- SHAPE G6's output `i`: a SCRIPT address with free hash `obh`, carrying ada plus

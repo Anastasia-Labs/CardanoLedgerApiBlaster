@@ -88,7 +88,9 @@ def isDelegateSeize (r : Data) : Bool :=
 one. -/
 def transferMintProofs (r : Data) : Option (List MintProof) :=
   match (IsData.fromData r : Option PLGRedeemer) with
-  | some (.TransferAct _ _ ms _) => some ms
+  -- PR #112 widened `TransferAct` from 4 fields to 5 (`ownerWdrlIdxs` inserted
+  -- THIRD); this wildcard count follows the mirror in WSC/Redeemer.lean:206-213.
+  | some (.TransferAct _ _ _ ms _) => some ms
   | _ => none
 
 /-- POSITIONAL mint classification (ADDENDUM E8).

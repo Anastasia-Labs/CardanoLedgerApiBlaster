@@ -51,6 +51,7 @@ independently-cached modules).
 -/
 import PlutusCore.UPLC
 import CardanoLedgerApi.V3
+import WSC.Prep.GlobalImport
 import Blaster
 
 -- The 1600-step symbolic unrolling is a ~36-minute elaboration; the default
@@ -64,27 +65,13 @@ open CardanoLedgerApi.IsData.Class (toTerm)
 open CardanoLedgerApi.V3 (ScriptContext CurrencySymbol rewardingInputs)
 open PlutusCore.UPLC.Term (Term)
 
-#import_uplc programmableLogicGlobal1600 PlutusV3 double_cbor_hex "WSC/flats/programmableLogicGlobal.flat"
+-- The `#import_uplc` that used to sit here now lives in WSC/Prep/GlobalImport.lean
+-- so that the shaped preps (which need the DECODED PROGRAM and nothing else) do
+-- not inherit this module's D8 failure. See that module's header.
 
-/-- Parameter evidence for `programmableLogicGlobal` — 1 parameter, then ctx
-(identical to WSC/Prep/Global.lean; repeated here so this module is
-self-contained):
-
-1. `protocolParamsCS : PAsData PCurrencySymbol` — protocol-params NFT policy id.
-
-* Plutarch signature: `mkProgrammableLogicGlobal :: Term s (PAsData
-  PCurrencySymbol :--> PScriptContext :--> PUnit)`
-  — src/programmable-tokens-onchain/lib/SmartTokens/Contracts/ProgrammableLogicBase.hs:1176
-  (lambda order `\protocolParamsCS ctx` at :1177).
-* Offchain application: `mkProgrammableLogicGlobal # pdata (pconstant $
-  transPolicyId paramsPolId)`
-  — src/programmable-tokens-offchain/lib/ProgrammableTokens/OffChain/Scripts.hs:119-122.
-* Golden corroboration: all four `programmableLogicGlobal.*` vectors in
-  WSC/goldens/ carry exactly ONE `paramsHex` entry (MANIFEST.md param table).
-* Purpose: REWARDING (withdraw-zero) validator — `pisRewardingScript` is the
-  first validated condition (ProgrammableLogicBase.hs:1254). -/
-def globalInputs1600 (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext) : List Term :=
-  toTerm protocolParamsCS :: rewardingInputs ctx
+-- `globalInputs1600` now lives in WSC/Prep/GlobalImport.lean, next to the
+-- `#import_uplc` it belongs with, so that the shaped preps can reach it without
+-- inheriting this module's D8 failure.
 
 #prep_uplc appliedGlobal1600 programmableLogicGlobal1600 globalInputs1600 1600
 

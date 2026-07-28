@@ -238,7 +238,7 @@ that came from mini-ledger inputs plus the signed minted amount.*
 
 Over SHAPE T1 the mint is empty, so this is the pure-transfer case
 `outAtBase ≥ inAtBase`; `P1_T2` below carries the mint. -/
-theorem P1_T1 : P1_T1_stmt := by blaster
+theorem P1_T1 : P1_T1_stmt := by blaster (timeout: 1500)
 
 /-! ## §2 — P1 over SHAPE T2 (nonzero symbolic mint — the SIGNED form bites) -/
 
@@ -288,7 +288,7 @@ requires nothing to remain — and the SIGNED inequality still holds, because
 `validTxOutValue` forces every output quantity strictly positive. That is
 precisely the asymmetry that refutes the `mintPos` form; see
 `P1ShapedWitness.mintPos_form_REFUTED`. -/
-theorem P1_T2 : P1_T2_stmt := by blaster
+theorem P1_T2 : P1_T2_stmt := by blaster (timeout: 1500)
 
 /-! ## §3 — Polarity controls (ADDENDUM E9): the full control set -/
 
@@ -336,7 +336,7 @@ def P1_T1_negative_control_stmt : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
 
-theorem P1_T1_negative_control : P1_T1_negative_control_stmt := by blaster
+theorem P1_T1_negative_control : P1_T1_negative_control_stmt := by blaster (timeout: 1500)
 
 /-- Tightness stanza: the NEGATION of P1's conclusion under an accepting run must
 be FALSIFIABLE (otherwise the conclusion would be vacuously derivable). Expected:
@@ -371,7 +371,7 @@ def P1_T1_tightness : Prop :=
               pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
               key next tlsH ilsH gsCS w0 w1 a0 a1 fee).scriptContextTxInfo.txInfoMint)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1_T1_tightness]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1_T1_tightness]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T1.** "No accepting shape-T1 context
 exists within 4400 CEK steps" must be FALSIFIED. Expected: `Falsified`. The
@@ -395,7 +395,7 @@ def P1_T1_vacuity_probe : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1_T1_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1_T1_vacuity_probe]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T2.** Same, for the mint-carrying shape.
 Expected: `Falsified`. -/
@@ -418,7 +418,7 @@ def P1_T2_vacuity_probe : Prop :=
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1_T2_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1_T2_vacuity_probe]
 
 /-! ## §4 — CONCRETE witnesses of exactly SHAPES T1 / T2, through the real CEK
 
@@ -610,20 +610,20 @@ theorem exec_rejects_at_600 :
 comparison the containment-carrying off-chain goldens cost K = 3262 and 3726
 (`WSC/goldens/K-MEASUREMENTS.md` §3), so SHAPE T1 sits in the same step-count
 regime as the real transactions while being small enough for the solver. -/
-theorem K_T1_is_2603 :
+theorem K_T1_is_2343 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2603) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2343) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2602) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOk) 2342) = false := by
   native_decide
 
-/-- **EXACT STEP COUNT, SHAPE T2: K = 3572** (both the mint and the burn
-witness). -/
-theorem K_T2_is_3572 :
+/-- **EXACT STEP COUNT, SHAPE T2: K = 2567** (both the mint and the burn
+witness) — re-measured against the PR #112 bytecode, two-sided; was 3572. -/
+theorem K_T2_is_2567 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 3572) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 2567) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 3571) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxBurn) 2566) = false := by
   native_decide
 
 /-- The mint witness is accepted by the shaped SHAPE-T2 term at 4400. -/
@@ -809,7 +809,7 @@ def P1_T6_stmt : Prop :=
 
 /-- **P1 OVER SHAPE T6 — PROVED AT UPLC.** The mini-ledger requirement is met by
 the SUM of two independently symbolic mini-ledger outputs. -/
-theorem P1_T6 : P1_T6_stmt := by blaster
+theorem P1_T6 : P1_T6_stmt := by blaster (timeout: 1500)
 
 /-- **P1 over SHAPE T7** — two mini-ledger outputs AND a nonzero symbolic mint of
 unconstrained sign: the strongest single P1 statement in this module. -/
@@ -854,7 +854,7 @@ def P1_T7_stmt : Prop :=
               w0 w1 a0 a1 fee).scriptContextTxInfo.txInfoMint
 
 /-- **P1 OVER SHAPE T7 — PROVED AT UPLC.** -/
-theorem P1_T7 : P1_T7_stmt := by blaster
+theorem P1_T7 : P1_T7_stmt := by blaster (timeout: 1500)
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T6.** Expected: `Falsified`. -/
 def P1_T6_vacuity_probe : Prop :=
@@ -876,7 +876,7 @@ def P1_T6_vacuity_probe : Prop :=
         outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty
         dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1_T6_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1_T6_vacuity_probe]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE T7.** Expected: `Falsified`. -/
 def P1_T7_vacuity_probe : Prop :=
@@ -899,7 +899,7 @@ def P1_T7_vacuity_probe : Prop :=
         outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty
         dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P1_T7_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P1_T7_vacuity_probe]
 
 /-! ## §6 — CONCRETE witnesses of exactly SHAPES T6 / T7 -/
 
@@ -1017,19 +1017,20 @@ theorem exec_rejects_T6_escape :
       programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutEscape) 4400) = false := by
   native_decide
 
-/-- **EXACT STEP COUNTS: SHAPE T6 K = 3150, SHAPE T7 (burn) K = 3572.** -/
-theorem K_T6_is_3150 :
+/-- **EXACT STEP COUNTS: SHAPE T6 K = 2777, SHAPE T7 (burn) K = 2567** —
+re-measured against the PR #112 bytecode, two-sided; were 3150 and 3572. -/
+theorem K_T6_is_2777 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 3150) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 2777) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 3149) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOut) 2776) = false := by
   native_decide
 
-theorem K_T7_is_3572 :
+theorem K_T7_is_2567 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 3572) = true
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 2567) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
-      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 3571) = false := by
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxOutBurn) 2566) = false := by
   native_decide
 
 /-- Source-model cross-check on the three SHAPE-T6/T7 witnesses (three more

@@ -563,4 +563,161 @@ def p1ROutMintInputs
         dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS
         w0 w1 a0 a1 rBase rMint rTls fee)
 
+/-! ## §7 SHAPE T8R — **NEW at PR #112**: a SCRIPT-OWNED mini-ledger input
+
+════════════════════════════════════════════════════════════════════════════
+WHY THIS SHAPE EXISTS
+════════════════════════════════════════════════════════════════════════════
+PR #112 replaced the owner-witness SCAN with an INDEXED lookup. Old code
+(`pisScriptInvokedEntries`, ProgrammableLogicBase.hs:282-294) searched the whole
+withdrawal map for the owner credential of every script-owned mini-ledger input.
+New code (`:386-393`) reads the redeemer's `ownerWdrlIdxs` cursor and checks ONE
+position:
+
+    ownerCredData #== pforgetData
+      (pfstBuiltin # (phead # (pdropList # pfromData (phead # idxs) # withdrawalEntries)))
+
+**Every other shape in this library misses that code entirely.** SHAPES G1R/G6R
+have no input at the mini-ledger credential at all, and SHAPES T1R/T2R/T6R/T7R
+have one whose staking credential is `StakingHash (PubKeyCredential owner)`, which
+takes the PUBKEY arm at `:370-376` and never touches `withdrawalEntries`. The four
+regenerated transfer goldens are in the same position — N2 recorded exactly this
+gap ("no golden has a non-empty `ownerWdrlIdxs`"). So without SHAPE T8R the single
+most security-relevant line PR #112 added would be covered by nothing: no golden,
+no shape, no theorem.
+
+SHAPE T8R = SHAPE T1R with the mini-ledger input's OWNER changed from a pubkey to
+a script, which is the whole point:
+
+* `p1ShapedBaseInS`'s staking credential is `StakingHash (ScriptCredential sOwn)`
+  with `sOwn` a FREE variable, so the tag test at `:371` sees tag 1 and the
+  SCRIPT arm at `:386-393` runs;
+* `txInfoSignatories` is `[]` — there is no signature to fall back on, so the
+  index check is the ONLY thing standing between the attacker and the input's
+  value. If it could be bypassed, this shape is where it would show;
+* the redeemer's `ownerWdrlIdxs = [2]` and the withdrawal map has THREE script
+  entries `w0 < w1 < w2`. `sOwn` and `w2` are DIFFERENT free variables, so
+  `sOwn = w2` is not baked in — the validator has to force it. Had the shape
+  written the input's owner as `ScriptCredential w2`, the check would have been
+  true by construction and the shape would prove nothing.
+
+Withdrawal roles, all three genuinely needed:
+* entry 0 = `w0`, the running script's own rewarding credential, read
+  unconditionally at `:1205` (`cachedTransferScript0`) and required to be a script
+  credential by `validScriptInfo`'s rewarding clause;
+* entry 1 = `w1`, named by `transferWdrlIdxs = [1]` and checked against the node
+  datum's `transferLogicScript` at `:913-915`;
+* entry 2 = `w2`, named by the NEW `ownerWdrlIdxs = [2]` and checked against the
+  input's owner credential at `:386-393`.
+
+Redeemer coverage (the C1 discipline, unchanged): 4 entries — `Spending ⟨"",0⟩`
+for the script-credential input, then `Rewarding w0`, `Rewarding w1`,
+`Rewarding w2`. Ascending in `ltScriptPurpose` iff `w0 < w1 < w2`, which
+`validWithdrawals` forces on the withdrawal map.
+
+P1's two design properties are preserved verbatim: the external pubkey input and
+the pubkey ESCAPE output are both still present, so `isBalanced` alone still gives
+only `qIn + qIn2 = qOut + qEsc` and the containment inequality must be earned.
+-/
+
+/-- SHAPE T8R's redeemer: `TransferAct [1] [1] [2] [] 0`. The third field is the
+NEW `ownerWdrlIdxs` and here it is NON-EMPTY — this is the only redeemer in the
+library that drives ProgrammableLogicBase.hs:386-393. -/
+def p1SOwnRedeemer : Data :=
+  IsData.toData (PLGRedeemer.TransferAct [1] [1] [2] [] 0)
+
+/-- AUDIT: SHAPE T8R's redeemer `Data`, spelled out. Contrast
+`p1ShapedRedeemer_eq`, whose third element is `Data.List []`. -/
+theorem p1SOwnRedeemer_eq :
+    p1SOwnRedeemer =
+      Data.Constr 0 [Data.List [Data.I 1], Data.List [Data.I 1], Data.List [Data.I 2],
+                     Data.List [], Data.I 0] := by
+  native_decide
+
+/-- SHAPE T8R's mini-ledger input: at the base credential `plc`, owner-witnessed
+by a SCRIPT staking credential `sOwn` rather than by a signature. -/
+def p1ShapedBaseInS (plc sOwn : ByteString) (inAda : Integer)
+    (cs tn : ByteString) (qIn : Integer) : TxInInfo :=
+  ⟨⟨ByteString.mk "", 0⟩,
+   { txOutAddress := ⟨.ScriptCredential plc, some (.StakingHash (.ScriptCredential sOwn))⟩
+   , txOutValue := adaPlusOne inAda cs tn qIn
+   , txOutDatum := .NoOutputDatum
+   , txOutReferenceScript := none }⟩
+
+/-- SHAPE T8R's THREE-entry all-script withdrawal map. Ascending iff
+`w0 < w1 < w2`, which `validWithdrawals` forces. -/
+def p1SOwnWdrl (w0 w1 w2 : ScriptHash) (a0 a1 a2 : Integer) : Withdrawals :=
+  [(.ScriptCredential w0, a0), (.ScriptCredential w1, a1), (.ScriptCredential w2, a2)]
+
+/-- SHAPE T8R's redeemer map: one `Spending` for the script-credential input plus
+one `Rewarding` per script withdrawal. -/
+def p1SOwnRedeemers (w0 w1 w2 : ScriptHash) (rBase rTls rOwn : Integer)
+    (own : Data) : RedeemerMap :=
+  [ (.Spending ⟨ByteString.mk "", 0⟩, Data.I rBase)
+  , (.Rewarding (.ScriptCredential w0), own)
+  , (.Rewarding (.ScriptCredential w1), Data.I rTls)
+  , (.Rewarding (.ScriptCredential w2), Data.I rOwn) ]
+
+def p1SOwnCtx
+    (cs tn : ByteString)
+    (plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer)
+    (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 : Integer)
+    (rBase rTls rOwn : Integer)
+    (fee : Integer)
+    : ScriptContext :=
+  { scriptContextTxInfo :=
+      { txInfoInputs :=
+          [ p1ShapedBaseInS plc sOwn inAda cs tn qIn
+          , p1ShapedExtIn ext in2Ada cs tn qIn2 ]
+      , txInfoReferenceInputs :=
+          [ p1ShapedParamsIn pHash pCS pTn pAda pQty dirCS plc glc slc
+          , p1ShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS ]
+      , txInfoOutputs :=
+          [ p1ShapedBaseOut plc outAda cs tn qOut
+          , p1ShapedEscOut dest escAda cs tn qEsc ]
+      , txInfoFee := fee
+      , txInfoMint := []
+      , txInfoTxCerts := []
+      , txInfoWdrl := p1SOwnWdrl w0 w1 w2 a0 a1 a2
+      , txInfoValidRange := range 0 1
+      , txInfoSignatories := []
+      , txInfoRedeemers := p1SOwnRedeemers w0 w1 w2 rBase rTls rOwn p1SOwnRedeemer
+      , txInfoData := []
+      , txInfoId := ByteString.mk ""
+      , txInfoVotes := []
+      , txInfoProposalProcedures := []
+      , txInfoCurrentTreasuryAmount := Data.I 1
+      , txInfoTreasuryDonation := Data.I 1 }
+  , scriptContextRedeemer := p1SOwnRedeemer
+  , scriptContextScriptInfo := .RewardingScript (.ScriptCredential w0) }
+
+def p1SOwnInputs
+    (protocolParamsCS : CurrencySymbol)
+    (cs tn : ByteString)
+    (plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer)
+    (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 : Integer)
+    (rBase rTls rOwn : Integer)
+    (fee : Integer)
+    : List Term :=
+  toTerm protocolParamsCS ::
+    rewardingInputs
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2
+        rBase rTls rOwn fee)
+
 end WSC

@@ -158,7 +158,7 @@ theorem P5R_shaped_indexed :
           (globalShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS).txInInfoResolved = true
       ∧ coversCS cs
           (globalShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS).txInInfoResolved = true
-      := by blaster
+      := by blaster (timeout: 1500)
 
 /-! ## §3 Composition with the already-proved reduction ladder -/
 
@@ -264,7 +264,7 @@ theorem P5R_shaped_negative_control :
       (appliedGlobalShapedG1R.prop ppCS cs tn q owner inAda dest outAda qOut
         pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 a0 rMint fee)
-      := by blaster
+      := by blaster (timeout: 1500)
 
 /-- Tightness stanza at the re-cut shape: the NEGATION of P5's postcondition
 under an accepting run must be FALSIFIABLE. Expected: `Falsified`. -/
@@ -291,7 +291,7 @@ def P5R_shaped_tightness : Prop :=
       ∧ coversCS cs
         (globalShapedNode nHash nCS nTn nAda nQty key next tlsH ilsH gsCS).txInInfoResolved = true)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P5R_shaped_tightness]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P5R_shaped_tightness]
 
 /-- **MANDATORY VACUITY PROBE AT THE RE-CUT SHAPE AND ITS OWN TERM.** "No
 accepting shape-G1R context exists within 1600 CEK steps" must be FALSIFIED.
@@ -316,7 +316,7 @@ def P5R_shaped_vacuity_probe : Prop :=
         pHash pCS pTn pAda pQty dirCS plc glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 a0 rMint fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P5R_shaped_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P5R_shaped_vacuity_probe]
 
 /-! ## §5 CONCRETE accepting witness OF EXACTLY SHAPE G1R — executable, no SMT
 
@@ -395,17 +395,25 @@ theorem exec_accepts_at_1600_unshaped :
     isSuccessful (appliedGlobal1600.exec ppCS ctx) :=
   isHaltB_sound _ (by native_decide)
 
-/-- **EXACT STEP COUNT — `K = 1541`, UNCHANGED from SHAPE G1** (`K_is_1541`,
-WSC/Props/Shaped/P5Shaped.lean). That equality is the measurement behind this
-task's central claim that redeemer-coverage is FREE for this validator: the
-transfer path never dereferences `txInfoRedeemers` (it reads its own redeemer out
-of `scriptContextRedeemer`), so enlarging the redeemer map changes no CEK step.
-Budget 1600, headroom 59. -/
-theorem K_is_1541 :
+/-- **EXACT STEP COUNT — `K = 1402` against the PR #112 bytecode**, pinned
+TWO-SIDED (halts at 1402, budget-errors at 1401). Budget 1600, headroom 198.
+
+RE-MEASURED at wsc-poc main @ `2306678` (task N4): it was **1541** against the
+pre-#112 global, so this shape got **9.0 % cheaper**. That is the same direction
+and rough size as the 6.5-14.7 % reductions unit N2 measured on the global
+goldens, and it is the only thing about this witness that PR #112 changed.
+
+The pre-#112 note attached to this measurement still holds and is worth keeping:
+`K` is IDENTICAL between SHAPE G1 and SHAPE G1R at any fixed bytecode, because
+the transfer path never dereferences `txInfoRedeemers` — it reads its own
+redeemer out of `scriptContextRedeemer`. Enlarging the redeemer map to satisfy
+Conway's `hasExactSetOfRedeemers` therefore costs ZERO CEK steps, which is what
+makes the node-realizable re-cut free. -/
+theorem K_is_1402 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 1541) = true
+              (globalInputs1600 ppCS ctx) 1402) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableLogicGlobal1600.script
-              (globalInputs1600 ppCS ctx) 1540) = false := by native_decide
+              (globalInputs1600 ppCS ctx) 1401) = false := by native_decide
 
 end P5RShapedWitness
 

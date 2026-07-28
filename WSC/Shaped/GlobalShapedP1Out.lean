@@ -33,7 +33,7 @@ amounts. The postcondition's `outAtBase` is their SUM.
 SHAPE T7 = SHAPE T6 with the nonzero symbolic mint of SHAPE T2.
 -/
 import WSC.Shaped.GlobalShapedP1
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import Blaster
 
 set_option maxHeartbeats 0

@@ -33,10 +33,12 @@ open PlutusCore.Integer (Integer)
 open PlutusCore.UPLC.Term (Term)
 open WSC.Shape
 
-/-- SHAPE G2's redeemer: `TransferAct [] [] [NonMember nIdx] pIdx` with BOTH
-indices symbolic. -/
+/-- SHAPE G2's redeemer: `TransferAct [] [] [] [NonMember nIdx] pIdx` with BOTH
+indices symbolic. **PR #112: FIVE fields**, `ownerWdrlIdxs` third and `[]` for the
+same reason as SHAPE G1 (pubkey-credential input, never reaches the script-owner
+branch — see WSC/Shaped/GlobalShaped.lean's `globalShapedRedeemer`). -/
 def globalShapedRedeemerIdx (pIdx nIdx : Integer) : Data :=
-  IsData.toData (PLGRedeemer.TransferAct [] [] [MintProof.NonMember nIdx] pIdx)
+  IsData.toData (PLGRedeemer.TransferAct [] [] [] [MintProof.NonMember nIdx] pIdx)
 
 /-- **SHAPE G2** — SHAPE G1 with symbolic redeemer indices. -/
 def globalShapedCtxIdx

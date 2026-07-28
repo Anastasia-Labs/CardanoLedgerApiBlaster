@@ -74,7 +74,7 @@ SYMBOLIC — in particular BOTH halves of P5's postcondition are free:
   `globalStateCS`; every address hash; every ada amount, token quantity,
   withdrawal amount and the fee.
 -/
-import WSC.Prep.Global1600
+import WSC.Prep.GlobalImport
 import WSC.Shaped.Shape
 import WSC.Redeemer
 import Blaster
@@ -94,17 +94,33 @@ open PlutusCore.Integer (Integer)
 open PlutusCore.UPLC.Term (Term)
 open WSC.Shape
 
-/-- SHAPE G1's redeemer: `TransferAct [] [] [NonMember 1] 0`, built through
+/-- SHAPE G1's redeemer: `TransferAct [] [] [] [NonMember 1] 0`, built through
 WSC/Redeemer.lean's audited `IsData PLGRedeemer` mirror
-(ProgrammableLogicBase.hs:1135-1160 for the field order, :948-953 for
-`MintProof`'s `Member = 0` / `NonMember = 1`). -/
-def globalShapedRedeemer : Data :=
-  IsData.toData (PLGRedeemer.TransferAct [] [] [MintProof.NonMember 1] 0)
+(ProgrammableLogicBase.hs:1039-1055 for the field order, :1030-1037 for
+`MintProof`'s `Member = 0` / `NonMember = 1`).
 
-/-- AUDIT: the shaped redeemer's `Data` encoding, spelled out. -/
+**PR #112 (main @ 2306678): FIVE fields, `ownerWdrlIdxs` THIRD.** The new field
+is `[]` here and that is not a free choice — it is what this shape's owner-witness
+arm forces. `ownerWdrlIdxs` is consumed by `pvalueFromCred`
+(ProgrammableLogicBase.hs:328-439) ONLY at the script-owner branch (`:386-393`,
+`pdropList # (phead # idxs) # withdrawalEntries`); the pubkey branch (`:370-376`)
+witnesses by signature and calls `k resolvedOutValueData idxs` — the cursor is not
+advanced and no entry is taken (source comment :314-316: "Consumed only by
+script-owned inputs; a pubkey owner is witnessed by its signature and takes no
+entry"). SHAPE G1's only input sits at `PubKeyCredential owner`, so it is not even
+at `progLogicCred`: `withContributing`'s payment-credential gate (`:351-352`)
+fails and `skip idxs` runs. The list is therefore never read at all. Corroborated
+externally: all four regenerated transfer goldens carry `ownerWdrlIdxs = []`
+(WSC/Goldens/RedeemerGate.lean:286-332). -/
+def globalShapedRedeemer : Data :=
+  IsData.toData (PLGRedeemer.TransferAct [] [] [] [MintProof.NonMember 1] 0)
+
+/-- AUDIT: the shaped redeemer's `Data` encoding, spelled out. FIVE fields
+post-#112; the empty `ownerWdrlIdxs` is the third `Data.List []`. -/
 theorem globalShapedRedeemer_eq :
     globalShapedRedeemer =
-      Data.Constr 0 [Data.List [], Data.List [], Data.List [Data.Constr 1 [Data.I 1]], Data.I 0] := by
+      Data.Constr 0 [Data.List [], Data.List [], Data.List [],
+                     Data.List [Data.Constr 1 [Data.I 1]], Data.I 0] := by
   native_decide
 
 /-- SHAPE G1's protocol-params reference input (reference index 0). -/

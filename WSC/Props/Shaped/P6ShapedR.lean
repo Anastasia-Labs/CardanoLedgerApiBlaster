@@ -40,7 +40,7 @@ MEASURED (this task): `✅ Valid`; witness K = 2837 (unchanged from SHAPE G6),
 budget 3300, headroom 463.
 -/
 import WSC.Shaped.GlobalMemberShapedRPrep
-import WSC.Props.Shaped.P6Shaped
+import WSC.Props.Shaped.P6Vocab
 import Blaster
 
 -- Blaster closes Valid goals via `admit` (SPIKE-FINDINGS): expected `sorry`s.
@@ -99,7 +99,7 @@ theorem P6R_shaped_member_adds_to_requirement :
       outAtBaseQty (Credential.ScriptCredential plc) cs tn
         (memberShapedOutputs cs tn ob0 outAda0 qq0 ob1 outAda1 qq1)
         ≥ inAtBaseQty (Credential.ScriptCredential plc) cs tn [memberShapedInput owner inAda]
-          + mintOf cs tn (Shape.mintOne cs tn q) := by blaster
+          + mintOf cs tn (Shape.mintOne cs tn q) := by blaster (timeout: 1500)
 
 /-- The specialised reading, as in `P6_shaped_member_mint_stays_at_base`. -/
 theorem P6R_shaped_member_mint_stays_at_base
@@ -148,7 +148,7 @@ theorem P6R_shaped_negative_control :
           + mintOf cs tn (Shape.mintOne cs tn q)) →
     isUnsuccessful
       (appliedGlobalMemberShapedG6R.prop ppCS cs tn q owner inAda ob0 outAda0 qq0
-        ob1 outAda1 qq1 pHash pCS pTn pAda pQty dirCS plc glc slc w0 a0 rMint fee) := by blaster
+        ob1 outAda1 qq1 pHash pCS pTn pAda pQty dirCS plc glc slc w0 a0 rMint fee) := by blaster (timeout: 1500)
 
 /-- Tightness stanza at the re-cut shape. Expected: `Falsified`. -/
 def P6R_shaped_tightness : Prop :=
@@ -172,7 +172,7 @@ def P6R_shaped_tightness : Prop :=
         ≥ inAtBaseQty (Credential.ScriptCredential plc) cs tn [memberShapedInput owner inAda]
           + mintOf cs tn (Shape.mintOne cs tn q))
 
-#blaster (gen-cex: 0) (solve-result: 1) [P6R_shaped_tightness]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P6R_shaped_tightness]
 
 /-- **MANDATORY VACUITY PROBE AT SHAPE G6R AND ITS OWN TERM.** "No accepting
 shape-G6R context exists within 3300 CEK steps" must be FALSIFIED. Expected:
@@ -196,7 +196,7 @@ def P6R_shaped_vacuity_probe : Prop :=
       (appliedGlobalMemberShapedG6R.prop ppCS cs tn q owner inAda ob0 outAda0 qq0
         ob1 outAda1 qq1 pHash pCS pTn pAda pQty dirCS plc glc slc w0 a0 rMint fee)
 
-#blaster (gen-cex: 0) (solve-result: 1) [P6R_shaped_vacuity_probe]
+#blaster (timeout: 1500) (gen-cex: 0) (solve-result: 1) [P6R_shaped_vacuity_probe]
 
 /-! ## §3 CONCRETE accepting witness OF EXACTLY SHAPE G6R — executable, no SMT
 

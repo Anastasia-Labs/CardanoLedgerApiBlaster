@@ -164,29 +164,51 @@ def adaPlusTwoTn (n : Integer) (cs : CurrencySymbol) (tn0 tn1 : TokenName)
   [ (Data.B adaCS, Data.Map [(Data.B adaTN, Data.I n)])
   , (Data.B cs, Data.Map [(Data.B tn0, Data.I q0), (Data.B tn1, Data.I q1)]) ]
 
-/-- SHAPE T1/T3's redeemer: `TransferAct [1] [1] [] 0` — one transfer proof
+/-- SHAPE T1/T3's redeemer: `TransferAct [1] [1] [] [] 0` — one transfer proof
 naming reference index 1, one withdrawal-index cursor naming withdrawal entry 1,
-NO mint proofs, params at reference index 0. Built through WSC/Redeemer.lean's
-audited `IsData PLGRedeemer` mirror (ProgrammableLogicBase.hs:1135-1160 for the
-field order). -/
-def p1ShapedRedeemer : Data :=
-  IsData.toData (PLGRedeemer.TransferAct [1] [1] [] 0)
+an EMPTY owner-withdrawal-index list, NO mint proofs, params at reference index 0.
+Built through WSC/Redeemer.lean's audited `IsData PLGRedeemer` mirror
+(ProgrammableLogicBase.hs:1039-1055 for the field order).
 
-/-- AUDIT: the shaped redeemer's `Data` encoding, spelled out. -/
+**PR #112 (main @ 2306678): FIVE fields, `ownerWdrlIdxs` THIRD.** Unlike SHAPES
+G1/G6, this shape DOES have a mini-ledger input — `p1ShapedBaseIn` sits at
+`ScriptCredential plc`, which is `progLogicCred`, so `withContributing`'s payment
+gate (ProgrammableLogicBase.hs:351-352) PASSES and the owner-witness arm really
+runs. `[]` is still forced, and forced for a sharper reason: that input's staking
+credential is `StakingHash (PubKeyCredential owner)` with `owner` in
+`txInfoSignatories`, so `pasConstr`'s tag test at `:371` sees tag 0 and takes the
+PUBKEY branch `:372-376` (`ptxSignedByPkh`), which calls `k resolvedOutValueData
+idxs` WITHOUT advancing the cursor and without touching `withdrawalEntries`. Only
+the script branch `:386-393` consumes an index. A non-empty list here would be
+inert, not merely wrong. Corroborated externally: all four regenerated transfer
+goldens carry `ownerWdrlIdxs = []` (WSC/Goldens/RedeemerGate.lean:286-332), and
+they too spend pubkey-stake-owned mini-ledger inputs.
+
+⚠ COVERAGE CONSEQUENCE, stated not papered over: because every shape in this
+library witnesses its mini-ledger owner by SIGNATURE, no shaped theorem exercises
+the new indexed script-owner lookup at `:386-393`. That path is covered instead by
+SHAPE T8R (WSC/Shaped/GlobalShapedR.lean §7), which was cut for exactly this gap. -/
+def p1ShapedRedeemer : Data :=
+  IsData.toData (PLGRedeemer.TransferAct [1] [1] [] [] 0)
+
+/-- AUDIT: the shaped redeemer's `Data` encoding, spelled out. FIVE fields
+post-#112; `ownerWdrlIdxs` is the third element, `Data.List []`. -/
 theorem p1ShapedRedeemer_eq :
     p1ShapedRedeemer =
-      Data.Constr 0 [Data.List [Data.I 1], Data.List [Data.I 1], Data.List [], Data.I 0] := by
+      Data.Constr 0 [Data.List [Data.I 1], Data.List [Data.I 1], Data.List [],
+                     Data.List [], Data.I 0] := by
   native_decide
 
-/-- SHAPE T2's redeemer: `TransferAct [1] [1] [Member] 0` — the extra `Member`
+/-- SHAPE T2's redeemer: `TransferAct [1] [1] [] [Member] 0` — the extra `Member`
 mint proof the nonzero mint field requires (:1018 errors without it).
-`MintProof.Member = 0` (:948-953). -/
+`MintProof.Member = 0` (:1030-1037). FIVE fields post-#112; see
+`p1ShapedRedeemer` for why `ownerWdrlIdxs = []` is forced. -/
 def p1ShapedRedeemerMint : Data :=
-  IsData.toData (PLGRedeemer.TransferAct [1] [1] [MintProof.Member] 0)
+  IsData.toData (PLGRedeemer.TransferAct [1] [1] [] [MintProof.Member] 0)
 
 theorem p1ShapedRedeemerMint_eq :
     p1ShapedRedeemerMint =
-      Data.Constr 0 [Data.List [Data.I 1], Data.List [Data.I 1],
+      Data.Constr 0 [Data.List [Data.I 1], Data.List [Data.I 1], Data.List [],
                      Data.List [Data.Constr 0 []], Data.I 0] := by
   native_decide
 
