@@ -68,12 +68,21 @@ So a P1 theorem at T3 today would live over an EMPTY class of node-realizable
 transactions and would be worth nothing — which is precisely the trap the re-cut
 campaign exists to avoid.
 
-**THE HONEST STATUS OF PATHS B/C** is therefore: *no longer blocked by the
-substrate; blocked only by the absence of a re-cut.* Closing them to the
-campaign's four-point bar needs a SHAPE **T3R** — T3 with two further redeemer
-entries so the map is exact — which is the same mechanical transformation this
-library has already performed for G1R, G6R, T1R, T2R, T6R, T7R, S1R and the six
-minting shapes. That is a unit of work, and it is NOT done here.
+**THE HONEST STATUS OF PATHS B/C** was therefore: *no longer blocked by the
+substrate; blocked only by the absence of a re-cut.* — **AND THAT RE-CUT NOW
+EXISTS (task H2, 2026-07-28).** SHAPE **T3R** is SHAPE T3 with two further
+redeemer entries so the map is exact (`WSC/Shaped/GlobalShapedP1BC.lean` §1); its
+prep is `appliedGlobalShapedT3R` at the same budget 4400
+(`WSC/Shaped/GlobalShapedP1BCPrep.lean`), and P1 is proved over it for BOTH token
+names to the full four-point bar in `WSC/Props/Shaped/P1ShapedBC.lean`, together
+with the executable evidence that PATH A is excluded and PATH C is executed.
+SHAPE T4R does the same for `T4PrepFAILS.lean`'s shape.
+
+**THIS MODULE IS THEREFORE A REGRESSION TEST AND NOTHING ELSE.** Nothing here is
+a P1 result; the probe below is retained because it is the historical measurement
+that the accept class was non-empty BEFORE the re-cut existed, and because a
+returning D6 must go red somewhere. Quote `WSC/AUDIT.md` entry **H2**, not this
+file, for the dispatch-path status.
 -/
 import WSC.Shaped.GlobalShapedP1
 import WSC.Prep.Global1600

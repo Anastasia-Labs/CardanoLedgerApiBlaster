@@ -1349,10 +1349,37 @@ re-checked that rather than restating it:
   demands 3 redeemer entries and T3 supplies 1. A P1 theorem there would live over
   an empty class of node-realizable transactions.
 
-**So the honest status of Paths B/C is: no longer blocked by the substrate; blocked
-only by the absence of a re-cut.** Closing them needs a SHAPE T3R (and T4R) — the
-same mechanical transformation already done thirteen times. That work is NOT done,
-and nobody should read "D6 is fixed" as "the dispatch paths are verified".
+**So the honest status of Paths B/C was: no longer blocked by the substrate; blocked
+only by the absence of a re-cut.** — **CLOSED at task H2 (2026-07-28).** The re-cut
+was done: SHAPES **T3R** and **T4R** (`WSC/Shaped/GlobalShapedP1BC.lean`), preps at
+budget 4400 (`GlobalShapedP1BCPrep.lean`), and P1 proved over both to the full
+four-point bar (`WSC/Props/Shaped/P1ShapedBC.lean`). See the entry **H2** below for
+exactly which of the three dispatch paths is now PROVED, which is MEASURED, and
+which cannot be isolated by any accept/reject test at all.
+
+### H2 — the containment dispatch, after the re-cut (task H2, 2026-07-28)
+
+ARCHITECTURE Tier 3.1 asks that each of `poutputsContainExpectedValueAtCred`'s
+three dispatch paths independently imply the aggregate bound. Status, stated so
+it cannot be over-read:
+
+| path | what it is | status at UPLC, over a NODE-REALIZABLE class |
+|---|---|---|
+| **A** — single-asset accumulate-scan (`:567-593`) | taken iff the expected value is one currency symbol with one token name | **PROVED** since C1: `P1R_T1`/`P1R_T2`/`P1R_T6`/`P1R_T7`/`P1R_T8` over SHAPES T1R/T2R/T6R/T7R/T8R |
+| **B** — wholesale `Data` equality (`:628-644`) | at the first mini-ledger output, `equalsData` of its non-ada map against the expected map | **REACHED, NOT ISOLABLE BY SEMANTICS.** On ledger-valid contexts `B ⟹ C`, so no accept/reject test can distinguish them — B is a pure performance fast path. Its CONDITION is evaluated in ground-truth vocabulary (`T3R_pathB_condition`) and its EXECUTION separated by cost: `K_T3R_B_is_1936` vs `K_T3R_C_is_2228`, two-sided, over two contexts differing in one integer leaf by one |
+| **C** — CIP-153 builtin `pvalueContains` (`:615-618`) | reached when B's equality fails, or when no mini-ledger output is found | **PROVED EXECUTED AND TRUE** at `P1BCShapedWitness.ctxC` (`T3R_pathC_is_taken`), by a two-witness argument that assumes nothing about the validator beyond "the expected value does not read `txInfoOutputs`" and `pvalueContains`'s own specification |
+
+Plus: `T3R_not_path_A` PROVES the SHAPE-T3R runs are on the B/C arm — two
+rejections, one short on `tn0` with `tn1` whole and its mirror, which no
+single-asset scan can both produce. And the INPUT side of the same D6 claim is
+closed by SHAPE T4R: `P1BC_T4R` is P1 with `inAtBase` produced by
+`pvalueFromCred`'s PHASE 3 builtin accumulation (`punValueData` / `punionValue` /
+`pinsertCoin` / `pvalueData`) rather than PHASE 2's positional ada-drop.
+
+**How to quote this: "2 of 3 dispatch paths verified at UPLC over realizable
+classes with certified witnesses (A and C); the third (B) is reached and measured
+but is semantically subsumed by C, so no theorem can separate it."** Anything
+stronger is an overclaim.
 
 ### F8 — MEDIUM, OPEN, and now BINDING ON BOTH COMPOSED RESULTS
 
@@ -1877,7 +1904,7 @@ These are the traps. Each was a plausible delete candidate on question (1) alone
 | file(s) | why KEEP |
 |---|---|
 | **the pre-re-cut shape modules and their Props** (`Shaped/{BaseShaped,MintingShaped,MintingShapedIdx,MintingLocalShaped,MintingLocalShapedIdx,MintingDelegateShaped,GlobalShaped,GlobalShapedIdx,GlobalMemberShaped,GlobalShapedP1,GlobalShapedP1Out,SeizeShaped}.lean`, `Props/Shaped/{P1Shaped,P2Shaped,P4Shaped,P4ShapedIdx,P4LocalShaped,P4DelegateShaped,P5Shaped,P6Shaped}.lean`) | **the emptiness proofs are STATED OVER THEM.** `ShapeRealizability.lean` and `GlobalRealizability.lean` prove T1/T2/T6/T7, G1, G6, M1, M2, L1, L2, DT1, DS1, S1 empty *as classes of ledger transactions*; those theorems are the entire before/after column that makes the C1/C2 re-cut mean anything, and they need the pre-re-cut shape builders to exist. They also carry **44 of the 162 verdicts** between them |
-| `Shaped/Probe/{T3PrepFAILS,T4PrepFAILS}.lean` | the **D6 reproductions**, now **REGRESSION TESTS** — D6 was fixed at N5 and both modules build (exit 0). Filenames are historical and their headers say so. Still not imported by `WSC.lean`, so run them deliberately. T3 additionally carries `T3_vacuity_probe` (✅ Expected Falsified), the measurement that Paths B/C are reachable. Cited 9× and 6× |
+| `Shaped/Probe/{T3PrepFAILS,T4PrepFAILS}.lean` | the **D6 reproductions**, now **REGRESSION TESTS** — D6 was fixed at N5 and both modules build (exit 0). Filenames are historical and their headers say so. Still not imported by `WSC.lean`, so run them deliberately. T3 additionally carries `T3_vacuity_probe` (✅ Expected Falsified), the measurement that Paths B/C are reachable. Superseded as a RESULT by task H2's SHAPES T3R/T4R, which are node-realizable and are imported by `WSC.lean`; kept as regression tests. Cited 9× and 6× |
 | `Shaped/Probe/G6Vacuous2500.lean` | the cautionary case §4 opens with: a `✅ Valid` over an accept-UNSAT class, caught only by the mandatory probe. Cited 7×, incl. `README.md:268`, `REPRODUCE.md:184`, `Honest.lean:1191`, `NonVacuity.lean:80/158`, and §4 of this file |
 | `Shaped/Probe/L2RProbe.lean` | the `⚠️ Undetermined` measurement **behind** `P4_local_noEscape_RIdx`'s derivation. Cited by `P4LocalShapedR.lean:522/535/549` and by §1.3/§4.2/§7.6.2 here. Out of the build **on purpose** — that is what keeps the built set at 0 `⚠️` |
 | `Prep/Global.lean` (`:83` `global_vacuity_probe_600`) and `Props/P4_Minting.lean` (`:386` `minting600_is_vacuous`) | the two deliberate **`solve-result: 0`** stanzas. Their `✅ Valid` markers are 2 of the 162 and are *records of vacuity*, not proofs of safety (§1.4) |

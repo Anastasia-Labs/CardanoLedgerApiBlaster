@@ -188,15 +188,17 @@ the map is not read.
 
 ### 2.2 Scope caveats, one per property, and they are binding
 
-* **P1** — Path A (the direct dispatch) only. Paths B and C and input-side aggregation
-  are **not proved**. Until 2026-07-28 the reason was Blaster defect **D6**
-  (kernel-ill-typed `dite'` on a symbolic CIP-153 `Value` result), which made the
-  T3/T4 preps impossible. **D6 is now fixed**, those preps build, and SHAPE T3's
-  accept class is measured non-empty — so the paths ARE reachable at UPLC. The
-  remaining obstacle is different and smaller: SHAPES T3/T4 are pre-re-cut and
-  therefore not node-realizable (T3 needs 3 redeemer entries and supplies 1), so a
-  theorem there would live over an unbuildable class. Closing this needs a **T3R/T4R
-  re-cut**, which is mechanical and not done.
+* **P1** — **Paths A and C are proved; Path B is reached and measured but cannot be
+  isolated by any accept/reject theorem**, because on ledger-valid contexts B implies
+  C (it is a pure performance fast path). Input-side builtin aggregation is proved
+  too. This was closed in two steps on 2026-07-28: Blaster defect **D6**
+  (kernel-ill-typed `dite'` on a symbolic CIP-153 `Value` result) was fixed upstream,
+  which made the T3/T4 preps possible; then task **H2** supplied the re-cut those
+  shapes needed to be node-realizable — SHAPES **T3R** (two token names, so the
+  dispatch leaves Path A) and **T4R** (two mini-ledger inputs, so `pvalueFromCred`
+  enters its builtin accumulation phase). `WSC/Props/Shaped/P1ShapedBC.lean` carries
+  the theorems, the probes, the two-sided K and the executable path evidence; quote
+  `AUDIT.md` entry **H2** for the exact status, not "all three paths verified".
 * **P2** — the containment conjunct is **false in general on the source model**: two
   machine-checked counterexamples show `ptokenPairsContain` is unsound with duplicate
   token names or unsorted maps. It closes at SHAPE S1R *because* S1R gives every value
@@ -268,10 +270,11 @@ layer adds no assumption, machine-verified.
    constraint on the whole deliverable. Enumeration cannot close it: the smallest
    bound admitting a real transfer already contains ≈9.27×10⁹ `Data` skeletons ≈
    **971 CPU-years** for one property at the measured cost.
-2. **The T3R/T4R re-cut — MEDIUM.** (This slot used to read "D6 — HIGH"; **D6 is
-   fixed**, Blaster `4d320dd`, and both reproductions now build.) P1's remaining
-   dispatch paths are reachable at UPLC but have no node-realizable shape to be
-   proved over. Mechanical, ~a day, no upstream dependency.
+2. ~~**The T3R/T4R re-cut — MEDIUM.**~~ **DONE at task H2 (2026-07-28)**, and D6
+   before it. SHAPES T3R/T4R exist and P1 is proved over both to the four-point bar.
+   What remains on this axis is not a re-cut but a fact about the bytecode: dispatch
+   PATH B is subsumed by PATH C on ledger-valid contexts, so it can be measured
+   (K 1936 vs 2228) but never separated by a theorem.
 3. **`PropExecFaithful` (F8) — MEDIUM.** Theorems are on `.prop`; witnesses and every
    measured K are on `.exec`; the equality is unproved and deliberately **not**
    axiomatized. It binds all 12 re-cut groups and **both** composed results.
