@@ -260,7 +260,7 @@ to use negatively without it (F18).
 
 | # | Status | Theorem(s) | Budget / shape | Witness K | Realizability | 4-point bar |
 |---|---|---|---|---|---|---|
-| **P1** | PROVED, Path A only | `P1R_T1/T2/T6/T7/T8` (`P1ShapedR.lean`) | 4400 / T1R, T2R, T6R, T7R, **T8R** | **2343 / 2567 / 2777 / 2567** / *T8R: none* | `t1R…t7R_realizable`; **no `t8R_realizable`** | **4/4** each except **T8R: 2/4** (F23) |
+| **P1** | PROVED, Path A only | `P1R_T1/T2/T6/T7/T8` (`P1ShapedR.lean`) | 4400 / T1R, T2R, T6R, T7R, **T8R** | **2343 / 2567 / 2777 / 2567 / 2288** — all pinned two-sided | `t1R…t7R_realizable`, **`t8R_realizable`** (H1) | **4/4 — every row, T8R included** (F23 closed at H1) |
 | **P2** | PROVED — P2b unchanged; **P2a RESTATED** for #112's ada top-up | `P2a_R_structure`, `P2b_R_containment`, `P2a_R_ada_only_tops_up` (`P2ShapedR.lean`) | 3800 / S1R | **2301** (accept) / **2412** | `s1r_realizable(Exact)` | **4/4** |
 | **P3** | PROVED, **SHAPED (regressed at #112)** | `P3_base_requires_global_or_seize_run_B1RG` / `_B1RS` (`P3_BaseRun.lean`), `P3_B1W_run` (`P3_BaseWdrl.lean`) | 600 / B1RG, B1RS, B1W | golden **194** | ✅ at each shape's own prep AND run term | `b1RG_realizable`, `b1RS_realizable`, `b1W_realizable` |
 | **P4** | PROVED, all four arms | `P4_disjunction_at_{L1R,DT1R,DS1R}`, `P4_burnonly_arm_R`, **`P4_local_noEscape_RIdx` (L2R)** | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 | `m1r,m2r,l1r,dt1r,ds1r_realizable`; L2R via `L2RWitness.ctx_realizable` | **4/4 — every row, M2R included** (F17 landed at `f4486ca`) |
@@ -270,9 +270,44 @@ to use negatively without it (F18).
 
 The four-point bar is: theorem `✅ Valid`; vacuity probe at **its own** prep term and
 **its own** shape reporting `✅ Expected Falsified`; concrete accepting CEK witness;
-shape realizability theorem. **Every one of the now-13 re-cut shapes meets it in full
-in the library** (T1R, T2R, T6R, T7R, G1R, G6R, M1R, M2R, L1R, **L2R**, DT1R, DS1R,
-S1R). There is no longer a 3/4 row.
+shape realizability theorem. **Every one of the now-14 re-cut shapes meets it in full
+in the library** (T1R, T2R, T6R, T7R, **T8R**, G1R, G6R, M1R, M2R, L1R, L2R, DT1R,
+DS1R, S1R). There is no longer a 2/4 or 3/4 row.
+
+**T8R (F23) — CLOSED at task H1 (2026-07-28).** T8R was the last shape below the bar
+and the only one that reaches the line PR #112 was written to add
+(`ownerWdrlIdxs`, ProgrammableLogicBase.hs:386-393). It now carries:
+
+* **(c)** `P1RShapedWitness.exec_accepts_T8R_at_4400`
+  (`P1ShapedR.lean:1011`) — the real compiled `programmableLogicGlobal` bytecode
+  accepts `ctxSOwn` through `appliedGlobalShapedT8R.exec`, the same applied term
+  `P1R_T8` quantifies over. Sameness is not asserted, it is proved twice by `rfl`:
+  `p1SOwnInputs_eq_globalInputs` (`:970`, class level, every leaf assignment) and
+  `ctxSOwn_is_the_exec_argument` (`:989`, point level). **K = 2288, pinned
+  TWO-SIDED** (`K_T8R_is_2288`, `:1036`) — **55 steps BELOW T1R's 2343** at
+  otherwise identical leaves, i.e. #112's indexed owner lookup is cheaper than the
+  signature check it sits beside, despite one more withdrawal entry.
+* **(d)** `t8R_class_covered` (`GlobalRealizability.lean:508`, `RedeemerCovered` for
+  every leaf assignment), `t8R_class_coverage` (`:728`,
+  `redeemerCoverageAllPlutus = true` in CLAB's own vocabulary) and `t8R_realizable`
+  (`:939`) — `validRewardingContext` ∧ `redeemersExactAllPlutus` (BOTH halves of
+  Conway's exact-redeemer rule) ∧ `RedeemerCovered` ∧ real-CEK acceptance.
+  4 redeemer entries = 1 script input + 0 mint policies + 3 script withdrawals,
+  exact.
+* **the index made to EARN it.** `exec_rejects_T8R_misindexed_owner` (`:1059`) and
+  `exec_rejects_T8R_unwitnessed_owner` (`:1077`) reject two contexts that differ
+  from the accepted witness in the SINGLE leaf `sOwn`, are `validRewardingContext`
+  and `redeemersExactAllPlutus` (`t8R_rejected_members_are_ledger_legal`,
+  `GlobalRealizability.lean:977`), and are refused by the real bytecode. The first
+  is the sharp one: its owner's stake script **is** invoked, at withdrawal entry 1,
+  while the redeemer names entry 2 — exactly what the pre-#112 membership scan
+  accepted.
+* **0 project axioms** on all of it, **0 new solver verdicts** (every new result is
+  `native_decide` or `rfl`), verdict total unchanged at 170.
+
+⚠ **And a NEGATIVE result found while closing it — see `F24` below.** The
+misindexed context is also the first executable proof that
+`WSC.Model.globalModel_faithful` is **FALSE** of the post-#112 program.
 
 **M2R (F17) — LANDED at `f4486ca`, and G3 verified the landing.** The real compiled
 `programmableTokenMinting` bytecode **accepts** `M2RWitness.ctx` through
@@ -454,6 +489,8 @@ strengthens nothing (see F18).
 | **D5** | was HIGH → **MEDIUM** | **PARTIALLY REPAIRED** | Revision now recorded in three places; verified offline bundle in `WSC/substrate/` reconstructs the pinned tree byte-identically; `WSC/REPRODUCE.md` is the third-party recipe. **Still open:** branch unpublished, path absolute, rev not enforced by lake. |
 | **F20** | MEDIUM | **PROCESS FIX ADOPTED** | One stage-11 unit (E2) delivered **nothing**; a second (E3) produced correct work but left it uncommitted in scratch. No instrument could see either, because every instrument measures what EXISTS. E5 landed E3's work. **G3 adopted the fix as a procedure** (`AUDIT.md` F20): existence check before measurement; deltas reconciled to source **lines**, not totals; definitions the claim depends on are unfolded and read. At G3 both G-stage units passed the existence check outright. |
 | **D11 / F17** | was MEDIUM | **CLOSED — LANDED (G1, `f4486ca`)** | `M2RWitness.exec_accepts_at_900` and `K_is_784` **pinned two-sided** are in `P4ShapedRIdx.lean:174-194`. 0 project axioms, no `sorryAx`, 0 new solver verdicts. G3 verified the acceptance and the K-measurement are about the **same run**, by unfolding `mintingPolicyInputs900` and `mintRInputsIdx`. SHAPE M2R meets 4/4. |
+| **F23** | was MEDIUM | **CLOSED (task H1, 2026-07-28)** | SHAPE T8R was the only shape below the four-point bar, and the only one exercising PR #112's `ownerWdrlIdxs`. It now has (c) `exec_accepts_T8R_at_4400` with **K = 2288 pinned two-sided** and two `rfl` same-term audits, and (d) `t8R_class_covered` / `t8R_class_coverage` / `t8R_realizable`. Plus two rejecting siblings (`exec_rejects_T8R_misindexed_owner`, `…_unwitnessed_owner`) that make the index live. 0 project axioms, 0 new solver verdicts. **14/14 shapes now meet the bar.** |
+| **F24** | **MEDIUM** | **NEW (task H1) — OPEN** | `WSC.Model.globalModel_faithful` (`WSC/Props/P1_Transfer.lean:428`) is **FALSE of the post-#112 program, and now has an executable counterexample**: `P1RShapedWitness.model_is_stale_at_ownerWdrlIdxs` (`P1ShapedR.lean:1110`) shows `globalModel` ACCEPTS `ctxSOwnMisindexed` while the real bytecode REJECTS it, so the source model is **unsound**, not merely conservative, at the indexed owner check. `WSC/Model/GlobalModel.lean:668-676` already documented the staleness in a comment (`_ownerWdrlIdxsUnmodelled`, the `gateInput` scan at `:231-233`); what is new is that it is now measured, and that the direction of the error is known. **Scope:** the SHAPED P1/P5/P6 results are unaffected — they are proved against the bytecode and `WSC/Shaped/Probe/P1Axioms.lean` is the census showing `globalModel_faithful` is absent from them. What IS affected is any result routed through `P1_model` + `globalModel_faithful`. **Fix:** transcribe `:386-393` into `gateInput` (it needs the redeemer's `ownerWdrlIdxs` threaded through `valueFromCred`), then re-run `WSC/Model/GlobalGoldens.lean`. |
 | **F19** | LOW | **CLOSED (G1, `f4486ca`)** | SHAPE **L2R** exists (`WSC/Shaped/MintingLocalShapedRIdx.lean`), is node-realizable, definitionally contains L1R (`localRCtxIdx_at_one`, `rfl`), and carries all four bar items. **Cite `P4_local_noEscape_RIdx`**, not the retired `P4_local_noEscape_shapedIdx`. Two riders: the headline is **derived** from a `✅ Valid` negative control (the direct goal is `⚠️ Undetermined` at a 300 s cap) via `halt_not_error`, which is strictly stronger, not weaker; and **C1 at L2R is `⚠️ Undetermined` and is not asserted**. |
 | **F21** | INFO | **NEW (G3)** | The clean-room log carries two lines beginning `Error:` — a `panic!` from CLAB's `Recursor.all` macro at `V3/Contexts.lean`. Benign (definition elaborates, exit 0) and **pre-existing** (present in the C4-era log at the same definition). Recorded because the "zero errors" instrument is a line-anchored, case-sensitive grep and does not see them. |
 | **F22** | INFO | **NEW (G3)** | `bridge_GIdx` / `bridge_GNIdx` (`ShapeBridge.lean:900-948`) are the only results over `appliedGlobalShapedIdx1600` / `appliedGlobalShapedNIdx1600`, and neither term has a vacuity probe, a concrete witness, or a reduction lemma to `globalShapedCtx` — `GlobalShapedIdx.lean` is defs-only. An `↔` between two unsatisfiable statements is true. Not load-bearing (cited only in narrative), so informational; cheap fix is one `rfl` lemma inheriting `bridge_G1`'s witness. |

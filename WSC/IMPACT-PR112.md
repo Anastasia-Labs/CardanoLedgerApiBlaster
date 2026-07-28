@@ -840,3 +840,20 @@ the pre-#112 table SURVIVE and were re-checked, which is evidence the
 measurement is sound: T2R and T7R still coincide exactly, and each re-cut shape's
 K is still identical to its un-re-cut sibling's — redeemer coverage still costs
 ZERO CEK steps, because the transfer path never dereferences `txInfoRedeemers`.
+
+**ADDENDUM H1 (2026-07-28) — SHAPE T8R's K, the row N4 could not fill.** T8R had
+no witness at all when this table was written (that was finding F23); task H1
+supplied one. There is no pre-#112 column for it, because the shape only exists
+post-#112, so it is measured against its own sibling instead:
+
+| shape | witness | comparator | #112 | Δ vs comparator |
+|---|---|---|---|---|
+| T8R (P1, script-owned input) | `ctxSOwn` | T1R's 2343 | **2288** | **−55 steps (−2.3 %)** |
+
+`P1RShapedWitness.K_T8R_is_2288`, pinned two-sided (halts at 2288, budget-errors
+at 2287). T8R and T1R differ in exactly one thing — the owner-witness arm — so
+the delta is a clean measurement of PR #112's new code: **the indexed owner
+lookup at `:386-393` is CHEAPER than the `ptxSignedByPkh` signature check at
+`:372-376` that T1R takes**, and it is cheaper even though T8R's withdrawal map
+carries one more entry (3 vs 2) and its redeemer map one more entry (4 vs 3).
+That is the ledger-cost half of the same claim §N4.5 made on security grounds.

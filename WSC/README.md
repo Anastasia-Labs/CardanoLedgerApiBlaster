@@ -147,7 +147,7 @@ proved empty and **must not be quoted**.)
 
 | # | Property, in words | Budget / shape | Witness K |
 |---|---|---|---|
-| **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R, **T8R** | 2343 / 2567 / 2777 / 2567 / **— (F23)** |
+| **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R, **T8R** | 2343 / 2567 / 2777 / 2567 / **2288** (T8R landed at H1, F23 closed) |
 | **P2** | Seizure preserves structure **modulo an ada top-up #112 legalised**, and cannot reduce the base-credential total below inputs plus mint | 3800 / S1R | 2301 (accept), 2412 |
 | **P3** | Spending at the base credential requires the global **or** the seize validator to run — the keystone | 600 / **B1RG, B1RS, B1W** (no longer unshaped) | 194 |
 | **P4** | Any accepted mint runs the minting-logic script; the four redeemer arms are exhaustive and each is constrained | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 |

@@ -55,6 +55,19 @@ word for word. This module changes the CLASS, not the strength.
 MEASURED (this task): all four `✅ Valid`; witness K unchanged at 2603 (T1R),
 3572 (T2R), 3150 (T6R), 3572 (T7R) — the transfer path never dereferences
 `txInfoRedeemers`, so redeemer coverage costs zero CEK steps.
+
+⚠ THE K VALUES IN THE PARAGRAPH ABOVE ARE PRE-#112 and were superseded when task
+N4 re-cut the shapes against wsc-poc `main` @ 2306678. The K's this module
+actually pins are `K_T1R_is_2343`, `K_T2R_is_2567`, `K_T6R_is_2777`,
+`K_T7R_is_2567` and — new at task H1 — `K_T8R_is_2288`.
+
+ADDENDUM H1 (2026-07-28) — **audit finding F23 closed**. §6 of the witness
+namespace adds SHAPE T8R's missing point (c): a concrete accepting CEK run
+through `appliedGlobalShapedT8R` at budget 4400, `K = 2288` pinned two-sided, two
+`rfl` audits that the run goes through the same applied term `P1R_T8` quantifies
+over, and TWO rejecting siblings that make PR #112's `ownerWdrlIdxs` earn its
+theorem. Point (d) is `WSC.t8R_class_covered` / `t8R_class_coverage` /
+`t8R_realizable` in `WSC/Props/Shaped/GlobalRealizability.lean`.
 -/
 import WSC.Shaped.GlobalShapedP1RPrep
 import WSC.Shaped.GlobalShapedP1SOwnPrep
@@ -827,6 +840,280 @@ theorem model_agrees_on_witnesses :
     ∧ Model.globalModel ppCS ctxBurn = true
     ∧ Model.globalModel ppCS ctxOut = true
     ∧ Model.globalModel ppCS ctxOutBurn = true := by native_decide
+
+/-! ### §6 — SHAPE T8R's CONCRETE WITNESSES (audit finding **F23**, task H1)
+
+Until this stanza landed, SHAPE T8R was the ONE shape in the library below the
+four-point bar: it had its theorem (`P1R_T8`, :507) and its vacuity probe at its
+own prep term (`P1R_T8_vacuity_probe` :543, probed at :565, and independently at
+`WSC/Shaped/Probe/D9Probe.lean:96`), and it had
+**no concrete accepting run of the real bytecode** and **no realizability
+certificate**. Because T8R is the only shape that reaches the line PR #112 was
+written to add, that made the most #112-specific result in the library the least
+evidenced one. This section supplies point (c); point (d) is
+`WSC.t8R_class_covered` / `WSC.t8R_class_coverage` / `WSC.t8R_realizable` in
+`WSC/Props/Shaped/GlobalRealizability.lean`.
+
+THE WITNESS, and how it differs from `ctxOk`. Exactly the owner witness moves:
+* the mini-ledger input's staking credential is `ScriptCredential "WOWN"`
+  instead of `StakingHash (PubKeyCredential "OWNER")`, so the tag test at
+  ProgrammableLogicBase.hs:371 sees tag 1 and the SCRIPT arm at :386-392 runs
+  instead of the `ptxSignedByPkh` arm at :372-376;
+* the withdrawal map gains a THIRD entry `(ScriptCredential "WOWN", 0)`, which is
+  index 2 — the index the shape's redeemer `TransferAct [1] [1] [2] [] 0` names
+  in its third field, `ownerWdrlIdxs` (:1148, consumed at :1212 → :389);
+* the redeemer map gains the matching fourth entry `Rewarding "WOWN"`, so the
+  transaction is still redeemer-EXACT (both halves of Conway's rule, checked in
+  `t8R_realizable`);
+* `txInfoSignatories = []`. There is no signature anywhere in this transaction,
+  so the indexed equality at :387-389 is its ONLY owner authorisation.
+Every other leaf — the external input, the escape output, both reference inputs,
+the empty mint, the policy balance `5 + 4 = 5 + 4`, the fee 50 — is `ctxOk`'s
+verbatim, and the withdrawal credentials stay strictly ascending
+(`"GLOBAL" < "TLS" < "WOWN"`), which `validWithdrawals` demands. -/
+
+/-- **SHAPE T8R, ACCEPTING.** `ctxOk`'s leaves with the owner witness moved from
+a signature to withdrawal entry 2. `sOwn = w2 = "WOWN"`. -/
+def ctxSOwn : ScriptContext :=
+  p1SOwnCtx (ByteString.mk "MMM") (ByteString.mk "TOK")
+    (ByteString.mk "PROGLOGIC") (ByteString.mk "WOWN") 200 5
+    (ByteString.mk "EXT") 100 4
+    150 5
+    (ByteString.mk "DEST") 100 4
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+    (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+    (ByteString.mk "GS")
+    (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+    77 88 66
+    50
+
+/-- **SHAPE T8R, MISINDEXED — the owner IS a genuinely invoked stake script, but
+it sits at withdrawal entry 1 and the redeemer names entry 2.** The SOLE leaf
+changed from `ctxSOwn` is `sOwn : "WOWN" → "TLS"`. Withdrawal entry 1 is
+`ScriptCredential "TLS"`, so this owner really did run its stake validator in
+this very transaction — which is precisely what the PRE-#112 scan accepted.
+(`pisScriptInvokedEntries` is still in the source at :282-294 and is still
+exported at :25 and benchmarked, but at 2306678 NO validator calls it any more:
+`git grep pisScriptInvokedEntries 2306678` returns the export, the definition,
+two doc files and `BenchmarkOnchainFunctions.hs`, and nothing else.) The POST-#112 indexed check reads entry **2**,
+finds `"WOWN"`, and errors. This is the whole security delta of `ownerWdrlIdxs`,
+in one concrete transaction. -/
+def ctxSOwnMisindexed : ScriptContext :=
+  p1SOwnCtx (ByteString.mk "MMM") (ByteString.mk "TOK")
+    (ByteString.mk "PROGLOGIC") (ByteString.mk "TLS") 200 5
+    (ByteString.mk "EXT") 100 4
+    150 5
+    (ByteString.mk "DEST") 100 4
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+    (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+    (ByteString.mk "GS")
+    (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+    77 88 66
+    50
+
+/-- **SHAPE T8R, UNWITNESSED — the plain theft attempt.** `sOwn = "ATTACK"`, a
+credential that appears in no withdrawal entry at all. Ledger-legal and
+redeemer-exact (a staking credential is not required to be in `txInfoWdrl`), and
+rejected. Included as the control that separates the two failure modes: this one
+the pre-#112 scan ALSO rejected, `ctxSOwnMisindexed` it did not. -/
+def ctxSOwnNoWitness : ScriptContext :=
+  p1SOwnCtx (ByteString.mk "MMM") (ByteString.mk "TOK")
+    (ByteString.mk "PROGLOGIC") (ByteString.mk "ATTACK") 200 5
+    (ByteString.mk "EXT") 100 4
+    150 5
+    (ByteString.mk "DEST") 100 4
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+    (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+    (ByteString.mk "GS")
+    (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+    77 88 66
+    50
+
+/-! #### T8R: the theorems' hypotheses, at all three contexts -/
+
+theorem ctxSOwn_valid : validRewardingContext ctxSOwn = true := by native_decide
+theorem ctxSOwnMisindexed_valid :
+    validRewardingContext ctxSOwnMisindexed = true := by native_decide
+theorem ctxSOwnNoWitness_valid :
+    validRewardingContext ctxSOwnNoWitness = true := by native_decide
+
+theorem ctxSOwn_no_covering_node :
+    Model.coveringNodeExists (ByteString.mk "DIRCS") (ByteString.mk "MMM")
+      ctxSOwn.scriptContextTxInfo.txInfoReferenceInputs = false := by native_decide
+
+/-- The ground-truth quantities at the T8R witness, in `WSC/Spec.lean`
+vocabulary: `outSum = inSum = 5`, `mintSigned = 0`, so `P1R_T8`'s conclusion is
+`5 ≥ 5 + 0` — satisfied, and NOT by construction (the escape output carries 4 of
+the same policy and the ledger balance permits it to carry more). -/
+theorem ctxSOwn_quantities :
+    Model.outSum (.ScriptCredential (ByteString.mk "PROGLOGIC")) (ByteString.mk "MMM")
+        (ByteString.mk "TOK") ctxSOwn.scriptContextTxInfo.txInfoOutputs = 5
+    ∧ Model.inSum (.ScriptCredential (ByteString.mk "PROGLOGIC")) (ByteString.mk "MMM")
+        (ByteString.mk "TOK") ctxSOwn.scriptContextTxInfo.txInfoInputs = 5
+    ∧ Model.mintSigned (ByteString.mk "MMM") (ByteString.mk "TOK")
+        ctxSOwn.scriptContextTxInfo.txInfoMint = 0 := by native_decide
+
+/-! #### T8R: THE WITNESS RUNS THROUGH THE THEOREM'S OWN TERM
+
+Two `rfl`s, in the two directions the M2R audit demanded (AUDIT §7.5): the prep's
+inputs FUNCTION is the shaped context fed to the same script, for EVERY leaf
+assignment; and the witness's own leaves reduce to `ctxSOwn`. Together they say
+the `exec` below and the `prop` inside `P1R_T8` are the same applied term at the
+same budget, not two preps that happen to share a name. -/
+
+/-- **AUDIT (class level).** `p1SOwnInputs` — the inputs function
+`WSC/Shaped/GlobalShapedP1SOwnPrep.lean:23` hands to `#prep_uplc` — is exactly
+`globalInputs1600` at `p1SOwnCtx`, for every leaf assignment. -/
+theorem p1SOwnInputs_eq_globalInputs
+    (pp : CurrencySymbol) (cs tn plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 rBase rTls rOwn fee : Integer) :
+    p1SOwnInputs pp cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee
+      = globalInputs1600 pp
+          (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+            pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+            key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) := rfl
+
+/-- **AUDIT (point level).** The leaves the `exec` theorems below pass are
+`ctxSOwn`'s. -/
+theorem ctxSOwn_is_the_exec_argument :
+    globalInputs1600 ppCS ctxSOwn
+      = p1SOwnInputs ppCS (ByteString.mk "MMM") (ByteString.mk "TOK")
+          (ByteString.mk "PROGLOGIC") (ByteString.mk "WOWN") 200 5
+          (ByteString.mk "EXT") 100 4
+          150 5
+          (ByteString.mk "DEST") 100 4
+          (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+          (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+          (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+          (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+          (ByteString.mk "GS")
+          (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+          77 88 66
+          50 := rfl
+
+/-- **NON-VACUITY, SHAPE T8R — point (c) of the four-point bar, the F23 witness.**
+The real compiled `programmableLogicGlobal` bytecode ACCEPTS this shape-T8R
+context at budget 4400, through the SAME applied term `P1R_T8` and
+`P1R_T8_owner_witness_enforced_thm` quantify over. This is what the `✅ Valid`
+markers cannot supply: they say "every accepting run has the property", not "an
+accepting run exists". -/
+theorem exec_accepts_T8R_at_4400 :
+    isSuccessful
+      (appliedGlobalShapedT8R.exec ppCS (ByteString.mk "MMM") (ByteString.mk "TOK")
+        (ByteString.mk "PROGLOGIC") (ByteString.mk "WOWN") 200 5
+        (ByteString.mk "EXT") 100 4
+        150 5
+        (ByteString.mk "DEST") 100 4
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+        (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+        77 88 66
+        50) :=
+  isHaltB_sound _ (by native_decide)
+
+/-- **EXACT WITNESS K = 2288, PINNED TWO-SIDED** — halts at 2288, budget-errors
+at 2287. Budget 4400; headroom 2112.
+
+**T8R's K is 55 steps BELOW T1R's 2343** (`K_T1R_is_2343`) at otherwise identical
+leaves, and that sign is the interesting part: PR #112's indexed owner lookup is
+CHEAPER than the signature check it sits beside, even though the withdrawal map
+is one entry longer here. `pdropList`-then-`phead`-then-one-`equalsData` at
+:387-389 costs less than `ptxSignedByPkh`'s list walk at :373. -/
+theorem K_T8R_is_2288 :
+    isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxSOwn) 2288) = true
+    ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
+      programmableLogicGlobal1600.script (globalInputs1600 ppCS ctxSOwn) 2287) = false := by
+  native_decide
+
+/-! #### T8R: THE OWNER INDEX IS LIVE, NOT DECORATIVE
+
+`P1R_T8_owner_witness_enforced_thm` says every ACCEPTING run has `sOwn = w2`. On
+its own that is compatible with the accept class being reached some other way, or
+with the index never being read. The two rejections below are the executable
+half: the same applied term, the same budget, ledger-legal and redeemer-exact
+contexts differing from `ctxSOwn` in ONE leaf, and the real bytecode says no.
+(Precedent: SHAPE L2R's `L2RWitness.exec_rejects_regIdx0`.) -/
+
+/-- **THE MISINDEXED OWNER IS REJECTED.** `sOwn = "TLS"` — an owner whose stake
+script IS invoked by this transaction, at withdrawal entry 1 — while the
+redeemer's `ownerWdrlIdxs = [2]` points at entry 2. The bytecode errors at
+:392 with 4400 steps available (the accepting sibling needs 2288). Two things
+follow that nothing else in the library shows: the redeemer's index is genuinely
+DEREFERENCED, and #112's check is strictly stronger than the membership scan it
+replaced. -/
+theorem exec_rejects_T8R_misindexed_owner :
+    isHaltB
+      (appliedGlobalShapedT8R.exec ppCS (ByteString.mk "MMM") (ByteString.mk "TOK")
+        (ByteString.mk "PROGLOGIC") (ByteString.mk "TLS") 200 5
+        (ByteString.mk "EXT") 100 4
+        150 5
+        (ByteString.mk "DEST") 100 4
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+        (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+        77 88 66
+        50) = false := by native_decide
+
+/-- **THE UNWITNESSED OWNER IS REJECTED** — the control. `sOwn = "ATTACK"` is in
+no withdrawal entry at all. -/
+theorem exec_rejects_T8R_unwitnessed_owner :
+    isHaltB
+      (appliedGlobalShapedT8R.exec ppCS (ByteString.mk "MMM") (ByteString.mk "TOK")
+        (ByteString.mk "PROGLOGIC") (ByteString.mk "ATTACK") 200 5
+        (ByteString.mk "EXT") 100 4
+        150 5
+        (ByteString.mk "DEST") 100 4
+        (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+        (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+        (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+        (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+        (ByteString.mk "GS")
+        (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+        77 88 66
+        50) = false := by native_decide
+
+/-- **AND THE SOURCE MODEL IS STALE EXACTLY HERE — measured, not asserted.**
+`WSC/Model/GlobalModel.lean:668-676` documents in a COMMENT that `globalModel`
+binds `ownerWdrlIdxs` as `_ownerWdrlIdxsUnmodelled` and still transcribes the
+PRE-#112 withdrawal-map SCAN (`gateInput`, `:231-233`). This is the first
+executable witness that the comment is a real divergence and not a conservative
+one: on `ctxSOwnMisindexed` the MODEL ACCEPTS and the BYTECODE REJECTS, so the
+model is UNSOUND (not merely incomplete) at this context.
+
+Consequence, stated plainly: `WSC.Model.globalModel_faithful`
+(`WSC/Props/P1_Transfer.lean:428`) is FALSE of the post-#112 program, and this
+context is a counterexample to it. Every result that routes through that axiom
+inherits the defect; the shaped results here do not (they are proved against the
+bytecode directly — `WSC/Shaped/Probe/P1Axioms.lean` is the census that shows
+`globalModel_faithful` is absent from them).
+
+The `ctxSOwnNoWitness` conjunct is the control: on the failure mode the pre-#112
+scan also rejected, model and bytecode still agree. -/
+theorem model_is_stale_at_ownerWdrlIdxs :
+    Model.globalModel ppCS ctxSOwn = true
+    ∧ Model.globalModel ppCS ctxSOwnMisindexed = true
+    ∧ Model.globalModel ppCS ctxSOwnNoWitness = false := by native_decide
 
 end P1RShapedWitness
 

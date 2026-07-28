@@ -1,4 +1,21 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ⚠️ BANNER CORRECTED AT TASK H1 (2026-07-28). The blanket "PRE-#112, do not quote"
+-- notice this file used to carry was too coarse and is replaced by the precise
+-- version below, because task H1 lands a POST-#112 result here (`t8R_*`).
+--
+-- WHAT IS POST-#112 (quotable as a statement about production, wsc-poc main @ 2306678):
+--   * every THEOREM in this file. §2/§2b are statements about `Data` skeletons and
+--     CLAB predicates and are bytecode-independent; §3's acceptance conjuncts run
+--     `applied*R.exec`, which is the PR #112 prep re-cut by task N4; §4's emptiness
+--     proofs are about redeemer maps, not bytecode.
+--   * NEW at H1: `t8R_class_covered`, `t8R_class_coverage`, `t8R_realizable`,
+--     `t8R_rejected_members_are_ledger_legal` — audit finding F23.
+-- WHAT IS PRE-#112 AND STALE: the witness **K values quoted in §3's DOCSTRINGS**
+--   (2603 / 3572 / 3150 / 3572 / 1541 / 2837). They were not re-measured when N4
+--   re-cut the shapes. The authoritative, two-sided-pinned K's are
+--   `P1RShapedWitness.K_T1R_is_2343` / `K_T2R_is_2567` / `K_T6R_is_2777` /
+--   `K_T7R_is_2567` / `K_T8R_is_2288`, `P5RShapedWitness.K_is_1402` and
+--   `P6RShapedWitness.K_is_2196`. Each stale number is flagged in place below.
+-- See WSC/IMPACT-PR112.md and WSC/AUDIT.md F23.
 /-
 WSC/Props/Shaped/GlobalRealizability.lean — **the REALIZABILITY theorems for the
 re-cut global shapes, and the emptiness theorems for the ones they replace**
@@ -242,6 +259,58 @@ theorem p1RMint_rewarding_covered (cs w0 w1 h : ByteString) (rBase rMint rTls : 
     subst hw1
     simp [hw]
 
+/-! ### SHAPE T8R's FOUR-entry map (task H1, audit finding F23)
+
+SHAPE T8R needs one more `Rewarding` entry than T1R because its mini-ledger input
+is owned by a THIRD stake script (`WSC/Shaped/GlobalShapedR.lean` §7): the map is
+`[Spending ⟨"",0⟩, Rewarding w0, Rewarding w1, Rewarding w2]`. -/
+
+/-- The four-entry map of SHAPE T8R covers the `Spending` purpose of input 0. -/
+theorem p1SOwn_spending_covered (w0 w1 w2 : ByteString) (rBase rTls rOwn : Integer)
+    (own : Data) :
+    findRedeemer (.Spending ⟨ByteString.mk "", 0⟩)
+      (p1SOwnRedeemers w0 w1 w2 rBase rTls rOwn own) ≠ none := by
+  have : findRedeemer (.Spending ⟨ByteString.mk "", 0⟩)
+      (p1SOwnRedeemers w0 w1 w2 rBase rTls rOwn own) = some (Data.I rBase) := rfl
+  simp [this]
+
+/-- …and covers ALL THREE script withdrawals, including `w2` — the entry PR #112's
+`ownerWdrlIdxs` names, which is a needed script exactly like the other two and so
+must have a redeemer entry or the transaction is unbuildable. As with
+`p1R_rewarding_covered` the case split is on a decidable `Bool`, so no
+distinctness side condition is needed. -/
+theorem p1SOwn_rewarding_covered (w0 w1 w2 h : ByteString) (rBase rTls rOwn : Integer)
+    (own : Data) (hh : h = w0 ∨ h = w1 ∨ h = w2) :
+    findRedeemer (.Rewarding (.ScriptCredential h))
+      (p1SOwnRedeemers w0 w1 w2 rBase rTls rOwn own) ≠ none := by
+  show (if (ScriptPurpose.Spending (⟨ByteString.mk "", 0⟩ : TxOutRef)
+            == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = true
+        then some (Data.I rBase)
+        else if (ScriptPurpose.Rewarding (Credential.ScriptCredential w0)
+                  == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = true
+             then some own
+             else if (ScriptPurpose.Rewarding (Credential.ScriptCredential w1)
+                       == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = true
+                  then some (Data.I rTls)
+                  else if (ScriptPurpose.Rewarding (Credential.ScriptCredential w2)
+                            == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = true
+                       then some (Data.I rOwn) else none) ≠ none
+  rw [show (ScriptPurpose.Spending (⟨ByteString.mk "", 0⟩ : TxOutRef)
+      == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = false from rfl]
+  by_cases hw0 : (ScriptPurpose.Rewarding (Credential.ScriptCredential w0)
+      == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = true
+  · simp [hw0]
+  · by_cases hw1 : (ScriptPurpose.Rewarding (Credential.ScriptCredential w1)
+        == ScriptPurpose.Rewarding (Credential.ScriptCredential h)) = true
+    · simp [hw0, hw1]
+    · have hh2 : h = w2 := by
+        rcases hh with h1 | h1 | h1
+        · exact absurd (by rw [h1]; simp) hw0
+        · exact absurd (by rw [h1]; simp) hw1
+        · exact h1
+      subst hh2
+      simp [hw0, hw1]
+
 /-- The mint field of every shape here is `Shape.mintOne cs tn q`, whose only
 policy is `cs`. -/
 theorem mintOne_hasCurrencySymbol (c cs tn : ByteString) (q : Integer)
@@ -432,6 +501,40 @@ theorem t7R_class_covered
     rw [mintOne_hasCurrencySymbol c cs tn q hc]
     exact p1RMint_minting_covered cs w0 w1 rBase rMint rTls p1ShapedRedeemerMint
 
+/-- **SHAPE T8R is redeemer-covered, for every leaf assignment** (task H1, audit
+finding F23). T1R's clauses with a THIRD `Rewarding` arm: the mini-ledger input's
+owner is a stake SCRIPT (`p1ShapedBaseInS`), so `w2` is a needed script and needs
+an entry of its own. Clause 3 is vacuous (empty mint). -/
+theorem t8R_class_covered
+    (cs tn plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 rBase rTls rOwn fee : Integer) :
+    RedeemerCovered
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee) := by
+  refine ⟨?_, ?_, ?_⟩
+  · intro t ht h hpc
+    simp [p1SOwnCtx] at ht
+    rcases ht with rfl | rfl
+    · exact p1SOwn_spending_covered w0 w1 w2 rBase rTls rOwn p1SOwnRedeemer
+    · exact absurd hpc (by simp [payCred, p1ShapedExtIn])
+  · intro h n hw
+    simp [p1SOwnCtx, p1SOwnWdrl] at hw
+    rcases hw with ⟨hh, -⟩ | ⟨hh, -⟩ | ⟨hh, -⟩
+    · exact p1SOwn_rewarding_covered w0 w1 w2 h rBase rTls rOwn p1SOwnRedeemer (Or.inl hh)
+    · exact p1SOwn_rewarding_covered w0 w1 w2 h rBase rTls rOwn p1SOwnRedeemer
+        (Or.inr (Or.inl hh))
+    · exact p1SOwn_rewarding_covered w0 w1 w2 h rBase rTls rOwn p1SOwnRedeemer
+        (Or.inr (Or.inr hh))
+  · intro c hc
+    simp [p1SOwnCtx, hasCurrencySymbol] at hc
+
 /-! # §2b THE SAME, IN CLAB'S OWN LEDGER VOCABULARY (task C3's `redeemerCoverageAllPlutus`)
 
 Task C3 landed Conway UTXOW's `MissingRedeemers` / `ExtraRedeemers` rule inside
@@ -615,6 +718,46 @@ theorem t7R_class_coverage
          isSome_of_findRedeemer_ne_none
            (p1RMint_minting_covered cs w0 w1 rBase rMint rTls p1ShapedRedeemerMint)⟩
 
+/-- **SHAPE T8R's class-level coverage, in CLAB's own vocabulary** (task H1). Four
+needed scripts, four entries: the `Spending` purpose of the script-credential
+mini-ledger input and one `Rewarding` purpose per script withdrawal — `w0` (the
+running global script), `w1` (the transfer-logic script the redeemer's
+`transferWdrlIdxs` names) and `w2` (the input's OWNER, the one PR #112's
+`ownerWdrlIdxs` names). Omitting `w2` would make the class PROVABLY UNBUILDABLE
+by Conway's `MissingRedeemers`, which is why the shape carries it. -/
+theorem t8R_class_coverage
+    (cs tn plc sOwn : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 w2 : ByteString) (a0 a1 a2 rBase rTls rOwn fee : Integer) :
+    redeemerCoverageAllPlutus
+      (p1SOwnCtx cs tn plc sOwn inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn
+        fee).scriptContextTxInfo = true := by
+  simp [redeemerCoverageAllPlutus, scriptPurposesWitnessed, spendingPurposesWitnessed,
+        rewardingPurposesWitnessed, certifyingPurposesWitnessed, mintingPurposesWitnessed,
+        votingPurposesWitnessed, proposingPurposesWitnessed, coveredBy,
+        certifyingPurposesWitnessedFrom, proposingPurposesWitnessedFrom,
+        CardanoLedgerApi.V3.Contexts.credScriptHash, Shape.mintOne,
+        CardanoLedgerApi.V3.findRedeemer,
+        p1SOwnCtx, p1ShapedBaseInS, p1ShapedExtIn, p1SOwnWdrl, p1SOwnRedeemers]
+  exact ⟨isSome_of_findRedeemer_ne_none
+           (p1SOwn_spending_covered w0 w1 w2 rBase rTls rOwn p1SOwnRedeemer),
+         isSome_of_findRedeemer_ne_none
+           (p1SOwn_rewarding_covered w0 w1 w2 w0 rBase rTls rOwn p1SOwnRedeemer
+             (Or.inl rfl)),
+         isSome_of_findRedeemer_ne_none
+           (p1SOwn_rewarding_covered w0 w1 w2 w1 rBase rTls rOwn p1SOwnRedeemer
+             (Or.inr (Or.inl rfl))),
+         isSome_of_findRedeemer_ne_none
+           (p1SOwn_rewarding_covered w0 w1 w2 w2 rBase rTls rOwn p1SOwnRedeemer
+             (Or.inr (Or.inr rfl)))⟩
+
 /-! # §3 POINT-LEVEL REALIZABILITY — a concrete member of each class
 
 Each theorem below packages three facts about ONE concrete context of the shape:
@@ -777,6 +920,68 @@ theorem t7R_realizable :
       (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1 (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
       (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1 (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS") (ByteString.mk "GS") (ByteString.mk "GLOBAL") (ByteString.mk "TLS") 0 0 77 99 88 50),
    P1RShapedWitness.exec_accepts_T7R_burn_at_4400⟩
+
+/-- **SHAPE T8R IS REALIZABLE** — task H1, the second half of audit finding
+**F23**. This is the shape that exists to say something about PR #112's own new
+line, and until now it was the only shape in the library with no inhabitant at
+all. Budget 4400, witness K = **2288** (`P1RShapedWitness.K_T8R_is_2288`, pinned
+two-sided).
+
+What the four conjuncts buy, and why the third one is not ceremony here: the
+transaction has FOUR script witnesses (one script-credential input, three script
+withdrawals) and `redeemersExactAllPlutus` checks BOTH halves of Conway's
+`hasExactSetOfRedeemers` at the concrete point — every needed script has an entry
+AND no entry names a purpose the transaction does not need. `#redeemers = 4 =
+#script-inputs (1) + #mint-policies (0) + #script-withdrawals (3)`, exact.
+
+Note the shape has NO signatories, so this inhabitant is a transaction whose
+mini-ledger input is authorised by the indexed withdrawal witness ALONE. -/
+theorem t8R_realizable :
+    validRewardingContext P1RShapedWitness.ctxSOwn = true
+    ∧ redeemersExactAllPlutus P1RShapedWitness.ctxSOwn.scriptContextTxInfo = true
+    ∧ RedeemerCovered P1RShapedWitness.ctxSOwn
+    ∧ isSuccessful
+        (appliedGlobalShapedT8R.exec P1ShapedWitness.ppCS
+          (ByteString.mk "MMM") (ByteString.mk "TOK")
+          (ByteString.mk "PROGLOGIC") (ByteString.mk "WOWN") 200 5
+          (ByteString.mk "EXT") 100 4
+          150 5
+          (ByteString.mk "DEST") 100 4
+          (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+          (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+          (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+          (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS")
+          (ByteString.mk "GS")
+          (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0
+          77 88 66
+          50) :=
+  ⟨P1RShapedWitness.ctxSOwn_valid, by native_decide, (t8R_class_covered (ByteString.mk "MMM") (ByteString.mk "TOK") (ByteString.mk "PROGLOGIC") (ByteString.mk "WOWN") 200 5 (ByteString.mk "EXT") 100 4 150 5 (ByteString.mk "DEST") 100 4
+      (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1 (ByteString.mk "DIRCS") (ByteString.mk "GLOBAL") (ByteString.mk "SEIZE")
+      (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1 (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS") (ByteString.mk "ILS") (ByteString.mk "GS") (ByteString.mk "GLOBAL") (ByteString.mk "TLS") (ByteString.mk "WOWN") 0 0 0 77 88 66 50),
+   P1RShapedWitness.exec_accepts_T8R_at_4400⟩
+
+/-- **THE TWO EXCLUDED SHAPE-T8R MEMBERS, PACKAGED** (task H1). Both are
+`validRewardingContext` AND `redeemersExactAllPlutus` — i.e. members of exactly
+the class `t8R_realizable` inhabits and `P1R_T8` quantifies over — and the real
+bytecode rejects both. They differ from the accepted witness in the SINGLE leaf
+`sOwn`, which is what makes `ownerWdrlIdxs` live rather than decorative:
+
+* `ctxSOwnMisindexed` (`sOwn = "TLS"`): the owner's stake script IS invoked, at
+  withdrawal entry **1**, while the redeemer names entry **2**. The pre-#112
+  membership scan accepted exactly this; the post-#112 indexed check does not.
+* `ctxSOwnNoWitness` (`sOwn = "ATTACK"`): no withdrawal entry at all — the
+  control, rejected by both the old and the new rule.
+
+The rejections themselves are `P1RShapedWitness.exec_rejects_T8R_misindexed_owner`
+and `…_unwitnessed_owner`. -/
+theorem t8R_rejected_members_are_ledger_legal :
+    validRewardingContext P1RShapedWitness.ctxSOwnMisindexed = true
+    ∧ redeemersExactAllPlutus
+        P1RShapedWitness.ctxSOwnMisindexed.scriptContextTxInfo = true
+    ∧ validRewardingContext P1RShapedWitness.ctxSOwnNoWitness = true
+    ∧ redeemersExactAllPlutus
+        P1RShapedWitness.ctxSOwnNoWitness.scriptContextTxInfo = true := by
+  native_decide
 
 /-! # §4 THE SHAPES THIS TASK RETIRES — their emptiness, proved
 
@@ -966,18 +1171,22 @@ counterparts do. -/
 #print axioms WSC.t2R_class_covered
 #print axioms WSC.t6R_class_covered
 #print axioms WSC.t7R_class_covered
+#print axioms WSC.t8R_class_covered
 #print axioms WSC.g1R_class_coverage
 #print axioms WSC.g6R_class_coverage
 #print axioms WSC.t1R_class_coverage
 #print axioms WSC.t2R_class_coverage
 #print axioms WSC.t6R_class_coverage
 #print axioms WSC.t7R_class_coverage
+#print axioms WSC.t8R_class_coverage
 #print axioms WSC.g1R_realizable
 #print axioms WSC.g6R_realizable
 #print axioms WSC.t1R_realizable
 #print axioms WSC.t2R_realizable
 #print axioms WSC.t6R_realizable
 #print axioms WSC.t7R_realizable
+#print axioms WSC.t8R_realizable
+#print axioms WSC.t8R_rejected_members_are_ledger_legal
 #print axioms WSC.g6_class_is_empty
 -- F18: the true-rule form of the same result. Its census must be EMPTY of
 -- project axioms — that is the point of stating it.
@@ -991,6 +1200,8 @@ counterparts do. -/
 #print axioms WSC.P1R_T2
 #print axioms WSC.P1R_T6
 #print axioms WSC.P1R_T7
+#print axioms WSC.P1R_T8
+#print axioms WSC.P1R_T8_owner_witness_enforced_thm
 #print axioms WSC.P5R_shaped_indexed
 #print axioms WSC.P6R_shaped_member_adds_to_requirement
 

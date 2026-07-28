@@ -77,11 +77,55 @@
 >    previously had NONE for Blaster, so it did not in fact reconstruct the
 >    substrate); both were verified against local repos only, never against a fresh
 >    clone. See `WSC/pr/01-pcb-cip153-value-builtins.md` and `WSC/REPRODUCE.md` §1b.
-> 5. **NEW FINDING F23: SHAPE T8R is below the four-point bar** — it has its
->    theorem and its vacuity probe, and has **no** two-sided CEK witness and **no**
->    realizability certificate. It is the only shape in the campaign of which that
->    is true, and it is the only shape that exercises the line #112 was written to
->    add. `WSC/status-fragments/N6-compose-and-reaudit.md` §1.
+> 5. ~~**NEW FINDING F23: SHAPE T8R is below the four-point bar**~~ — **CLOSED at
+>    task H1 (2026-07-28); the strike-through is the correction, and the finding as
+>    stated at N6 was accurate when written.** T8R had its theorem and its vacuity
+>    probe and no CEK witness and no realizability certificate; it now has both, so
+>    the campaign is at **14 of 14** on the four-point bar and the objection "the one
+>    shape that exercises the line #112 added is also the least evidenced one" is
+>    answered. Numbers, all measured at H1:
+>    * acceptance `P1RShapedWitness.exec_accepts_T8R_at_4400`
+>      (`WSC/Props/Shaped/P1ShapedR.lean:1011`), through the SAME applied term
+>      `P1R_T8` quantifies over — sameness proved twice by `rfl`, class level
+>      (`p1SOwnInputs_eq_globalInputs`, `:970`, every leaf assignment) and point
+>      level (`ctxSOwn_is_the_exec_argument`, `:989`);
+>    * **K = 2288, pinned TWO-SIDED** (`K_T8R_is_2288`, `:1036`) — **55 steps BELOW
+>      T1R's 2343** at otherwise identical leaves, so #112's indexed owner lookup is
+>      CHEAPER than the signature check beside it despite one more withdrawal entry;
+>    * realizability `WSC.t8R_realizable`
+>      (`WSC/Props/Shaped/GlobalRealizability.lean:939`) — `validRewardingContext` ∧
+>      `redeemersExactAllPlutus` (BOTH halves of Conway's rule; 4 entries = 1 script
+>      input + 0 mint policies + 3 script withdrawals, exact) ∧ `RedeemerCovered` ∧
+>      real-CEK acceptance — with class-level `t8R_class_covered` (`:508`) and
+>      `t8R_class_coverage` (`:728`);
+>    * and TWO rejecting siblings that make `ownerWdrlIdxs` EARN its theorem:
+>      `exec_rejects_T8R_misindexed_owner` (`:1059`) and `…_unwitnessed_owner`
+>      (`:1077`). Both differ from the accepted witness in the SINGLE leaf `sOwn`,
+>      both are `validRewardingContext` AND `redeemersExactAllPlutus`
+>      (`t8R_rejected_members_are_ledger_legal`, `GlobalRealizability.lean:977`),
+>      and the real bytecode refuses both. The first is the sharp one: its owner's
+>      stake script IS invoked, at withdrawal entry 1, while the redeemer names
+>      entry 2 — which is exactly what the pre-#112 membership scan accepted.
+>
+>    0 project axioms on all of it, **0 new solver verdicts** (every new result is
+>    `native_decide` or `rfl`), verdict total unchanged at **170**. See
+>    `WSC/STATUS.md` §6 T8R stanza and §7 row F23;
+>    `WSC/status-fragments/N6-compose-and-reaudit.md` §1 for the original finding.
+>
+> 5b. **NEW FINDING F24, found while closing F23 — `globalModel_faithful` is FALSE
+>    of the post-#112 program and now has an executable counterexample.**
+>    `WSC/Model/GlobalModel.lean:668-676` already stated in a COMMENT that the model
+>    binds `ownerWdrlIdxs` as `_ownerWdrlIdxsUnmodelled` and still transcribes the
+>    pre-#112 withdrawal-map SCAN (`gateInput`, `:231-233`).
+>    `P1RShapedWitness.model_is_stale_at_ownerWdrlIdxs` (`P1ShapedR.lean:1110`)
+>    turns that comment into a measurement, and the measurement shows the error runs
+>    in the DANGEROUS direction: on `ctxSOwnMisindexed` the model **accepts** and the
+>    real bytecode **rejects**, so `WSC.Model.globalModel` is UNSOUND — not merely
+>    incomplete — at the one line #112 added, and the axiom
+>    `WSC.Model.globalModel_faithful` (`WSC/Props/P1_Transfer.lean:428`) is refuted
+>    by a concrete context. Scope: the SHAPED P1/P5/P6 results do NOT route through
+>    that axiom (`WSC/Shaped/Probe/P1Axioms.lean` is the census showing it absent);
+>    anything built on `P1_model` does. `WSC/STATUS.md` §7 row F24.
 >
 > 6. **Defect D6 is FIXED, and half of what it justified is withdrawn.** Blaster
 >    `4d320dd` repairs the kernel-ill-typed `dite'`; both reproductions
@@ -96,9 +140,11 @@
 >    "the dispatch paths are verified".
 > 7. **`recutFamily` grew 13 → 14** (SHAPE T8R, 42 free leaves; total 458 → 500).
 >    Because §6's results are REFUTATIONS, a larger family makes every one of them
->    **strictly stronger** at no witness cost. The roster is deliberately no longer
+>    **strictly stronger** at no witness cost. ~~The roster is deliberately no longer
 >    called "N node-realizable shapes": thirteen carry a certified inhabitant and
->    T8R does not (F23, item 5).
+>    T8R does not (F23, item 5).~~ **CORRECTED at task H1: all FOURTEEN now carry a
+>    certified inhabitant** (`WSC.t8R_realizable`), so "fourteen node-realizable
+>    shapes" is again the accurate description of the roster.
 >
 > Per-task detail: `WSC/IMPACT-PR112.md` (N1–N5 appendices) and
 > `WSC/status-fragments/N6-compose-and-reaudit.md` (the existence check, the

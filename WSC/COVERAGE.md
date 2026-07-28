@@ -181,12 +181,17 @@ counted mechanically from their `def` signatures):
 
 **T8R joined the family at task N6 (2026-07-28).** It is the shape that exercises
 PR #112's new script-owner arm of `pvalueFromCred` — three script withdrawals, no
-signatories, `ownerWdrlIdxs = [2]`. ⚠️ **It is the one member with no certified
+signatories, `ownerWdrlIdxs = [2]`. ~~⚠️ **It is the one member with no certified
 inhabitant** (finding **F23**): no two-sided K, no `t8R_realizable`. Its class is
 known non-empty only from a solver model. That is harmless for the refutations in
 §4 — a bigger family makes them stronger either way — but it means the roster
 below must NOT be described as "fourteen node-realizable shapes"; thirteen are,
-and one is pending.
+and one is pending.~~ **CORRECTED at task H1 (2026-07-28) — F23 is CLOSED.** T8R
+now carries a certified inhabitant like every other member: `WSC.t8R_realizable`
+(`WSC/Props/Shaped/GlobalRealizability.lean:939`), a two-sided `K_T8R_is_2288`
+(`WSC/Props/Shaped/P1ShapedR.lean:1036`), and class-level coverage
+(`t8R_class_covered` / `t8R_class_coverage`). **All fourteen shapes below are
+node-realizable**, so the roster may be described that way again.
 
 | shape | builder | free leaves | in | ref | out | wdrl | mint |
 |---|---|---|---|---|---|---|---|
