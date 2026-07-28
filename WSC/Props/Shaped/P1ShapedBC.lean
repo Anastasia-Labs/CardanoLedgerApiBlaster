@@ -80,12 +80,23 @@ flow. §5 backs it with executable witnesses instead of asserting it. In summary
   `checkByBuiltinContains`, PATH C**.
 
 * **PATH B is taken at `ctxB` — MEASURED, and it CANNOT be proved by an
-  accept/reject test.** On ledger-valid contexts PATH B is a strict refinement of
+  accept/reject test.** On ledger-valid contexts PATH B is a refinement of
   PATH C: if output 0's map equals `E` exactly then the sum over all mini-ledger
   outputs contains `E` (every other contribution is `> 0` by `validTxOutValue`),
   so PATH B accepts ⟹ PATH C would accept. **PATH B is a pure performance fast
   path with no distinguishing input/output behaviour**, and no acceptance or
-  rejection can isolate it. It is isolated by COST instead, and its CONDITION is
+  rejection can isolate it.
+
+  ⚠ ONE KNOWN EXCEPTION, recorded rather than glossed: `punionValue` ERRORS on
+  overflow (`|q| > 2^127 − 1`, `plutus-core/src/PlutusCore/Value.hs`), and
+  `accumulateOutputsAtCred` calls it, so a context with two mini-ledger outputs
+  whose quantities sum past that bound would take PATH B to `True` and PATH C to
+  `perror`. CLAB's `validTxOutValue` imposes no upper bound on a quantity, so
+  such a context is `validRewardingContext`; a real node's CDDL bounds mint and
+  output quantities to 64 bits, so it is NOT node-realizable. The correct
+  statement is therefore "B ⟹ C on ledger-valid contexts with node-representable
+  quantities", and that is why no theorem here separates them. It is NOT proved
+  in this module and is not needed by anything in it. It is isolated by COST instead, and its CONDITION is
   evaluated separately: `T3R_pathB_condition` shows, in ground-truth vocabulary,
   that the output map equals the input map at `ctxB` and differs at `ctxC` — and
   at this shape the expected map IS the input map with ada dropped, because one
