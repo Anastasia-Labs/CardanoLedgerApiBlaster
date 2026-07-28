@@ -6,14 +6,21 @@ Everything below §8 is the pre-#112 document, preserved verbatim and clearly
 marked SUPERSEDED — the deltas are the interesting part, so the old numbers are
 kept rather than deleted.
 
-**Headline.** Re-measured against the post-#112 bytecode, **every** golden that
-can still be measured got CHEAPER — K falls by 6.5 % to 32 % — which is what an
-optimisation PR should do. But only **10 of 13** can be measured at all:
-PlutusCoreBlaster @ `9f9ca8c` **cannot decode the post-#112 `programmableSeize`
-script**, because #112 made it use the CIP-153 builtin **`ScaleValue`** (flat
-tag **100**) which PCB's builtin table does not carry. Seize K is therefore
-UNMEASURABLE today and is recorded as BLOCKED, not as a number. §7 has the
-diagnosis and the fix recipe.
+**Headline (updated by task N5).** All **13 of 13** goldens are now measured:
+the N2 blocker is CLEARED. PlutusCoreBlaster `3fdd3fb` adds the missing CIP-153
+builtin `ScaleValue` (flat tag 100), so the post-#112 `programmableSeize` script
+decodes, runs and pins K two-sided like every other golden. Every golden got
+cheaper — K falls by 6.5 % to 43 % — which is what an optimisation PR should do,
+and the three seize rows are the biggest winners (−23 %, −43 %, −26 %).
+
+The same task found and fixed a SECOND, pre-existing defect that only the seize
+rows could expose: PCB's `unValueData` and `valueData` cost entries carried
+plutus-core **1.57** coefficients while the rest of its table is **1.63**, the
+version wsc-poc pins. The four `programmableLogicGlobal` goldens reference both
+builtins but never evaluate them on the paths their contexts take, so no golden
+had ever exercised the wrong numbers. With the fix, PCB's metered CEK reproduces
+the Haskell ledger `ExBudget` **exactly, to the unit, on all NINE accepting
+goldens** — previously 7 of 9. §7 records the whole diagnosis.
 
 ---
 
@@ -43,9 +50,9 @@ per golden; the raw log is quoted in §6.
 | programmableTokenMinting.mint-delegate-transfer-topup | yes | Halt | **1,257** | Error | Halt | 26,453,981 | 69,372 | **exact** |
 | programmableTokenMinting.mint-local-registered-by-ref | yes | Halt | **1,681** | Error | Halt | 34,116,362 | 92,870 | **exact** |
 | programmableTokenMinting.mint-local-empty-withdrawals-REJECT | no | Error | 1,627 | Error | Error | — | — | n/a |
-| programmableSeize.seize-1-input | yes | — | **BLOCKED** | — | — | 51,415,864 | 126,764 | — |
-| programmableSeize.seize-2-inputs-partial-with-noise | yes | — | **BLOCKED** | — | — | 72,531,075 | 159,980 | — |
-| programmableSeize.seize-1-input-missing-residual-output-REJECT | no | — | **BLOCKED** | — | — | — | — | — |
+| programmableSeize.seize-1-input | yes | Halt | **2,305** | Error | Halt | 51,415,864 | 126,764 | **exact** |
+| programmableSeize.seize-2-inputs-partial-with-noise | yes | Halt | **2,905** | Error | Halt | 72,531,075 | 159,980 | **exact** |
+| programmableSeize.seize-1-input-missing-residual-output-REJECT | no | Error | 1,677 | Error | Error | — | — | n/a |
 | programmableLogicGlobal.transfer-nonmember-covering-node | yes | Halt | **1,453** | Error | Halt | 27,817,781 | 80,469 | **exact** |
 | programmableLogicGlobal.transfer-member-single-policy | yes | Halt | **2,782** | Error | Halt | 56,258,707 | 151,501 | **exact** |
 | programmableLogicGlobal.transfer-mixed-many-policies | yes | Halt | **3,441** | Error | Halt | 74,010,662 | 188,987 | **exact** |
@@ -53,8 +60,8 @@ per golden; the raw log is quoted in §6.
 
 `PCB budget = ledger` is an independent-implementation agreement check: PCB's
 budget-metered CEK run of the applied program reproduces the ledger `ExBudget`
-recorded in the golden JSON **exactly, to the unit**, for all 7 measurable
-accepting goldens (the ExBudget itself comes from Haskell
+recorded in the golden JSON **exactly, to the unit**, for all 9 accepting
+goldens (the ExBudget itself comes from Haskell
 `PlutusLedgerApi.V3.evaluateScriptCounting` at PV11). The seize ExBudget column
 is still populated — the ledger evaluator has no trouble with `ScaleValue`; it
 is only PCB that cannot read the script.
@@ -72,9 +79,9 @@ Baseline = the pre-#112 table (now §9 below), measured against wsc-poc
 | mint-delegate-transfer-topup | 1,257 | **1,257** | 0 | 0 % | 26,455,938 → 26,453,981 | −0.01 % |
 | mint-local-registered-by-ref | 1,681 | **1,681** | 0 | 0 % | 34,116,362 → 34,116,362 | 0 % |
 | mint-local-empty-withdrawals-REJECT | 1,627 | **1,627** | 0 | 0 % | — | — |
-| seize-1-input | 3,002 | **BLOCKED** | — | — | 60,231,630 → 51,415,864 | **−14.6 %** |
-| seize-2-inputs-partial-with-noise | 5,079 | **BLOCKED** | — | — | 105,501,594 → 72,531,075 | **−31.3 %** |
-| seize-…-REJECT | 2,261 | **BLOCKED** | — | — | — | — |
+| seize-1-input | 3,002 | **2,305** | −697 | **−23.2 %** | 60,231,630 → 51,415,864 | **−14.6 %** |
+| seize-2-inputs-partial-with-noise | 5,079 | **2,905** | −2,174 | **−42.8 %** | 105,501,594 → 72,531,075 | **−31.3 %** |
+| seize-…-REJECT | 2,261 | **1,677** | −584 | **−25.8 %** | — | — |
 | transfer-nonmember-covering-node | 1,554 | **1,453** | −101 | **−6.5 %** | 29,160,036 → 27,817,781 | −4.6 % |
 | transfer-member-single-policy | 3,262 | **2,782** | −480 | **−14.7 %** | 62,665,145 → 56,258,707 | −10.2 % |
 | transfer-mixed-many-policies | 3,726 | **3,441** | −285 | **−7.6 %** | 78,031,424 → 74,010,662 | −5.2 % |
@@ -143,7 +150,7 @@ or below the accepting floor.
 the regenerated flats:
 
 ```
-ALL-MATCH (of 10 decodable; 3 BLOCKED)
+ALL-MATCH (of 13 decodable; 0 BLOCKED)
 ```
 
 Each decodable applied program's `Apply` spine, after the script's own top-level
@@ -183,7 +190,7 @@ Applied-program node counts are 103 (base), 1,285 (minting), 2,789 (global) —
 constant within a validator family because each whole `Data` argument is a
 single `Const` node.
 
-## 7. ⛔ BLOCKER: PCB cannot decode the post-#112 seize script
+## 7. ✅ RESOLVED (task N5): PCB could not decode the post-#112 seize script
 
 **Symptom.** All three `programmableSeize` applied flats, and the UNAPPLIED
 prod-exported `programmableSeize.json` as well, fail PCB's flat importer:
@@ -242,8 +249,50 @@ moves the ARCHITECTURE substrate pin, so it is deliberately NOT done here):
 4. re-pin `lakefile.lean` + `lake-manifest.json` to the new PCB revision and
    re-run this document's §6.
 
-Until then the three seize rows stay **BLOCKED**. They are deliberately not
-recorded as `0`, `n/a` or silently dropped.
+**RESOLUTION (task N5).** All four steps were carried out in PlutusCoreBlaster
+`3fdd3fb` (on top of `9f9ca8c`), and the CLAB substrate pin moved with them. The
+three seize rows in §2/§3 are now real two-sided measurements.
+
+Two things worth recording that the fix recipe above did not anticipate:
+
+* **The tag is confirmed on both sides of `instance Flat DefaultFun`**, read off
+  the source rather than inferred. N2 cited plutus-core 1.63 line numbers; the
+  local `/home/gumbo/iohk/plutus` checkout is **1.57**, where the same pair sits
+  at `:2177`/`:2281`. Both agree the tag is 100. (N1 reported that no plutus
+  source was on this machine; it is — 1.63.0.0 is in the nix store, as a source
+  tarball, and that is what the coefficients below were read from.)
+
+* **A second, INDEPENDENT defect surfaced the moment seize could be metered**,
+  and it was NOT a ScaleValue problem. With `ScaleValue` costed correctly,
+  seize-1-input still disagreed with the ledger by +1,725,250 CPU and −120 mem.
+  Cause: `unValueData` and `valueData` carried plutus-core **1.57** coefficients
+  in a table that is otherwise **1.63**:
+
+  | builtin | PCB (1.57) | plutus 1.63 |
+  |---|---|---|
+  | `unValueData` CPU | `1000 + 204904·x + x²` | `1000 + 95933·x + x²` |
+  | `unValueData` MEM | `11 + 1·x` | `1 + 11·x` (intercept/slope SWAPPED) |
+  | `valueData` CPU | `199604 + 39211·x` | `1000 + 38159·x` |
+
+  A full parameter diff of 1.57C against 1.63E shows exactly SEVEN builtins
+  moved between the releases (`divideInteger`, `equalsByteString`, `modInteger`,
+  `quotientInteger`, `remainderInteger`, `unValueData`, `valueData`); PCB already
+  had the 1.63 values for the first five, so only the two CIP-153 entries added
+  in `830819b` were stale.
+
+  The arithmetic closes exactly, which is what makes this a diagnosis rather
+  than a guess. seize-1-input calls `unValueData` twice and `valueData` once
+  (`x = 1`), traced. From the MEMORY discrepancy alone,
+  `20 − 10·(n₁+n₂) = −120` gives `n₁+n₂ = 14`; substituting into the CPU model
+  predicts `108971·14 + 199656 = 1,725,250` — the observed CPU discrepancy, to
+  the unit.
+
+  **Why no golden caught it earlier:** the builtin census in the table above is a
+  STATIC scan of the term. `programmableLogicGlobal` references `unValueData`
+  and `valueData` but never EXECUTES them on the paths its four golden contexts
+  take, so its budgets agreed with the ledger regardless. The post-#112 seize
+  goldens are the first that run them. This is a good argument for keeping the
+  ExBudget cross-check on every golden rather than on a sample.
 
 ## 8. Reproduce
 

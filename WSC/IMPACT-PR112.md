@@ -492,3 +492,150 @@ Everything else listed above is INVALIDATED or STALE and is retained only as a
 template. Each such module carries a `⚠️ PRE-#112` marker on its first line
 naming this file. **Do not quote a marked module's theorem as a statement about
 production.**
+
+---
+
+## §N5 SEIZE / P2 — RE-PROVED. Both substrate blockers CLEARED.
+
+Task **N5**, 2026-07-28, on top of N1 `de8d46d` and N2 `bbc9f26`. This section
+supersedes §6's D7/D8 entries and the seize rows of §3.
+
+### N5.1 Substrate: D7 and D8 are both FIXED, and D8 was fixed as a side effect
+
+* **D7 (seize flat does not decode)** — RESOLVED. PlutusCoreBlaster `3fdd3fb`
+  adds the CIP-153 builtin **`ScaleValue`**, flat tag **100**, which `830819b`
+  had omitted from its six. Tag read off BOTH sides of plutus-core
+  `instance Flat DefaultFun`, not inferred. `WSC/Prep/Seize.lean` now preps in
+  36 s; all 13 goldens decode, run, and pin K two-sided.
+  *(Correction to N1: plutus-core source IS on this machine — 1.63.0.0 lives in
+  the nix store as a source tarball. The local `/home/gumbo/iohk/plutus` git
+  checkout is 1.57, which is a different question and is what caused N5.2.)*
+
+* **D6/D8 (kernel-ill-typed `Blaster.dite'`)** — RESOLVED, in Blaster, by ONE
+  function. `dite'` is well typed only when its branch binders are syntactically
+  `c` and `¬c`, but the condition and the branch lambdas are optimized
+  independently, so any normalisation that rewrites `¬c` without rewriting `c`
+  yields a term the kernel rejects. Two fire on the #112 bytecode:
+  `¬(a ∧ b) ⇝ ¬a ∨ ¬b` (this is N1's D8, over `eqDataMap`) and
+  `¬(true = x) ⇝ false = x` (D6 for seize, over `eqData` on a TxOut
+  address/datum pair). `optimizeDITE` now rebuilds both binder types from the
+  final condition; branches that actually use their proof binder are untouched.
+
+  **This clears the global blocker too, which N5 did not own.** `WSC/Prep/
+  Global1600` — N1 measured it failing in the kernel after 8 m 9 s, blocking
+  every `WSC/Shaped/Global*` and therefore P1/P5/P6 — now **builds
+  successfully in 8 m 19 s**. Whoever owns the global reprove should re-plan on
+  that basis.
+
+  **Verdict-neutrality control** (this is a shared substrate, so the patch had
+  to be shown harmless): the eight `WSC/Props/Shaped/P4*` modules give
+  **42 ✅ Valid + 23 ✅ Expected Falsified** with the patched Blaster and
+  **the identical 42 + 23** with canonical Blaster `59db213`. Zero failures
+  either way. The patch can only repair a term the kernel would have rejected.
+
+  Substrate pin moved: Blaster is now a LOCAL PATH pin,
+  `/home/gumbo/iohk/Lean-blaster-wsc` @ `4d320dd` (= the previously pinned
+  `59db213` plus that one commit). Nothing was pushed.
+
+* PCB's `validQuantity` also had to be restated as a single comparison
+  (`|2i+1| < 2^128`, proved equal to the two-sided form by
+  `validQuantity_eq_and`). Three spellings were measured; the `&&` form and the
+  nested-`if` form BOTH still failed, because Blaster forms the conjunction
+  itself. This is a presentation change only.
+
+### N5.2 A pre-existing PCB COST-MODEL bug that only seize could expose
+
+With `ScaleValue` costed correctly, seize-1-input still disagreed with the
+ledger by **+1,725,250 CPU / −120 mem**. Cause: `unValueData` and `valueData`
+carried plutus-core **1.57** coefficients in a table that is otherwise **1.63**,
+the version wsc-poc pins. Full detail, including the arithmetic that closes to
+the unit, is in `WSC/goldens/K-MEASUREMENTS.md` §7.
+
+**Why nothing caught it for so long:** the builtin census is a STATIC scan of
+the term. The four `programmableLogicGlobal` goldens *reference* both builtins
+but never *execute* them on the paths their contexts take. The post-#112 seize
+goldens are the first that do.
+
+After the fix PCB's metered CEK reproduces the ledger `ExBudget` **exactly, to
+the unit, on all NINE accepting goldens** (was 7 of 9), and
+`verify-applied.py` reports **ALL-MATCH (of 13 decodable; 0 BLOCKED)** — the
+seize applied flats are byte-identical in their baked-in arguments to the golden
+JSONs, which N2 could never check.
+
+### N5.3 P2 — what changed, per conjunct
+
+| | pre-#112 | at 2306678 | |
+|---|---|---|---|
+| **P2b — containment of the seized delta** | ✅ Valid | ✅ **Valid, UNCHANGED** | same shape S1R, same budget 3800, same postcondition |
+| **P2a — structure preservation** | ✅ Valid | ❌ **FALSIFIED as previously stated**; ✅ Valid after restatement | the postcondition had to change because the code did |
+
+**P2b needed no change at all.** Its postcondition, its shape, its budget and
+the two canonicity facts it consumes (one-policy/one-token-name `adaPlusOne`
+values, `mintOne` mint field) are all as they were. That the CIP-153 rewrite did
+not disturb the containment conjunct is itself a result worth stating.
+
+**P2a is genuinely different.** #112 legalised an **ADA TOP-UP** on the
+continuing output. `WSC.seizeStructurePreserved`, whose per-pair rule demands
+every non-seized policy equal *ada included*, is now FALSE of production — the
+counterexample's sole defect is `i0Ada = 23101` against `o0Ada = 36307`. The
+replacement `WSC.seizeStructurePreservedAdaTopUp` (`WSC/Spec.lean`, ground-truth
+vocabulary only) keeps address/datum/refScript equality and non-seized non-ada
+policy equality, and replaces ada equality by `in ≤ out` — **guarded by
+`seizedCS ≠ adaSymbol`**, a guard forced by a SECOND measured counterexample in
+which the solver seized ada itself, so that ada's decrease *was* the seizure.
+
+The relaxation is not a hole, and that is proved rather than asserted:
+`P2a_R_ada_only_tops_up` shows acceptance forces `i0Ada ≤ o0Ada` — ada may be
+added, never removed — stated on the raw ledger leaves so no predicate can
+launder it.
+
+Final state of `WSC/Props/Shaped/P2ShapedR.lean`: **6 ✅ Valid + 3 ✅ Expected
+Falsified, 0 failures**, including the mandatory vacuity probe at its OWN prep
+term and OWN shape. Witness Ks re-measured and re-pinned two-sided:
+**2301** accepting (was 3004) and **2412** residual (was 3328).
+
+### N5.4 `WSC/Model/SeizeModel.lean` — NOT re-transcribed, and REFUTED
+
+Decision and justification, since the task asked for one.
+
+The differential test — the model's entire warrant — **still passes 13/13**
+against the new bytecode and the new goldens. That is a trap, not a reprieve:
+it passes only because **no golden exercises the behaviour that changed**. Every
+golden carries equal lovelace on every continuing pair, so none of them can tell
+the old rule from the new one.
+
+`WSC/Model/SeizeModelRefuted.lean` settles it by computation. Two contexts
+differing in exactly ONE leaf (output 0's lovelace, 300 vs 400):
+* control, ada equal — bytecode accepts **and** model accepts;
+* witness, ada topped up — bytecode **accepts** and model **rejects**.
+
+Both `native_decide`. So `WSC.SeizeModel.seizeModel_faithful` is **FALSE at
+2306678**, and with it `WSC.P2.P2a_bytecode`,
+`WSC.P2.P2b_model_implies_bytecode`, and the library's only UNBOUNDED seize
+result `P2a_seizeModel_preserves_structure` *as a statement about production*.
+The unbounded theorem remains a true theorem about `seizeModel`; it is the
+bridge that is broken.
+
+**I did not re-transcribe the model.** Doing it honestly means re-transcribing
+855 lines against the new builtin-valued delta, re-proving the unbounded theorem
+over it, and re-running the gate — a unit of work in its own right. The
+unbounded result is therefore a REAL LOSS at 2306678 and is reported as one.
+`WSC/Model/{SeizeModel,SeizeDiff}.lean` and `WSC/Props/P2_Seize.lean` carry a
+`⛔ REFUTED` marker.
+
+**Coverage gap to fix whoever regenerates goldens next:** add a seize golden
+whose continuing output has MORE lovelace than its input. It is the single
+cheapest thing that would have caught all of this, and it would restore the
+differential test's power.
+
+### N5.5 Not done / open
+
+* `Spec.lean:91` — N1's unowned one-token fix APPLIED by N5, exactly as
+  specified (`| some (.TransferAct _ _ _ ms _) => some ms`).
+* No full-library build was run: the base and global families are still owned by
+  other units and still fail to compile, so a whole-library verdict census would
+  be meaningless. No new baseline counts are claimed.
+* `WSC/Shaped/Probe/S1K.lean` and the other seize probes still carry PRE-#112
+  markers; they were not re-measured.
+* `AUDIT.md`, `STATUS.md`, `README.md`, `EXEC-SUMMARY.md`, `SHAPING-RESULTS.md`,
+  `COVERAGE.md`, `SHAPE-BRIDGE.md` still describe the pre-#112 state.

@@ -72,6 +72,7 @@ import WSC.Props.P6_Member
 -- (containment) is stated + verified on the goldens but NOT proven.
 import WSC.Model.SeizeModel
 import WSC.Model.SeizeDiff
+import WSC.Model.SeizeModelRefuted
 import WSC.Props.P2_Seize
 -- ── SHAPED-CONTEXT layer (task Z2) ──────────────────────────────────────────
 -- Read WSC/SHAPING-RESULTS.md first.  These modules prove P4a, P4's BurnOnly arm

@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ RE-PROVED AT PR #112 (task N5, wsc-poc main 2306678). Current. See WSC/IMPACT-PR112.md §N5.
 /-
 WSC/Shaped/SeizeShapedR.lean — **SHAPE S1R: the NODE-REALIZABLE re-cut of
 SHAPE S1**, the production clawback validator `programmableSeize` (task C2).

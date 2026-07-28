@@ -9,16 +9,14 @@ log = sys.argv[1]
 # from a scratch clone); defaults to the canonical checkout.
 gdir = sys.argv[2] if len(sys.argv) > 2 else "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens"
 
-# Task N2: PCB @ 9f9ca8c cannot decode the post-#112 programmableSeize script
-# (CIP-153 builtin `ScaleValue`, flat tag 100, absent from PCB's builtinTable),
-# so KVerify emits no ARG lines for these three.  They are reported as BLOCKED
-# rather than MISSING, and do NOT flip the overall verdict to failure — the
-# alternative would be a permanently red gate that hides real regressions.
-BLOCKED = {
-    "programmableSeize.seize-1-input",
-    "programmableSeize.seize-2-inputs-partial-with-noise",
-    "programmableSeize.seize-1-input-missing-residual-output-REJECT",
-}
+# Task N5: the N2 BLOCKED set is now EMPTY.  N2 had to exempt the three
+# programmableSeize goldens because PCB @ 9f9ca8c could not decode the post-#112
+# seize script (CIP-153 builtin `ScaleValue`, flat tag 100, absent from PCB's
+# builtinTable).  N5 added `ScaleValue` to PCB, so KVerify now emits ARG lines
+# for all 13 goldens and all 13 are checked.  The mechanism is kept (rather than
+# deleted) so a future builtin gap is again reported as BLOCKED rather than
+# silently MISSING — but an empty set means nothing is exempt today.
+BLOCKED = set()
 
 args = collections.defaultdict(dict)
 for line in open(log):

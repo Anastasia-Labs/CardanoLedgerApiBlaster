@@ -88,7 +88,11 @@ def isDelegateSeize (r : Data) : Bool :=
 one. -/
 def transferMintProofs (r : Data) : Option (List MintProof) :=
   match (IsData.fromData r : Option PLGRedeemer) with
-  | some (.TransferAct _ _ ms _) => some ms
+  -- PR #112 widened `TransferAct` from four fields to five (`ownerWdrlIdxs`
+  -- inserted THIRD).  `mintProofs` is still the SECOND-TO-LAST field, so the
+  -- fix is one extra wildcard.  Applied by task N5 (N1 identified it and left
+  -- it unowned to avoid three parallel units colliding on one line).
+  | some (.TransferAct _ _ _ ms _) => some ms
   | _ => none
 
 /-- POSITIONAL mint classification (ADDENDUM E8).
@@ -365,5 +369,83 @@ def seizeStructurePreserved (base : Credential) (seizedCS : CurrencySymbol) :
             seizeStructurePreserved base seizedCS rest os
       else
         seizeStructurePreserved base seizedCS rest pairedOutputs
+
+/-! ### PR #112: the seize pair rule now permits an ADA TOP-UP
+
+`pairPreserved`/`seizeStructurePreserved` above are the PRE-#112 rule and they
+are **FALSE of the production bytecode at wsc-poc main `2306678`** — measured,
+not inferred: `WSC/Props/Shaped/P2ShapedR.lean`'s `P2a_R_structure` comes back
+❌ Falsified with a counterexample whose ONLY defect is `i0Ada = 23101`,
+`o0Ada = 36307`, i.e. the continuing output carries MORE ada than the input it
+continues.
+
+That relaxation is deliberate, and the reason is in the source
+(`ProgrammableLogicBase.hs`, `pvalueEqualsDeltaCurrencySymbol`, the
+`adaToppedUp` binding):
+
+> The one non-seized policy a pair may legitimately differ on is ada, and only
+> upward. A protocol-parameter change can raise the min-UTxO requirement above
+> what a UTxO already holds; demanding the continuing output carry exactly the
+> input's lovelace would make every such UTxO permanently unseizable, since the
+> ledger would require more ada than this validator allowed.
+
+The check is `pasInt # … #<= pconstantInteger 0` on the ada entry of the delta,
+and the delta is `input - output`, so the permitted direction is
+`input - output ≤ 0`, i.e. **`output ≥ input`**: ada may be added, NEVER removed.
+The asymmetry is the security-relevant half, so it is stated explicitly below
+and is what `P2a_R_negative_control` now falsifies-on-violation.
+
+Both spellings are kept: the old one because the pre-#112 results quantify over
+it and the audit trail must stay readable, the new one because it is what the
+shipped code does. -/
+
+/-- Lovelace held by a `TxOut`. Ground truth only — a `valueOf` lookup at the
+ada symbol/token (both the empty `ByteString`, `CardanoLedgerApi/V1/Value.lean`
+`adaSymbol`/`adaToken`). -/
+def lovelaceOf (o : TxOut) : Integer :=
+  valueOf CardanoLedgerApi.V1.adaSymbol CardanoLedgerApi.V1.adaToken o.txOutValue
+
+/-- PR #112 per-pair rule: address, datum and reference script exactly equal;
+every policy other than the seized one AND other than ada byte-for-byte equal;
+and ada only ever TOPPED UP (`in ≤ out`).
+
+Note the ada clause is an INEQUALITY in one direction only. Replacing it with
+`==` gives back `pairPreserved`, which the bytecode refutes; dropping it
+entirely would let a seizure drain the continuing output's lovelace, which the
+bytecode also refuses (`P2a_R_negative_control`).
+
+The ada clause is GUARDED by `seizedCS ≠ adaSymbol`, and that guard is not
+cosmetic — it was forced by a second measured counterexample (task N5). When the
+seized policy IS ada, ada's movement is the seizure itself and no top-up rule
+can apply. The guard mirrors the validator's own dispatch exactly
+(`pvalueEqualsDeltaCurrencySymbol`): the leading entry of the delta is tested
+`pfstBuiltin # entry #== progCSData` FIRST, and only if that fails is it
+required to be an `adaToppedUp` entry. With `progCS = adaSymbol` the first test
+succeeds on the ada entry, so `adaToppedUp` is never reached. -/
+def pairPreservedAdaTopUp (seizedCS : CurrencySymbol) (inp out : TxOut) : Bool :=
+  inp.txOutAddress == out.txOutAddress &&
+  inp.txOutDatum == out.txOutDatum &&
+  inp.txOutReferenceScript == out.txOutReferenceScript &&
+  dropCS CardanoLedgerApi.V1.adaSymbol (dropCS seizedCS inp.txOutValue) ==
+    dropCS CardanoLedgerApi.V1.adaSymbol (dropCS seizedCS out.txOutValue) &&
+  (seizedCS == CardanoLedgerApi.V1.adaSymbol ||
+    decide (lovelaceOf inp ≤ lovelaceOf out))
+
+/-- `seizeStructurePreserved` with the PR #112 pair rule. The input walk and the
+paired-output cursor are IDENTICAL to the pre-#112 version; only `pairPreserved`
+is replaced by `pairPreservedAdaTopUp`. -/
+def seizeStructurePreservedAdaTopUp (base : Credential) (seizedCS : CurrencySymbol) :
+    List TxInInfo → List TxOut → Bool
+  | [], _ => true
+  | i :: rest, pairedOutputs =>
+      if inAtBase base i then
+        match pairedOutputs with
+        | [] => false
+        | o :: os =>
+            pairPreservedAdaTopUp seizedCS i.txInInfoResolved o &&
+            seizeStructurePreservedAdaTopUp base seizedCS rest os
+      else
+        seizeStructurePreservedAdaTopUp base seizedCS rest pairedOutputs
+
 
 end WSC
