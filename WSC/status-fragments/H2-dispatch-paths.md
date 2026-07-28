@@ -1,4 +1,4 @@
-# H2 — re-cut SHAPES T3R / T4R and reach the containment dispatch's other arms
+# H2 (2026-07-28) — re-cut SHAPES T3R / T4R and reach the containment dispatch's other arms
 
 **Substrate.** wsc-poc `main` @ **2306678** (PR #112) · PlutusCoreBlaster
 `cip153-value-builtins` @ **3fdd3fb** · Blaster `wsc-d6-dite-branch-retype` @

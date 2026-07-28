@@ -1357,7 +1357,13 @@ four-point bar (`WSC/Props/Shaped/P1ShapedBC.lean`). See the entry **H2** below 
 exactly which of the three dispatch paths is now PROVED, which is MEASURED, and
 which cannot be isolated by any accept/reject test at all.
 
-### H2 — the containment dispatch, after the re-cut (task H2, 2026-07-28)
+### H2 (2026-07-28) — the containment dispatch, after the re-cut
+
+> ⚠ **NAME COLLISION, disambiguated once here.** "H2" was ALSO the label of the
+> PRE-#112 dead-file cleanup (§12, and the `pre-#112 (H2/G3)` column of the top
+> banner). That stage is **2026-07-2x, pre-#112**; THIS one is **2026-07-28,
+> post-#112**, and follows task **H1** (SHAPE T8R, finding F23). Every reference
+> to this task in the tree carries the date.
 
 ARCHITECTURE Tier 3.1 asks that each of `poutputsContainExpectedValueAtCred`'s
 three dispatch paths independently imply the aggregate bound. Status, stated so
@@ -1845,7 +1851,7 @@ ratio not at all. **Loosening rungs buy narrowness, not coverage.**
 
 ---
 
-## 12. THE DEAD-FILE AUDIT (task H2) — the full decision table
+## 12. THE DEAD-FILE AUDIT (task H2, the PRE-#112 stage — not the 2026-07-28 dispatch-path task of the same name) — the full decision table
 
 **What this section is.** The campaign accreted files for eleven stages. Before the
 work is submitted as a PR, every file in `WSC/` was asked three questions and the
