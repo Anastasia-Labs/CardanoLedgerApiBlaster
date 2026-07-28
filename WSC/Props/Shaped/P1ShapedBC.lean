@@ -56,11 +56,14 @@ flow. §5 backs it with executable witnesses instead of asserting it. In summary
   A is `hasAtLeastAssetInProgOutputs` on exactly ONE `(cs, tn)` pair; whichever
   pair it were given, one of the two contexts leaves that pair whole and would
   be ACCEPTED. Both are rejected, so the run is not on PATH A. (Independently,
-  the class-level reason: `validTxOutValue`,
-  `CardanoLedgerApi/V1/Contexts.lean:787-802`, forces every non-ada quantity in
-  every resolved input `> 0`, so `pfilterPositiveCurrencyPairs` cannot reduce the
-  expected value to one token name and the :655-656 guard is false for EVERY leaf
-  assignment satisfying the theorems' `validRewardingContext` hypothesis.)
+  the class-level reason, and it holds for EVERY leaf assignment: the mint field
+  is empty, so `expectedProgrammableOutputValue` is `totalProgTokenValue_`
+  outright — the `pif (pnull # pto (pto mintValueNoGuarantees))` at `:1226-1229`
+  takes its THEN branch, no `punionValue`, no filter — and
+  `pcheckTransferLogicAndGetProgrammableValue` `pcons`es whole currency-symbol
+  pairs through unchanged (`:917-926`), never individual token names. So the
+  expected value IS the mini-ledger input's non-ada map, which this shape builds
+  with two token names, and the `:655-656` guard is false.)
 
 * **PATH C is taken and returns True at `ctxC` — PROVED.** `T3R_pathC_is_taken`
   packages the two acceptance facts the argument needs. `ctxB` and `ctxC` are the
@@ -740,12 +743,14 @@ PATH B's test at ProgrammableLogicBase.hs:638 is
 `(pmapData # (ptail # (pasMap # txOutValueData))) #== expectedMapData`, i.e. the
 mini-ledger OUTPUT's value map with the ada entry dropped, against the expected
 map. At SHAPE T3R the expected map is the mini-ledger INPUT's value map with the
-ada entry dropped: the shape has exactly ONE contributing input, so
-`pvalueFromCred` finishes in PHASE 2 and returns `ptail # (pasMap # firstVd)`
-(:411-427) with no arithmetic at all; the mint field is empty so
-`punionValue` adds nothing (:1219-1222); and `pfilterPositiveCurrencyPairs`
-(:257-298) is the identity here because `validTxOutValue` forces both quantities
-`> 0` (`ctxB_valid`).
+ada entry dropped, and three source facts make that exact: the shape has exactly
+ONE contributing input, so `pvalueFromCred` finishes in PHASE 2 and returns
+`ptail # (pasMap # firstVd)` (`:411-427`) with no arithmetic at all; the mint
+field is empty, so `expectedProgrammableOutputValue` is `totalProgTokenValue_`
+outright (`:1226-1229`, the THEN branch — no `punionValue`, no filter); and
+`pcheckTransferLogicAndGetProgrammableValue` `pcons`es the currency-symbol pair
+through UNCHANGED when its positive proof passes (`:917-926`), selecting whole
+policies and never individual token names.
 
 So this theorem is PATH B's condition, evaluated: it HOLDS at `ctxB` and FAILS at
 `ctxC`. Both sides are read straight off the `ScriptContext` — no validator

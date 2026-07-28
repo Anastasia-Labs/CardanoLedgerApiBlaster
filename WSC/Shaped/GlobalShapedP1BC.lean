@@ -77,26 +77,32 @@ entries, exactly as at SHAPE T1R.
 ════════════════════════════════════════════════════════════════════════════
 WHAT EACH SHAPE ACTUALLY EXERCISES — the claim, and where it is BACKED
 ════════════════════════════════════════════════════════════════════════════
-**SHAPE T3R leaves PATH A, and this is forced by the ledger predicate, not
-assumed.** The expected value is `pfilterPositiveCurrencyPairs` applied to the
-mini-ledger input total (:1219-1243), and `validTxOutValue`
-(`CardanoLedgerApi/V1/Contexts.lean:787-802`) — asserted by every theorem's
-`validRewardingContext` hypothesis — forces **every** non-ada quantity in every
-resolved input to be `> 0`. So neither `qIn0` nor `qIn1` can be filtered out:
-the expected value is one currency symbol with TWO token names, the PATH A guard
-at :655-656 is FALSE, and `checkWholesaleThenBuiltin` runs. Executable evidence
+**SHAPE T3R leaves PATH A, and this is forced by the shape, not assumed.** The
+mint field is EMPTY, so `expectedProgrammableOutputValue` is
+`totalProgTokenValue_` outright — the `pif (pnull # pto (pto
+mintValueNoGuarantees))` at `:1226-1229` takes its THEN branch, so there is no
+`punionValue` and no filter in the transfer path at all. And
+`pcheckTransferLogicAndGetProgrammableValue` (`:855-935`) `pcons`es each
+currency-symbol pair through UNCHANGED when its positive proof passes
+(`:917-926`) — it selects whole policies, never individual token names. So the
+expected value is literally the mini-ledger input's non-ada value map: ONE
+currency symbol with TWO token names. The PATH A guard at `:655-656` is FALSE
+and `checkWholesaleThenBuiltin` runs. Executable evidence
 that this is what the bytecode really does — two rejections that a single-asset
 scan could not produce — is in `WSC/Props/Shaped/P1ShapedBC.lean`
-(`T3R_not_path_A_tn0`, `T3R_not_path_A_tn1`).
+(`T3R_not_path_A`).
 
 **Which of B or C then runs is a function of the leaves**, and the theorem
 quantifies over both:
 * PATH B accepts iff output 0's non-ada map equals the expected map
   byte-for-byte, i.e. iff `qOut0 = qIn0 ∧ qOut1 = qIn1`;
 * otherwise PATH C runs.
-`P1ShapedBC.lean` pins one witness of each and PROVES the PATH C one is on PATH
-C (`T3R_pathC_is_taken`, a three-witness argument that needs no assumption about
-the validator's internals).
+`P1ShapedBC.lean` pins one witness of each. It PROVES the PATH C one is on PATH
+C (`T3R_pathC_is_taken`, a two-witness argument), and evaluates PATH B's own
+condition in ground-truth vocabulary (`T3R_pathB_condition`) while separating its
+EXECUTION only by cost (K 1936 vs 2228) — because on ledger-valid contexts with
+node-representable quantities PATH B implies PATH C, so no accept/reject test can
+isolate it. Read that module's header before quoting either.
 
 **SHAPE T4R enters `pvalueFromCred`'s PHASE 3.** With ONE contributing input the
 walk finishes in PHASE 2 `goRest` (:411-427) and produces the input value by

@@ -3,6 +3,15 @@
 > `WSC/AUDIT.md`. It is kept as the per-task record only. Where it disagrees with
 > `WSC/STATUS.md`, `WSC/STATUS.md` wins — the disagreements found by the U3 audit
 > are itemised in `WSC/AUDIT.md` §7.
+>
+> **⚠️ TWO SPECIFIC CLAIMS BELOW ARE NOW FALSE — task H2, 2026-07-28.** §5 says
+> PATHS B and C of `poutputsContainExpectedValueAtCred` are "unreachable at UPLC
+> at ANY shape" and that `pvalueFromCred` PHASE 3 is likewise unreachable. Both
+> were true of the substrate of the day (Blaster defect **D6**, fixed at
+> `4d320dd`) and of the shapes of the day (T3/T4 were pre-re-cut and
+> node-unbuildable). SHAPES **T3R** and **T4R** now exist and P1 is proved over
+> both — `WSC/Props/Shaped/P1ShapedBC.lean`, `WSC/AUDIT.md` entry **H2**,
+> `WSC/status-fragments/H2-dispatch-paths.md`.
 
 # Status fragment — task V1: **P1 (containment) PROVED AT UPLC over shaped contexts**
 

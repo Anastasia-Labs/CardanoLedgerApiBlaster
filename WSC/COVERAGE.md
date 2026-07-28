@@ -461,7 +461,7 @@ What blocks it today, measured:
 | …and does not complete at 3300 | probe retained, never completes | `WSC/Shaped/Probe/UnshapedCost.lean` |
 | symbolic-context solve above the vacuity boundary | **killed at 5,241 s ≈ 87 min, NO verdict** (P5, unshaped) — against **≈2 s** for the same property shaped | `WSC/SHAPING-RESULTS.md:11` |
 | unshaped seize prep at 2000 | never completed in 77 min | `SHAPE-BRIDGE.md` §247 |
-| ~~**Blaster D6**~~ — **FIXED (N5, Blaster `4d320dd`); re-tested N6** | no longer blocks anything: both preps build (2.4 s / 9.4 s, exit 0) and SHAPE T3's accept class is measured non-empty. What remains is the **T3R/T4R re-cut**, without which Paths B/C have no node-realizable shape to be proved over | `AUDIT.md` D6, `Probe/{T3PrepFAILS,T4PrepFAILS}.lean` (now regression tests) |
+| ~~**Blaster D6**~~ — **FIXED (N5, Blaster `4d320dd`); re-tested N6**; ~~**T3R/T4R re-cut**~~ — **DONE (H2)** | neither blocks anything now: both preps build, and the re-cut SHAPES T3R/T4R exist with P1 proved over them to the four-point bar. Dispatch PATH C is proved executed, PATH A proved excluded at T3R, PATH B reached and measured but semantically subsumed by C | `AUDIT.md` **H2**, `WSC/Props/Shaped/P1ShapedBC.lean`; `Probe/{T3PrepFAILS,T4PrepFAILS}.lean` are regression tests only |
 
 So Route B is not free either — but its obstacles are **engineering defects in
 the substrate with named reproductions**, whereas Route A's obstacle is
