@@ -6,10 +6,13 @@
 > (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
 > minting policy is byte-identical. Tasks N1–N6 re-based everything.
 >
-> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
-> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
-> 5 unused-variable, 102 WSC modules, two clean-room runs, wall 10:34 / 10:36,
-> peak RSS ≈ 4.3 GB.** Both composed results survive with **28** project axioms
+> **The current measurements are (task H2, 2026-07-28): 444 jobs, 0 errors,
+> `175` solver verdicts (`110 ✅ Valid` + `65 ✅ Expected Falsified`),
+> 0 `⚠️`/`❌`, 20 `sorry`, 5 unused-variable, 106 WSC modules, two clean-room
+> runs, wall 10:35 / 11:35, peak RSS ≈ 4.35 GB.**
+> The delta over the N6 census (440 / 170 / 102) is tasks H1 (SHAPE T8R's
+> certified inhabitant — no new solver verdicts) and H2 (SHAPES T3R/T4R:
+> +3 modules, +2 `✅ Valid`, +3 `✅ Expected Falsified`). Both composed results survive with **28** project axioms
 > each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
 > — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
 >
@@ -147,7 +150,7 @@ proved empty and **must not be quoted**.)
 
 | # | Property, in words | Budget / shape | Witness K |
 |---|---|---|---|
-| **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R, **T8R** | 2343 / 2567 / 2777 / 2567 / **2288** (T8R landed at H1, F23 closed) |
+| **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R, **T8R**, **T3R**, **T4R** | 2343 / 2567 / 2777 / 2567 / **2288** / **1936 + 2228** / **2696** (T8R landed at H1, F23 closed; T3R/T4R at H2 (2026-07-28) — the first shapes off containment dispatch PATH A and the first with builtin input accumulation) |
 | **P2** | Seizure preserves structure **modulo an ada top-up #112 legalised**, and cannot reduce the base-credential total below inputs plus mint | 3800 / S1R | 2301 (accept), 2412 |
 | **P3** | Spending at the base credential requires the global **or** the seize validator to run — the keystone | 600 / **B1RG, B1RS, B1W** (no longer unshaped) | 194 |
 | **P4** | Any accepted mint runs the minting-logic script; the four redeemer arms are exhaustive and each is constrained | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 |
@@ -234,7 +237,7 @@ the map is not read.
 * The reduction of the top claim to four leaves plus 26 axioms.
 * That reduction completed over two realizable classes, with one leaf from the
   bytecode on each side (§1.1).
-* **Coverage is FALSE** for the twelve re-cut shapes at SHAPE T1R's own size (§1.3).
+* **Coverage is FALSE** for the sixteen re-cut shapes at SHAPE T1R's own size (§1.3).
 * Provenance: the four `.flat` files are **byte-identical** to the `cborHex` of the
   named unapplied production scripts at wsc-poc `f918ec6` on `main` (the PR #110
   squash-merge; exported at `7ae0024`, identical tree) — **4/4, re-verified at

@@ -19,15 +19,15 @@
 > are these; the ones in the body are the pre-#112 record and are kept so the
 > history is visible:**
 >
-> | measurement | pre-#112 (H2/G3) | **post-#112 (N6, two clean-room runs)** |
-> |---|---|---|
-> | exit status | 0 — 431 jobs | **0 — 440 jobs, both runs** |
-> | solver verdicts | 162 = 103 V + 59 F | **170 = 108 `✅ Valid` + 62 `✅ Expected Falsified`**, identical both runs |
-> | `⚠️ Undetermined` / `❌` | 0 | **0** |
-> | `error:` lines | 0 | **0** |
-> | `declaration uses 'sorry'` | 20 | **20** |
-> | `unused variable` | 5 | **5** |
-> | WSC modules re-elaborated | 93 | **102** |
+> | measurement | pre-#112 (H2/G3) | post-#112 (N6) | **current (H2, 2026-07-28)** |
+> |---|---|---|---|
+> | exit status | 0 — 431 jobs | 0 — 440 jobs | **0 — 444 jobs** |
+> | solver verdicts | 162 = 103 V + 59 F | 170 = 108 V + 62 F | **175 = 110 `✅ Valid` + 65 `✅ Expected Falsified`**, identical across runs |
+> | `⚠️ Undetermined` / `❌` | 0 | 0 | **0** |
+> | `error:` lines | 0 | 0 | **0** |
+> | `declaration uses 'sorry'` | 20 | 20 | **20** |
+> | `unused variable` | 5 | 5 | **5** |
+> | WSC modules re-elaborated | 93 | 102 | **106** |
 > | user + sys CPU | 466–515 + 64–70 s | **1205.8 + 127.8 / 1197.1 + 121.2 s** |
 > | shapes in `recutFamily` | 13 | **14** — SHAPE T8R joined (N6); every `not_covers_*` is now over a strictly larger family |
 > | free leaves across the family | 458 | **500** |
@@ -1371,8 +1371,8 @@ it cannot be over-read:
 
 | path | what it is | status at UPLC, over a NODE-REALIZABLE class |
 |---|---|---|
-| **A** — single-asset accumulate-scan (`:567-593`) | taken iff the expected value is one currency symbol with one token name | **PROVED** since C1: `P1R_T1`/`P1R_T2`/`P1R_T6`/`P1R_T7`/`P1R_T8` over SHAPES T1R/T2R/T6R/T7R/T8R |
-| **B** — wholesale `Data` equality (`:628-644`) | at the first mini-ledger output, `equalsData` of its non-ada map against the expected map | **REACHED, NOT ISOLABLE BY SEMANTICS.** On ledger-valid contexts with node-representable quantities `B ⟹ C`, so no accept/reject test can distinguish them — B is a pure performance fast path. (The one known separator is a `punionValue` overflow inside `accumulateOutputsAtCred`, which CLAB's `validTxOutValue` permits and a node's 64-bit CDDL bound does not; recorded in `P1ShapedBC.lean`'s header, not exploited.) Its CONDITION is evaluated in ground-truth vocabulary (`T3R_pathB_condition`) and its EXECUTION separated by cost: `K_T3R_B_is_1936` vs `K_T3R_C_is_2228`, two-sided, over two contexts differing in one integer leaf by one |
+| **A** — single-asset accumulate-scan (`:567-589`) | taken iff the expected value is one currency symbol with one token name | **PROVED** since C1: `P1R_T1`/`P1R_T2`/`P1R_T6`/`P1R_T7`/`P1R_T8` over SHAPES T1R/T2R/T6R/T7R/T8R |
+| **B** — wholesale `Data` equality (`:628-645`) | at the first mini-ledger output, `equalsData` of its non-ada map against the expected map | **REACHED, NOT ISOLABLE BY SEMANTICS.** On ledger-valid contexts with node-representable quantities `B ⟹ C`, so no accept/reject test can distinguish them — B is a pure performance fast path. (The one known separator is a `punionValue` overflow inside `accumulateOutputsAtCred`, which CLAB's `validTxOutValue` permits and a node's 64-bit CDDL bound does not; recorded in `P1ShapedBC.lean`'s header, not exploited.) Its CONDITION is evaluated in ground-truth vocabulary (`T3R_pathB_condition`) and its EXECUTION separated by cost: `K_T3R_B_is_1936` vs `K_T3R_C_is_2228`, two-sided, over two contexts differing in one integer leaf by one |
 | **C** — CIP-153 builtin `pvalueContains` (`:615-618`) | reached when B's equality fails, or when no mini-ledger output is found | **PROVED EXECUTED AND TRUE** at `P1BCShapedWitness.ctxC` (`T3R_pathC_is_taken`), by a two-witness argument that assumes nothing about the validator beyond "the expected value does not read `txInfoOutputs`" and `pvalueContains`'s own specification |
 
 Plus: `T3R_not_path_A` PROVES the SHAPE-T3R runs are on the B/C arm — two

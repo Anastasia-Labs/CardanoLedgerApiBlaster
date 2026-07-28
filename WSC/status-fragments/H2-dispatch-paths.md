@@ -71,7 +71,7 @@ validator-computed accumulator appears in any conclusion.
   and `pcheckTransferLogicAndGetProgrammableValue` `pcons`es whole
   currency-symbol pairs through unchanged (`:917-926`), never individual token
   names. So the expected value IS the mini-ledger input's non-ada map, which this
-  shape builds with two token names, and the `:655-656` guard is false.
+  shape builds with two token names, and the `:654` guard is false.
 
 * **PATH C is executed and returns True at `ctxC` — PROVED.**
   `T3R_pathC_is_taken` + the argument in `P1ShapedBC.lean`'s header.
@@ -174,7 +174,7 @@ post-F23 description "all node-realizable" still holds.
 * PATH B cannot be separated by a theorem (see §4). This is a fact about the
   bytecode, not a gap in the method, and no further re-cut fixes it.
 * T3R/T4R are single-policy shapes. A multi-POLICY expected value (two currency
-  symbols) also takes the B/C arm — the guard at `:655-656` fails on
+  symbols) also takes the B/C arm — the guard at `:654` fails on
   `pnull # csPairsRest` rather than on the token-name count — and would exercise
   `pvalueContains` across two currency symbols, plus the transfer walk's
   per-policy proof lockstep twice over. No shape in this library has two policies

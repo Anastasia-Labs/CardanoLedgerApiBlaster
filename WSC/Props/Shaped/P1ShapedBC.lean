@@ -9,14 +9,14 @@ WHAT THIS MODULE ADDS, AND WHAT IT DOES NOT
 `WSC/Props/Shaped/P1ShapedR.lean` proves P1 over SHAPES T1R/T2R/T6R/T7R/T8R.
 Every one of them carries a SINGLE-asset expected value, so every one takes
 containment **PATH A** (the single-asset accumulate-scan,
-ProgrammableLogicBase.hs:567-593). ARCHITECTURE.md Tier 3.1 asks for all three
+ProgrammableLogicBase.hs:567-589). ARCHITECTURE.md Tier 3.1 asks for all three
 dispatch paths.
 
 This module states and proves P1 over two shapes that leave PATH A:
 
 * **SHAPE T3R** — two token names per policy, so the dispatch guard at
-  :655-656 is false and `checkWholesaleThenBuiltin` runs: **PATH B** (wholesale
-  `Data` equality, :628-644) falling through to **PATH C** (the CIP-153 builtin
+  :654 is false and `checkWholesaleThenBuiltin` runs: **PATH B** (wholesale
+  `Data` equality, :628-645) falling through to **PATH C** (the CIP-153 builtin
   `pvalueContains`, :615-618). This is the first UPLC-level P1 result over
   either path, over a class proved non-empty.
 * **SHAPE T4R** — two mini-ledger inputs, so `pvalueFromCred` enters its PHASE 3
@@ -63,7 +63,7 @@ flow. §5 backs it with executable witnesses instead of asserting it. In summary
   `pcheckTransferLogicAndGetProgrammableValue` `pcons`es whole currency-symbol
   pairs through unchanged (`:917-926`), never individual token names. So the
   expected value IS the mini-ledger input's non-ada map, which this shape builds
-  with two token names, and the `:655-656` guard is false.)
+  with two token names, and the `:654` guard is false.)
 
 * **PATH C is taken and returns True at `ctxC` — PROVED.** `T3R_pathC_is_taken`
   packages the two acceptance facts the argument needs. `ctxB` and `ctxC` are the
@@ -701,9 +701,9 @@ REAL compiled bytecode with 4400 steps available. In `ctxEsc0` the pair
 `(MMM, TOKA)` is short by one and `(MMM, TOKB)` is whole; in `ctxEsc1` it is the
 other way round (`ctxEsc_quantities`).
 
-PATH A is `hasAtLeastAssetInProgOutputs` (ProgrammableLogicBase.hs:567-593),
+PATH A is `hasAtLeastAssetInProgOutputs` (ProgrammableLogicBase.hs:567-589),
 which polices exactly ONE `(cs, tn)` pair — the single entry the dispatch guard
-at :655-656 requires the expected value to have. Whichever pair that were, one of
+at :654 requires the expected value to have. Whichever pair that were, one of
 these two contexts leaves it whole and PATH A would ACCEPT it. Both are REJECTED,
 so the run is on the `checkWholesaleThenBuiltin` arm. -/
 theorem T3R_not_path_A :

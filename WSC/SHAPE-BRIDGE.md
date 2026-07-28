@@ -6,10 +6,13 @@
 > (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
 > minting policy is byte-identical. Tasks N1–N6 re-based everything.
 >
-> **The current measurements are: 440 jobs, 0 errors, `170` solver verdicts
-> (`108 ✅ Valid` + `62 ✅ Expected Falsified`), 0 `⚠️`/`❌`, 20 `sorry`,
-> 5 unused-variable, 102 WSC modules, two clean-room runs, wall ≈ 9.5 min,
-> peak RSS ≈ 4.35 GB.** Both composed results survive with **28** project axioms
+> **The current measurements are (task H2, 2026-07-28): 444 jobs, 0 errors,
+> `175` solver verdicts (`110 ✅ Valid` + `65 ✅ Expected Falsified`),
+> 0 `⚠️`/`❌`, 20 `sorry`, 5 unused-variable, 106 WSC modules, two clean-room
+> runs, wall 10:35 / 11:35, peak RSS ≈ 4.35 GB.**
+> The delta over the N6 census (440 / 170 / 102) is tasks H1 (SHAPE T8R's
+> certified inhabitant — no new solver verdicts) and H2 (SHAPES T3R/T4R:
+> +3 modules, +2 `✅ Valid`, +3 `✅ Expected Falsified`). Both composed results survive with **28** project axioms
 > each and **1 of 4** leaves discharged by the bytecode on each side — unchanged
 > — but `top_claim` now carries one NEW hypothesis, `WdrlPairShaped Shape`.
 >

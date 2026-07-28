@@ -9,12 +9,12 @@ WHY THIS MODULE EXISTS
 `poutputsContainExpectedValueAtCred` (ProgrammableLogicBase.hs:518-670 at
 wsc-poc main `2306678`) dispatches containment THREE ways:
 
-* **PATH A** — `hasAtLeastAssetInProgOutputs` (:567-593), the single-asset
+* **PATH A** — `hasAtLeastAssetInProgOutputs` (:567-589), the single-asset
   accumulate-scan. Taken iff the expected value is exactly ONE currency symbol
-  carrying exactly ONE token name (the guard at :655-656:
+  carrying exactly ONE token name (the guard at :654:
   `(pnull # csPairsRest) #&& (pelimList (\_ tnRest -> pnull # tnRest) False tnPairs)`).
 * **PATH B** — the wholesale `Data`-equality fast path inside
-  `checkWholesaleThenBuiltin` (:628-644): at the FIRST output whose payment
+  `checkWholesaleThenBuiltin` (:628-645): at the FIRST output whose payment
   credential is `progLogicCred`, `(pmapData # (ptail # (pasMap # txOutValueData)))
   #== expectedMapData` — one `equalsData` on the output's non-ada value map.
   True ⇒ accept immediately.
@@ -86,7 +86,7 @@ mintValueNoGuarantees))` at `:1226-1229` takes its THEN branch, so there is no
 currency-symbol pair through UNCHANGED when its positive proof passes
 (`:917-926`) — it selects whole policies, never individual token names. So the
 expected value is literally the mini-ledger input's non-ada value map: ONE
-currency symbol with TWO token names. The PATH A guard at `:655-656` is FALSE
+currency symbol with TWO token names. The PATH A guard at `:654` is FALSE
 and `checkWholesaleThenBuiltin` runs. Executable evidence
 that this is what the bytecode really does — two rejections that a single-asset
 scan could not produce — is in `WSC/Props/Shaped/P1ShapedBC.lean`
