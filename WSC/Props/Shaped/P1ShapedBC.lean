@@ -63,13 +63,15 @@ flow. §5 backs it with executable witnesses instead of asserting it. In summary
   assignment satisfying the theorems' `validRewardingContext` hypothesis.)
 
 * **PATH C is taken and returns True at `ctxC` — PROVED.** `T3R_pathC_is_taken`
-  packages the two acceptance facts the argument needs. `ctxB` and `ctxC` have
-  IDENTICAL inputs, mint, reference inputs, withdrawals and redeemer, and differ
-  only in the mini-ledger output's `tn0` quantity (5 vs 6) and the escape
-  output's (4 vs 3). `expectedProgrammableOutputValue` (:1219-1243) is computed
-  from `pvalueFromCred` over the INPUTS and `pcheckMintLogicAndGetProgrammable
-  Value` over the reference inputs and mint — it never reads `txInfoOutputs` — so
-  the expected value `E` is the SAME in both runs. Suppose `ctxC` accepted on
+  packages the two acceptance facts the argument needs. `ctxB` and `ctxC` are the
+  SAME `ScriptContext` except for two output quantities: the mini-ledger output's
+  `tn0` (5 vs 6) and the escape output's `tn0` (4 vs 3, so `isBalanced` still
+  holds). `expectedProgrammableOutputValue` (`:1225-1268`) is a function of
+  `ptxInfo'inputs`, `ptxInfo'referenceInputs`, `ptxInfo'mint`,
+  `ptxInfo'signatories`, `ptxInfo'wdrl` and the redeemer — **`ptxInfo'outputs`
+  does not appear in its definition at all**, and it is `plet`-bound before the
+  containment call at `:1270-1276` — so the expected value `E` is the SAME in
+  both runs. Suppose `ctxC` accepted on
   PATH B: then `E` equals `ctxC`'s mini-ledger output map, `{cs:{tn0:6,tn1:5}}`.
   At `ctxB` the output map is `{cs:{tn0:5,tn1:5}} ≠ E`, so `ctxB` falls through
   to PATH C, whose `pvalueContains` requires `E(cs,tn0) = 6 ≤ 5` and fails — so
@@ -701,11 +703,14 @@ theorem T3R_not_path_A :
 
 The two conjuncts are the executable input to the argument in this module's
 header, which needs nothing about the validator beyond two facts readable off the
-source: (i) `expectedProgrammableOutputValue` (:1219-1243) is computed from the
-inputs, the reference inputs and the mint and NEVER reads `txInfoOutputs`, so
-`ctxB` and `ctxC` — identical in all three — present the SAME expected value `E`
-to `poutputsContainExpectedValueAtCred`; (ii) PATH C is `pvalueContains`, which
-by its CIP-153 specification requires `E(c,t) ≤ acc(c,t)` for every key.
+source: (i) `expectedProgrammableOutputValue` (`:1225-1268`) is `plet`-bound
+before the containment call at `:1270-1276` and its definition mentions
+`ptxInfo'inputs`, `ptxInfo'referenceInputs`, `ptxInfo'mint`,
+`ptxInfo'signatories`, `ptxInfo'wdrl` and the redeemer but **not
+`ptxInfo'outputs`** — and `ctxB` and `ctxC` agree on every one of those, so both
+runs present the SAME expected value `E` to
+`poutputsContainExpectedValueAtCred`; (ii) PATH C is `pvalueContains`, which by
+its CIP-153 specification requires `E(c,t) ≤ acc(c,t)` for every key.
 
 If `ctxC` had accepted on PATH B then `E = {cs:{TOKA:6, TOKB:5}}`, and `ctxB`
 (output map `{cs:{TOKA:5, TOKB:5}} ≠ E`) would fall through to PATH C and be
