@@ -30,6 +30,15 @@ import WSC.Props.P3_Base
 -- it.  Also records, with its health warning, the prop↔run equivalence at this
 -- prep.
 import WSC.Props.P3_BaseRun
+-- ── task N3: P3 after wsc-poc PR #112 ───────────────────────────────────────
+-- The post-#112 base validator reads an INDEX out of its redeemer instead of
+-- scanning the withdrawal map, and the UNSHAPED P3 goal no longer closes
+-- (measured `⚠️ Undetermined` at 600 s, 2400 s, at a redeemer-only shape and at
+-- a smaller budget — `WSC/Props/P3_Base.lean` §MEASUREMENT).  P3 is therefore a
+-- SHAPED property now, over SHAPES B1RG / B1RS, with the full four-point bar
+-- including class- and point-level realizability.  Read the header of
+-- WSC/Shaped/BaseShapedR.lean for the cut and what it costs.
+import WSC.Props.Shaped.P3ShapedR
 -- P4/P4a (issuance minting policy) at budget 900: statements + the machine-checked
 -- budget characterization and both positive witnesses. See the SOLVER COST stanza
 -- in that file for what is and is not closed.

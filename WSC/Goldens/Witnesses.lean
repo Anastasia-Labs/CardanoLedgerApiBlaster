@@ -1,4 +1,3 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Goldens/Witnesses.lean — REAL-SUITE positive witnesses (task Y4 RESULT B;
 ADDENDUM E9 "boundary witnesses", upgrade of P3's bootstrap witness).
@@ -13,12 +12,22 @@ decoded straight out of its `serialiseData` CBOR (`WSC/Goldens/Vectors.lean` ←
 `WSC/goldens/programmableLogicBase.base-spend-transfer-tx.json`).  That golden
 was verified accepting by running the actual production-exported script at PV11
 through `PlutusLedgerApi.V3.evaluateScriptCounting`
-(`WSC/goldens/MANIFEST.md`), and its run costs K = 208 CEK steps
+(`WSC/goldens/MANIFEST.md`), and its run costs **K = 194** CEK steps
 (`WSC/goldens/K-MEASUREMENTS.md` §3) — comfortably inside the 600-step
 `#prep_uplc` budget of `WSC/Prep/Base.lean`, which is why THIS validator is the
 one that can carry a real-suite witness today.  (The other three validators'
-cheapest accepting goldens need 784 / 1,554 / 2,570 steps against preps of 600;
+cheapest accepting goldens need more than 600 steps against preps of 600;
 see the follow-up note at the bottom.)
+
+**RE-BASED ON wsc-poc `main` @ 2306678 (PR #112) BY TASK N3.**  The golden was
+regenerated against the post-#112 bytecode by task N2 and this module builds
+against it unchanged except for the docstrings below: the base redeemer is no
+longer PlutusTx `()`, K fell 208 → 194, and the module's own theorems are all
+still ✅.  Task N2 left this module UNRESOLVED ("still building after ~25 min,
+killed") — the cause was `WSC/Props/P3_Base.lean`, which it imports and whose
+UNSHAPED `blaster` goals no longer terminate against the new bytecode
+(`P3_Base.lean` §MEASUREMENT).  With those goals removed from `P3_Base.lean`
+this module builds in **3.0 s**.
 
 WHY THIS IS STRICTLY STRONGER THAN THE BOOTSTRAP WITNESS: the bootstrap context
 was written by hand in Lean, so it certifies only that SOME context is accepted
@@ -111,8 +120,15 @@ theorem ctx_pins_the_golden :
   native_decide
 
 /-- The separately-exposed `redeemerHex` is the context's own redeemer field
-(ADDENDUM E8 consistency gate).  For this validator the redeemer is `()`
-(`Constr 0 []`) — the base validator ignores its redeemer. -/
+(ADDENDUM E8 consistency gate).
+
+**CHANGED BY #112.**  It used to be PlutusTx `()` (`d87980` = `Constr 0 []`) and
+the base validator ignored it.  It is now `d8799f00ff` = `Constr 0 [I 0]` =
+`SpendViaGlobal 0` (`WSC.BaseSpendRedeemer`, `WSC/Redeemer.lean:99-111`), an
+INDEX into the credential-sorted withdrawal map — and the validator reads it.
+The golden's index is computed by the catalogue (`baseViaGlobalIn`), never
+hand-written.  `WSC/Goldens/RedeemerGate.lean`'s `base_redeemers_are_not_unit`
+pins that at the raw `Data` level. -/
 theorem redeemer_matches_context : redeemerMatchesContext golden = some true := by
   native_decide
 
@@ -144,13 +160,27 @@ theorem isHaltB_sound (s : PlutusCore.UPLC.CekMachine.State) :
 theorem exec_accepts : isSuccessful (appliedBase.exec globalCred seizeCred ctx) :=
   isHaltB_sound _ (by native_decide)
 
+/-- The same run, metered, so K can be pinned on it. -/
+def run (K : Nat) := PlutusCore.UPLC.CekMachine.cekExecuteProgram
+  programmableLogicBase.script (baseInputs globalCred seizeCred ctx) K
+
+/-- **K = 194 FOR THE REGENERATED GOLDEN, PINNED TWO-SIDED** (task N3): the run
+HALTS at 194 CEK steps, budget-errors at 193, and is stable at 10x (1940).
+This is the same 194 that task N2 measured independently in PlutusCoreBlaster
+against the *applied* flat (`WSC/goldens/K-MEASUREMENTS.md` Section 3), and the
+same 194 as the two hand-built bootstrap contexts of `WSC/Props/P3_Base.lean`.
+Pre-#112 it was 208. -/
+theorem K_golden_two_sided :
+    isHaltB (run 194) = true ∧ isHaltB (run 193) = false ∧ isHaltB (run 1940) = true := by
+  native_decide
+
 /-- **REAL-SUITE POSITIVE WITNESS (prepped form) — RESULT B.**
 `isSuccessful (appliedBase.prop <golden params> <golden ctx>)`: the same golden
 context is accepted by the optimized term that `P3_base_requires_global_or_seize`
 quantifies over.  Hence P3 is non-vacuous *on a transaction the off-chain suite
 really builds*, not merely on a hand-made one. -/
 theorem prop_accepts : isSuccessful (appliedBase.prop globalCred seizeCred ctx) := by
-  blaster
+  blaster (timeout: 300)
 
 /-! ## What the witness satisfies on the postcondition side
 

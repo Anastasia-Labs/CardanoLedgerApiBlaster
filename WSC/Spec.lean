@@ -88,10 +88,12 @@ def isDelegateSeize (r : Data) : Bool :=
 one. -/
 def transferMintProofs (r : Data) : Option (List MintProof) :=
   match (IsData.fromData r : Option PLGRedeemer) with
-  -- PR #112 widened `TransferAct` from four fields to five (`ownerWdrlIdxs`
-  -- inserted THIRD).  `mintProofs` is still the SECOND-TO-LAST field, so the
-  -- fix is one extra wildcard.  Applied by task N5 (N1 identified it and left
-  -- it unowned to avoid three parallel units colliding on one line).
+  -- FOUR wildcards, not three: PR #112 gave `TransferAct` a THIRD field of
+  -- five, `ownerWdrlIdxs` (`ProgrammableLogicBase.hs:1046`,
+  -- `WSC/Redeemer.lean`), so `mintProofs` is now the FOURTH positional field.
+  -- Applied by task N3 (identified and left unapplied by N1 to avoid three
+  -- parallel units colliding on one line); N5 reached the same line
+  -- independently and made the identical code change, so the two agree.
   | some (.TransferAct _ _ _ ms _) => some ms
   | _ => none
 
