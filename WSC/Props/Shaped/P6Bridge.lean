@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/Shaped/P6Bridge.lean — connects the shaped P6 theorem (task V3) to the
 COMPOSITION layer's vocabulary (task V4, `WSC/Composition.lean`), which landed in

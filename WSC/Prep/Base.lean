@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 CITATIONS: this prep re-points at the PR #112 flat automatically (decodes ✓, preps at 600 ✓), but its source line citations and its "the base never reads its redeemer" prose are pre-#112 and are now FALSE. See WSC/IMPACT-PR112.md §3.1.
 /-
 WSC/Prep/Base.lean — import + prep of the programmableLogicBase validator.
 Split into its own module so the (expensive) `#prep_uplc` elaboration is

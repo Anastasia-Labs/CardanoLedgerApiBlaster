@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 PROBE (task U1) — the run-form (Tier B) bridge, including at budget 4400 where no
 unshaped prep exists.  MEASURED: both `rfl`s succeed, `blaster` verdict `Valid`.

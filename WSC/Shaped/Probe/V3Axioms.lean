@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /- Task V3: `#print axioms` audit of every new shaped theorem and every new
 concrete witness.  Kept separate from WSC/Shaped/Probe/Axioms.lean (task Z2) to
 avoid cross-agent edit collisions. -/

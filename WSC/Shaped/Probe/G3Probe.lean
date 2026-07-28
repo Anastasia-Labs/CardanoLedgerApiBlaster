@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /- Z2 loosening rung: index-free P5 at SHAPE G3 (node index symbolic, params index pinned). -/
 import WSC.Shaped.GlobalShapedIdx
 import WSC.Props.P5_NonMember

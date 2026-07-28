@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Shaped/Calib/P3Shaped.lean — CALIBRATION (task Z2, rung 1): P3 over SHAPE B1.
 

@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /-
 WSC/Composition.lean — the composition layer (task V4): the ledger-level
 objects the per-validator leaves cannot express, the per-transaction

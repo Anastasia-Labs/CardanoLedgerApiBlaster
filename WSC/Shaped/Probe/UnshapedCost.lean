@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 PROBE (task U1) — COST probe, NOT expected to complete: an UNSHAPED `#prep_uplc` of
 `programmableLogicGlobal` at budget 3300 (what a Tier-A bridge for SHAPE G6 would

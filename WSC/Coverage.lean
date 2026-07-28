@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Coverage.lean — **THE SHAPE-COVERAGE QUESTION, STATED IN LEAN, AND ANSWERED
 IN THE NEGATIVE FOR THIS LIBRARY'S THIRTEEN SHAPES** (task E4, audit finding **F2**

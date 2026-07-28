@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/Shaped/RealizableLeaves.lean — **a `LeafSet` over a shape class that is
 NOT empty** (task C4, audit finding **F1**).

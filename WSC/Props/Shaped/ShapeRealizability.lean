@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /-
 WSC/Props/Shaped/ShapeRealizability.lean — **why audit finding F1 cannot be closed
 with the shapes this library has** (task A2).

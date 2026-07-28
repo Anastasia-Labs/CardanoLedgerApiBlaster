@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /- Z2 exploration probe: exact CEK step count K of the concrete SHAPE G1 instance. -/
 import WSC.Shaped.Probe.G1Witness
 import Blaster

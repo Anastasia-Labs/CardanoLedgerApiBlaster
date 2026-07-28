@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /-
 WSC/Goldens/Audit.lean — machine-checked backing for `WSC/LR-CTX-AUDIT.md`
 (task Y4 RESULT A; ADDENDUM E5 axiom LR-CTX).

@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /-
 WSC/Honest.lean — the honest-deployment vocabulary (arch §4.2) and the FULL
 axiom base of the WSC containment campaign.

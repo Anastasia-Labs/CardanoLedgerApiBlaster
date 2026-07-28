@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /-
 WSC/Goldens/RedeemerGate.lean — the ADDENDUM E8 golden-CBOR gate on every
 `IsData` mirror instance in `WSC/Redeemer.lean` (task Y4 RESULT C).

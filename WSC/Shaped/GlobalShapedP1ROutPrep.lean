@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Shaped/GlobalShapedP1ROutPrep.lean — the SHAPED `#prep_uplc` of the production
 transfer validator over the NODE-REALIZABLE re-cut **SHAPE T6R (P1 output aggregation)**

@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Shaped/GlobalShapedP1OutPrep.lean — SHAPED `#prep_uplc` over **SHAPE T6**
 (two mini-ledger outputs) and **SHAPE T7** (two mini-ledger outputs + nonzero

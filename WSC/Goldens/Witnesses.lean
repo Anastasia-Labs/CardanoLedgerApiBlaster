@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Goldens/Witnesses.lean — REAL-SUITE positive witnesses (task Y4 RESULT B;
 ADDENDUM E9 "boundary witnesses", upgrade of P3's bootstrap witness).

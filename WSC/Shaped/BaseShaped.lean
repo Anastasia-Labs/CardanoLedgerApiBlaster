@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Shaped/BaseShaped.lean — SHAPED prep of `programmableLogicBase`
 (task Z2 rung 1: the calibration rung, run on the ONE already-proven property).

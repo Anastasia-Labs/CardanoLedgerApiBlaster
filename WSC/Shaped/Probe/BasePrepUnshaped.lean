@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /- Z2 control: UNSHAPED base prep at 600, timed under `lake build`. -/
 import WSC.Prep.Base
 import Blaster

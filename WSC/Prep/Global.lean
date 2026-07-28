@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 CITATIONS: this prep re-points at the PR #112 flat automatically (decodes ✓, preps at 600 ✓), but its source line citations are pre-#112. See WSC/IMPACT-PR112.md §3.1.
 /-
 WSC/Prep/Global.lean — import + prep of the programmableLogicGlobal
 (transfer) validator. Split into its own module so the `#prep_uplc`

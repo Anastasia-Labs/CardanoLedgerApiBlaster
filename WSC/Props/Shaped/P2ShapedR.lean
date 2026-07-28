@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/Shaped/P2ShapedR.lean — **P2, BOTH conjuncts, re-proved over the
 NODE-REALIZABLE SHAPE S1R** (task C2).

@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Model/GlobalModel.lean — SOURCE MODEL of the `TransferAct` path of
 `mkProgrammableLogicGlobal` (task Z4, ARCHITECTURE.md §2 route B3).

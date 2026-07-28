@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/P5_NonMember.lean — P5, the ESCAPE-CRITICAL property
 (arch §3-P5, ADDENDUM E3, unit U6).

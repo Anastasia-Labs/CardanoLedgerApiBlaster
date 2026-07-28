@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 PROBE (task U1) — **THIS FILE IS EXPECTED TO FAIL TO BUILD**, in the style of
 `T3PrepFAILS.lean` / `T4PrepFAILS.lean`: the failure IS the recorded measurement.

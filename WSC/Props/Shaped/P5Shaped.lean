@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/Shaped/P5Shaped.lean — **P5, the ESCAPE-CRITICAL property, PROVED at
 UPLC level against the real compiled transfer bytecode, over SHAPE G1**

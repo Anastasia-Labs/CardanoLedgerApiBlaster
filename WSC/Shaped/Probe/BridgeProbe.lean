@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 PROBE (task U1): is the SHAPE BRIDGE definitional at the `exec` level, and is
 `prop = exec` provable at all?  Cheapest validator (base, budget 600).

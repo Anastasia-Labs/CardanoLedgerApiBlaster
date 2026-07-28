@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/Shaped/P1ShapedR.lean — **P1 (containment) re-proved over the
 NODE-REALIZABLE re-cut SHAPES T1R / T2R / T6R / T7R** (task C1).

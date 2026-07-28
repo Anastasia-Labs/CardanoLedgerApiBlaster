@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Shaped/GlobalShapedIdx.lean — SHAPE G2 = SHAPE G1 with BOTH redeemer index
 fields loosened to symbolic integers (task Z2, loosening rung).

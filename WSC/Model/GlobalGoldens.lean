@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Model/GlobalGoldens.lean — DIFFERENTIAL TEST of `WSC/Model/GlobalModel.lean`
 against the real compiled `programmableLogicGlobal` bytecode (task Z4 step 2).

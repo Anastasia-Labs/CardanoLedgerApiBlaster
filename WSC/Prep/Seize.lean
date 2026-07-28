@@ -1,3 +1,4 @@
+-- ⚠️ PRE-#112 / BLOCKED: the PR #112 seize flat does NOT DECODE with the pinned PlutusCoreBlaster (missing `ScaleValue` builtin, defect D7). See WSC/IMPACT-PR112.md §6.1.
 /-
 WSC/Prep/Seize.lean — import + prep of the programmableSeize validator.
 Split into its own module so the `#prep_uplc` elaboration is cached
