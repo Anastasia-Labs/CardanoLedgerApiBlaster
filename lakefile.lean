@@ -20,7 +20,7 @@ package «CardanoLedgerApi» where
   --
   --   path         /home/gumbo/iohk/PlutusCoreBlaster
   --   branch       cip153-value-builtins     (NOT on the public remote — E3 §2)
-  --   commit       9f9ca8c76baf3b5efdb63c33ca0091efa606b474
+  --   commit       3fdd3fb  (task N5; was 9f9ca8c)
   --   upstream base a04042c4b7b19c66e7e6fa5bbcc3b1c985894ed0
   --                = `refs/heads/main` of the PUBLIC repo
   --                  https://github.com/input-output-hk/PlutusCoreBlaster
@@ -28,6 +28,9 @@ package «CardanoLedgerApi» where
   --     830819b  Add CIP-153 Value builtins
   --              (insertCoin/lookupCoin/unionValue/valueContains/valueData/unValueData)
   --     9f9ca8c  Value: blaster-friendly denotation restatement + algebra lemmas
+  --     3fdd3fb  Add CIP-153 ScaleValue; fix unValueData/valueData costs to
+  --              plutus 1.63  (task N5 — WITHOUT THIS THE POST-#112
+  --              programmableSeize FLAT DOES NOT DECODE AT ALL)
   --   working tree CLEAN (`git status --porcelain` empty, re-verified 2026-07-25),
   --                so the verified substrate is a real commit and not an
   --                unrecorded working-tree state.
@@ -74,7 +77,32 @@ package «CardanoLedgerApi» where
   -- `refs/heads/beta-lambda-cache-optimization` still resolved to exactly that
   -- rev when E3 re-checked it (2026-07-25). Branch names move; the manifest rev
   -- is what is verified.
-  require Blaster from git "https://github.com/input-output-hk/Lean-blaster" @ "beta-lambda-cache-optimization"
+  -- ══ BLASTER IS NOW ALSO A LOCAL PATH PIN (task N5, defect D6) ═════════════
+  --
+  -- Blaster WAS `from git … @ "beta-lambda-cache-optimization"` (rev 59db213).
+  -- It is now a local clone of THAT EXACT REV plus ONE commit:
+  --
+  --   path    /home/gumbo/iohk/Lean-blaster-wsc
+  --   branch  wsc-d6-dite-branch-retype
+  --   commit  4d320dd  "Optimize/DITE: re-type branch binders from the final
+  --                     condition (defect D6)"
+  --   base    59db213  = the previously pinned git rev, unchanged underneath
+  --
+  -- WHY THIS HAD TO MOVE.  `Blaster.dite'` is well typed only when its branch
+  -- binders are syntactically `c` and `¬c`, but the condition and the branch
+  -- lambdas are optimized independently, so any normalisation that rewrites
+  -- `¬c` without rewriting `c` produces a KERNEL-ILL-TYPED term and kills the
+  -- whole `#prep_uplc`. Two such normalisations fire on the PR #112 bytecode
+  -- (`¬(a ∧ b) ⇝ ¬a ∨ ¬b`, and `¬(true = x) ⇝ false = x`). Without the fix:
+  --   * the programmableSeize shaped prep FAILS  → P2 unstatable  (defect D6)
+  --   * WSC/Prep/Global1600 FAILS after ~8 min   → P1/P5/P6 unstatable (D8)
+  -- With it, both elaborate, and the P4/minting family returns byte-identical
+  -- verdict counts (42 ✅ Valid + 23 ✅ Expected Falsified) with and without —
+  -- measured as a control, see WSC/IMPACT-PR112.md.
+  --
+  -- NOT PUSHED anywhere. To build elsewhere, clone Lean-blaster at 59db213 and
+  -- apply that one commit, then edit this path and lake-manifest.json.
+  require Blaster from "/home/gumbo/iohk/Lean-blaster-wsc"
 
 @[default_target]
 lean_lib «CardanoLedgerApi» where

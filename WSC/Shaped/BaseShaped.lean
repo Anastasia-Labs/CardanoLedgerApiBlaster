@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ⚠️ PRE-#112 / **PROVABLY DEAD**: SHAPE B1's redeemer is `Data.I red`, and the post-#112 base validator opens its redeemer with `pasConstr`, which errors on a `Data.I`. Its ACCEPT CLASS IS EMPTY — machine-checked as `WSC.Z2Calib.B1_accept_class_is_empty` (`WSC/Shaped/Calib/P3Shaped.lean`, ✅ Valid). Every `accept → …` statement over `appliedBaseShaped` is therefore VACUOUSLY true. The live replacement is SHAPES B1RG/B1RS in `WSC/Shaped/BaseShapedR.lean`. See WSC/IMPACT-PR112.md APPENDIX N3.
 /-
 WSC/Shaped/BaseShaped.lean — SHAPED prep of `programmableLogicBase`
 (task Z2 rung 1: the calibration rung, run on the ONE already-proven property).

@@ -68,7 +68,7 @@ PROVENANCE: definitions moved verbatim from `WSC/ShapeBridge.lean:141-169`
 (`mkProj PlutusScript 1`, `PlutusCore/UPLC/PreProcess.lean:148`), which is why the
 `exec_*` theorems are `rfl`.
 -/
-import WSC.Prep.Base
+import WSC.Runs.Base
 import WSC.Prep.Minting900
 import WSC.Prep.Global1600
 import WSC.Prep.Seize
@@ -79,13 +79,12 @@ namespace Runs
 open CardanoLedgerApi.V3 (Credential CurrencySymbol ScriptContext ScriptHash)
 open PlutusCore.UPLC.CekMachine (cekExecuteProgram)
 
-/-- `programmableLogicBase` at budget `K` on a ledger-supplied context.
-
-Flat: `WSC/flats/programmableLogicBase.flat` (`WSC/Prep/Base.lean:16`).
-Inputs fn: `WSC.baseInputs` (parameter-evidence audit in the same file's
-docstring — 2 `PAsData PCredential` params, then the ctx). -/
-def baseRun (K : Nat) (globalCred seizeCred : Credential) (ctx : ScriptContext) :=
-  cekExecuteProgram programmableLogicBase.script (baseInputs globalCred seizeCred ctx) K
+-- `Runs.baseRun` MOVED (task N3) to its own leaf module `WSC/Runs/Base.lean`,
+-- which this module imports, so `WSC.Runs.baseRun` is unchanged for every
+-- consumer. The move exists because after PR #112 two of the four preps this
+-- module imports are substrate-broken (`WSC/IMPACT-PR112.md` §6), which would
+-- otherwise have made the BASE keystone unprovable for reasons that have
+-- nothing to do with the base validator. See that file's header.
 
 /-- `programmableTokenMinting` at budget `K` on a ledger-supplied context.
 

@@ -1,15 +1,27 @@
 # D6 — the `Blaster.dite'` motive defect: ROOT CAUSE AND FIX
 
-Status: **FIXED and MEASURED** (task N4, 2026-07-28). Companion to
-`WSC/pr/02-blaster-issue-d6-dite-motive.md`, which reported the defect; this file
-records the cause and the two-file patch that closes it.
+Status: **FIXED.** Companion to `WSC/pr/02-blaster-issue-d6-dite-motive.md`,
+which reported the defect.
 
-The patch is against **`Lean-blaster` @ `59db213`** ("some minor performance
-tweak"), the revision `lakefile.lean` pins via
-`@ "beta-lambda-cache-optimization"`. It has NOT been pushed anywhere — it lives
-in this task's workspace only. **It must be upstreamed or vendored before any
-result that depends on it is reproducible by anyone else.** Every global-side
-result re-established in this unit depends on it.
+**WHOSE FIX LANDED.** Tasks N4 and N5 hit this defect independently, in different
+validators, and diagnosed the same root cause and the same repair. **The fix that
+landed is N5's** — `optimizeDITE` rebuilding both branch binder types from the
+final condition, in `Lean-blaster-wsc` @ `4d320dd`, now pinned by `lakefile.lean`
+as a local path. N4's workspace patch was equivalent and has been discarded
+rather than committed, so there is one fix and one pin, not two.
+
+The convergence is worth recording as evidence: two units, two different failing
+programs (the global transfer validator's mint merge; the seize validator), same
+diagnosis. And N5 ran the control this note originally listed as missing —
+**verdict-neutrality on the untouched minting side: 42 Valid + 23 Expected
+Falsified both with and without the patch.**
+
+What this file adds that N5's commit message does not is the REACH analysis
+below: how far D6 actually extended after PR #112, and why it was the difference
+between P5/P6 being provable and being unstatable.
+
+⚠ `Lean-blaster-wsc` is a LOCAL, UNPUSHED path pin. Every global-side result in
+this library is unreproducible off this machine until it is published.
 
 ## Why it mattered here
 
@@ -72,22 +84,13 @@ but function has type
 ## The fix (upstream option 1, "rewrite the motive with the binder")
 
 Make each branch's binder type track the head instead of being optimized on its
-own. At the point `optimizeExplicitArgs` reaches the branches, `args[1]` is
-ALREADY the optimized condition (the `DiteChoiceWaitForCond` continuation ran
-first — the existing NOTE in that function says so), so the correct binder types
-are exactly `args[1]` and `¬ args[1]`, and they are free.
+own. At the point the optimizer reaches the branches, the condition has ALREADY
+been optimized, so the correct binder types are exactly `p` and `¬ p` built from
+it, and they are free. Non-`dite'` lambdas keep their binder types optimized as
+before, and both De Morgan rules stay available everywhere outside a `dite'`
+binder.
 
-* `Blaster/Optimize/Basic.lean` — `optimizeDiteArg` takes the forced binder type
-  and passes it down; `optimizeLambda`'s `inDite : Bool` becomes
-  `diteBT : Option Expr`; the call sites supply `args[1]!` for the then-branch
-  and `Not args[1]!` for the else-branch.
-* `Blaster/Optimize/OptimizeStack.lean` — `LambdaWaitForType` carries
-  `diteBT : Option Expr`; its handler uses `diteBT.getD optExpr` as the binder
-  type and keeps the hypothesis-context behaviour keyed on `diteBT.isSome`.
-
-Nothing else changes: non-`dite'` lambdas still have their binder types
-optimized exactly as before, and both De Morgan rules stay available everywhere
-outside a `dite'` binder.
+See `Lean-blaster-wsc` @ `4d320dd` for the landed form.
 
 ## Which way does this fix cut, soundness-wise
 
@@ -109,9 +112,7 @@ turn a false goal into `✅ Valid`.
 That argument is a reason to trust the DIRECTION of the change, not a substitute
 for the regression run in "What is NOT yet re-verified" below.
 
-## Measured effect
-
-`lake build Blaster` — 204 jobs, 3 m 29 s, exit 0, no new warnings.
+## Measured effect (N4's global-side numbers)
 
 Preps that FAILED before the fix and BUILD after it (same workspace, same flats,
 wsc-poc main @ 2306678):
@@ -129,7 +130,8 @@ wsc-poc main @ 2306678):
 
 ## What is NOT yet re-verified about the fix
 
-Stated so nobody over-reads the table above.
+Stated so nobody over-reads the table above. Item 2 has since been discharged by
+N5 (see the status note at the top); items 1 and 3 stand.
 
 1. **The two historically-failing probes have not been re-run.**
    `WSC/Shaped/Probe/T3PrepFAILS.lean` (`valueContains` residual) and
@@ -139,8 +141,7 @@ Stated so nobody over-reads the table above.
    limitation in `COVERAGE.md` and open P1's containment dispatch Paths B/C and
    the input-side aggregation axis. **This was not attempted in this unit and
    must not be claimed.** It is the single highest-value follow-up.
-2. **No regression run of the full library.** The fix changes a code path taken
-   by every `dite'` in every prep, including the minting-side ones that were
-   already green. `WSC.Props.P4_Minting` and the six minting shapes must be
-   re-run before the fix is trusted beyond this unit.
+2. ~~**No regression run of the full library.**~~ **DISCHARGED by N5's
+   verdict-neutrality control**: the eight P4/minting shaped modules give
+   42 Valid + 23 Expected Falsified both with and without the patch.
 3. **No upstream test-suite run.** `Lean-blaster`'s own tests were not executed.

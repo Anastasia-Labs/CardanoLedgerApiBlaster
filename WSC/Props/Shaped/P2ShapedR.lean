@@ -1,4 +1,3 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
 /-
 WSC/Props/Shaped/P2ShapedR.lean — **P2, BOTH conjuncts, re-proved over the
 NODE-REALIZABLE SHAPE S1R** (task C2).
@@ -154,10 +153,21 @@ end Leaves
 transaction, then walking the transaction's inputs in order, each input at the
 mini-ledger base credential is paired with the next output, and that pair has the
 same address — STAKING CREDENTIAL INCLUDED — the same datum, the same reference
-script, and identical holdings of every policy other than the seized one, Ada
-included. Inputs outside the mini-ledger consume no output.*
+script, and identical holdings of every policy other than the seized one and
+other than ada; ada may only be TOPPED UP, never reduced. Inputs outside the
+mini-ledger consume no output.*
 
-Postcondition is `WSC.seizeStructurePreserved` verbatim (WSC/Spec.lean). -/
+Postcondition is `WSC.seizeStructurePreservedAdaTopUp` verbatim (WSC/Spec.lean).
+
+⚠️ **CHANGED BY PR #112 — the postcondition is WEAKER than it was, because the
+bytecode is.** Until #112 this theorem carried `WSC.seizeStructurePreserved`,
+whose per-pair rule demands every non-seized policy equal **ada included**. That
+statement is now ❌ FALSIFIED against production (task N5, measured): the
+counterexample's sole defect is `i0Ada = 23101` against `o0Ada = 36307`, an ada
+top-up. #112 legalised it on purpose — see the `adaToppedUp` rationale quoted in
+`WSC/Spec.lean`. The clause that replaces equality is an INEQUALITY IN ONE
+DIRECTION, `in ≤ out`, and `P2a_R_ada_only_tops_up` below proves that direction
+is real and not an artefact of a weaker predicate. -/
 theorem P2a_R_structure :
   ∀ (ppCS : CurrencySymbol)
     (mlH inStk : ByteString) (i0Ada : Integer) (mlCS mlTn : ByteString) (i0Qty : Integer)
@@ -183,7 +193,7 @@ theorem P2a_R_structure :
         wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
         escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 spRed mtRed ilRed fee) →
-      WSC.seizeStructurePreserved (Credential.ScriptCredential plc) key
+      WSC.seizeStructurePreservedAdaTopUp (Credential.ScriptCredential plc) key
         (seizeRCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn
           wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
           escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
@@ -194,6 +204,59 @@ theorem P2a_R_structure :
           escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
           nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1
           spRed mtRed ilRed fee).scriptContextTxInfo.txInfoOutputs = true
+      := by blaster
+
+/-- **P2 (a′) — THE ADA RELAXATION IS ONE-DIRECTIONAL.**
+
+*If the bytecode accepts, the continuing output's lovelace is at least the
+lovelace of the mini-ledger input it continues.*
+
+This is the theorem that stops the #112 weakening from being a hole. Replacing
+`pairPreserved`'s ada EQUALITY by an inequality would be worthless if the
+inequality could point either way — a seizure that also drained the victim's
+lovelace would satisfy a two-sided relaxation. It cannot: `adaToppedUp` tests
+`pasInt … #<= pconstantInteger 0` on the ada entry of the delta, and the delta
+is `input - output`.
+
+Stated on the raw ledger leaves rather than through
+`seizeStructurePreservedAdaTopUp`, deliberately: `i0Ada` and `o0Ada` ARE the
+lovelace quantities the shape puts in input 0's and output 0's `txOutValue`
+(`Shape.adaPlusOne`), so this postcondition cannot be satisfied by a weakness in
+the predicate — there is no predicate.
+
+BOTH hypotheses were forced by measured counterexamples, neither was guessed:
+* `mlH = plc` — without it the solver picks `mlH ≠ plc`, so input 0 is not a
+  mini-ledger input at all, the pair is never examined and its ada is free
+  (counterexample: `mlH = "\u{0}"`, `plc = "A"`, `i0Ada = 2`, `o0Ada = 1`);
+* `key ≠ adaSymbol` — without it the solver seizes ADA ITSELF, and then the ada
+  decrease IS the seizure (counterexample: `key = ""`, `i0Ada = 26783`,
+  `o0Ada = 21540`, every other policy equal). -/
+theorem P2a_R_ada_only_tops_up :
+  ∀ (ppCS : CurrencySymbol)
+    (mlH inStk : ByteString) (i0Ada : Integer) (mlCS mlTn : ByteString) (i0Qty : Integer)
+    (dIn : ByteString)
+    (wallet : ByteString) (i1Ada : Integer) (i1CS i1Tn : ByteString) (i1Qty : Integer)
+    (oStk : ByteString) (o0Ada o0Qty : Integer) (dOut : ByteString)
+    (escH : ByteString) (o1Ada : Integer) (o1CS o1Tn : ByteString) (o1Qty : Integer)
+    (mCS mTn : ByteString) (mQ : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS plc glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 : Integer)
+    (spRed mtRed ilRed : ByteString)
+    (fee : Integer),
+    validRewardingContext
+      (seizeRCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn
+        wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
+        escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 spRed mtRed ilRed fee) →
+    isSuccessful
+      (appliedSeizeRShaped3800.prop ppCS mlH inStk i0Ada mlCS mlTn i0Qty dIn
+        wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
+        escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
+        nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 spRed mtRed ilRed fee) →
+      mlH = plc → key ≠ CardanoLedgerApi.V1.adaSymbol → i0Ada ≤ o0Ada
       := by blaster
 
 /-- **P2 (b) — CONTAINMENT OF THE SEIZED DELTA, over SHAPE S1R, PROVED AT UPLC.**
@@ -310,7 +373,7 @@ theorem P2a_R_negative_control :
         wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
         escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 spRed mtRed ilRed fee) →
-    ¬(WSC.seizeStructurePreserved (Credential.ScriptCredential plc) key
+    ¬(WSC.seizeStructurePreservedAdaTopUp (Credential.ScriptCredential plc) key
         (seizeRCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn
           wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
           escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
@@ -402,7 +465,7 @@ def P2a_R_tightness : Prop :=
         wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
         escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
         nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 spRed mtRed ilRed fee) →
-    ¬(WSC.seizeStructurePreserved (Credential.ScriptCredential plc) key
+    ¬(WSC.seizeStructurePreservedAdaTopUp (Credential.ScriptCredential plc) key
         (seizeRCtx mlH inStk i0Ada mlCS mlTn i0Qty dIn
           wallet i1Ada i1CS i1Tn i1Qty oStk o0Ada o0Qty dOut
           escH o1Ada o1CS o1Tn o1Qty mCS mTn mQ pHash pCS pTn pAda pQty dirCS plc glc slc
@@ -626,21 +689,49 @@ theorem exec_rejects_escape_and_theft :
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableSeize.script
               (WSC.seizeInputs ppCS ctxStolen) 20000) = false := by native_decide
 
-/-- **EXACT WITNESS Ks — `3004` (accepting) and `3328` (residual)**, identical to
-SHAPE S1's, so the re-cut is cost-neutral: the seize validator destructures
-`ptxInfo'redeemers` and never forces it (ProgrammableLogicBase.hs:1267), and the
-context reaches the machine as ONE constant term. Both are below the 3800 budget
-and bracket the cheapest accepting seize golden's 2,570. -/
-theorem K_is_3004_and_3328 :
+/-- **EXACT WITNESS Ks — `2301` (accepting) and `2412` (residual)**, re-measured
+against the PR #112 bytecode (task N5). Both pinned TWO-SIDED: the machine halts
+at K and budget-errors at K−1.
+
+PRE-#112 these were `3004` and `3328`, so the optimisation is worth **−23.4 %**
+and **−27.5 %** of the CEK step count on these two witnesses — the same order as
+the −23.2 % / −42.8 % measured on the two accepting seize goldens
+(`WSC/goldens/K-MEASUREMENTS.md` §3). Both remain below the 3800 prep budget, so
+the budget did NOT have to move and the shape is unchanged; and the accepting
+witness's 2301 now sits just under the cheapest accepting seize golden's 2305,
+where before it sat just above 2,570. -/
+theorem K_is_2301_and_2412 :
     isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableSeize.script
-              (WSC.seizeInputs ppCS ctxAccept) 3004) = true
+              (WSC.seizeInputs ppCS ctxAccept) 2301) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableSeize.script
-              (WSC.seizeInputs ppCS ctxAccept) 3003) = false
+              (WSC.seizeInputs ppCS ctxAccept) 2300) = false
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableSeize.script
-              (WSC.seizeInputs ppCS ctxResidual) 3328) = true
+              (WSC.seizeInputs ppCS ctxResidual) 2412) = true
     ∧ isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram programmableSeize.script
-              (WSC.seizeInputs ppCS ctxResidual) 3327) = false := by native_decide
+              (WSC.seizeInputs ppCS ctxResidual) 2411) = false := by native_decide
 
 end P2RWitness
 
 end WSC
+
+/-! ## §Axiom census (task N5)
+
+`WSC.SeizeModel.seizeModel_faithful` is REFUTED at wsc-poc `2306678`
+(`WSC/Model/SeizeModelRefuted.lean`). This module imports `WSC/Props/P2_Seize.lean`,
+which USES that axiom, so it is worth demonstrating rather than asserting that
+NONE of the results above travels through it. The shaped route talks to the
+bytecode directly and cites no model.
+
+`blaster` closes its goals with `admit`, so `sorryAx` is expected on every
+theorem it proves and is not a defect; what matters is that
+`WSC.SeizeModel.seizeModel_faithful` does NOT appear. -/
+
+#print axioms WSC.P2a_R_structure
+#print axioms WSC.P2a_R_ada_only_tops_up
+#print axioms WSC.P2b_R_containment
+#print axioms WSC.P2_R_gates_are_earned
+#print axioms WSC.P2a_R_negative_control
+#print axioms WSC.P2b_R_negative_control
+#print axioms WSC.P2RWitness.K_is_2301_and_2412
+#print axioms WSC.P2RWitness.exec_accepts_at_3800
+#print axioms WSC.P2RWitness.exec_rejects_escape_and_theft

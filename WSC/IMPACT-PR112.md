@@ -495,12 +495,249 @@ production.**
 
 ---
 
-## §7 UPDATE FROM UNIT N4 (global reprove: P1 / P5 / P6), 2026-07-28
+# APPENDIX N3 — THE BASE VALIDATOR / P3, RESOLVED
 
-This section supersedes §6's substrate verdicts for the GLOBAL side. Nothing
-here changes §1-§5.
+Task **N3**, 2026-07-28, appended (not edited into the tables above, so that the
+parallel reprove units' merges stay trivial). Everything here is measured
+against wsc-poc `main` @ `2306678`, CLAB @ `bbc9f26`, PCB @ `9f9ca8c`.
 
-### 7.1 D8 IS CLOSED — it was a duplicate of D6
+## N3.1 Verdict changes to the tables above
+
+| artifact | §3 verdict | N3 verdict |
+|---|---|---|
+| `Prep/Base.lean` | NEEDS-REVIEW | **DONE** — re-pointed, citations remapped to `:711/:712`, the "never reads its redeemer" prose deleted, budget 600 re-justified against K = 194 |
+| `Props/P3_Base.lean` | INVALIDATED | **REPLACED** — no longer holds P3. Holds the unshaped prep's two re-cut bootstrap witnesses (K = 194, two-sided) and the §MEASUREMENT record of why the unshaped route is gone |
+| `Props/P3_BaseRun.lean` | INVALIDATED | **RE-PROVED, SHAPED** — run-form keystone over SHAPES B1RG/B1RS, with `rfl` shape bridges and vacuity probes at the run terms |
+| `Shaped/BaseShaped.lean` (SHAPE B1) | INVALIDATED | **PROVED DEAD** — its accept class is EMPTY under the new bytecode (`B1_accept_class_is_empty`, ✅ Valid, 5.1 s). Its redeemer is `Data.I red` and `pasConstr` on a `Data.I` errors |
+| `Goldens/Witnesses.lean` | INVALIDATED / N2 "UNRESOLVED, still building at 25 min" | **BUILDS GREEN IN 3.0 s.** The hang was `Props/P3_Base.lean`, which it imports; with the non-terminating unshaped `blaster` goals removed from that file the witness module is fine. K = 194 now pinned two-sided in Lean here as well |
+| `WSC/Runs.lean` | PRE-#112 (PARTIAL) | `baseRun` **SPLIT OUT** to `WSC/Runs/Base.lean` (new leaf). Same constant, same definition, no consumer changes. See N3.4 |
+
+NEW modules: `WSC/Runs/Base.lean`, `WSC/Shaped/BaseShapedR.lean`,
+`WSC/Props/Shaped/P3ShapedR.lean`, `WSC/Props/P3Unshaped.lean.disabled`.
+
+## N3.2 THE HEADLINE, and it is a REGRESSION
+
+**P3 is no longer provable unshaped.** Pre-#112 it was the ONE property in the
+campaign that needed no coverage argument (`WSC/Coverage.lean` §7). Post-#112
+the validator does `pdropList <symbolic index>` into the withdrawal map, and:
+
+| goal, UNSHAPED at `appliedBase.prop`, budget 600 | cap | verdict |
+|---|---|---|
+| P3 | 600 s | `⚠️ Undetermined` |
+| negative control | 600 s | `⚠️ Undetermined` |
+| vacuity probe | 600 s | `⚠️ Undetermined` |
+| P3, UNCAPPED | ∞ | no verdict at 93 min, killed |
+| P3 + vacuity probe | 2400 s | `⚠️ Undetermined` (2404 s / 2403 s wall) |
+| P3 + vacuity probe, MINIMAL shape (only the redeemer's `Data` skeleton frozen) | 900 s | `⚠️ Undetermined` |
+| P3 + vacuity probe, prep budget 250 | 900 s | `⚠️ Undetermined` |
+
+The blocker is LOCALIZED: freezing the redeemer alone does not help; freezing
+the redeemer **and** the withdrawal map (SHAPES B1RG/B1RS, two entries) closes
+every goal in under 2 s; a smaller budget does not help. It is the symbolic
+withdrawal LIST under a symbolic-index `dropList`. Re-runnable goals:
+`WSC/Props/P3Unshaped.lean.disabled`.
+
+## N3.3 What P3 is now — the four-point bar, both arms
+
+SHAPES **B1RG** (redeemer `SpendViaGlobal red`) and **B1RS** (`SpendViaSeize
+red`), `red` SYMBOLIC. The cut is T1R's: 1 script input, 2 script withdrawals,
+**3** redeemer entries (the F2-compliant count, and the measured shape of the
+real accepting golden).
+
+| bar | B1RG | B1RS |
+|---|---|---|
+| (a) theorem `✅ Valid` | `P3_base_requires_global_or_seize_B1RG` + run form | `…_B1RS` + run form |
+| (b) vacuity probe at its OWN term and shape | ✅ Expected Falsified, at BOTH the `.prop` term and the `Runs.baseRun 600` term | same |
+| (c) concrete accepting witness, K two-sided | K = **194**, `Halt` at 194 / `Error` at 193 / stable at 1940 | same |
+| (d) realizability | class-level `redeemerCoverageAllPlutus = true` ∀ leaves; point-level `validSpendingContext` ∧ `redeemersExactAllPlutus` (both halves) ∧ real-CEK accept | same |
+
+Also shipped: negative controls and tightness stanzas per arm; `exec_B1RG` /
+`exec_B1RS`, `rfl` bridges from the shaped prep to `Runs.baseRun 600`, so
+`PropExecFaithful` stays off the keystone path.
+
+**A gap closed by accident:** N2 recorded that no golden exercises
+`SpendViaSeize` (tag 1 pinned only negatively). SHAPE B1RS and its witness are
+now the library's positive evidence for that arm.
+
+## N3.4 HANDOVER — things N3 did NOT do, with the exact fix
+
+1. **`WSC/Composition.lean` §7 `p3_lifted` will not compile.** It calls
+   `WSC.P3_base_requires_global_or_seize_run`, which no longer exists — the
+   run-form keystone is now `…_run_B1RG` / `…_run_B1RS` and is SHAPED, so
+   `p3_lifted` must either be restated over the shape or must consume a shape
+   bridge. This is a genuine change to the composition's reach, not a rename,
+   and it must not be papered over with an alias. (The witness names
+   `P3Witness.ctx_valid` / `P3Witness.exec_accepts` that `Composition.lean:1185`
+   uses were deliberately KEPT, so only the keystone line breaks.)
+2. **`WSC/Coverage.lean` §7 must be retired.**
+   `p3_lives_over_a_covering_class` and the surrounding prose ("the only
+   property in the campaign of which this is true", "an unshaped prep needs no
+   coverage argument at all") are false of production now. `unshaped_covers` and
+   `wdrl_range_char` are pure and survive.
+3. **`WSC/ShapeBridge.lean`'s B1 entries are vacuous, provably** (N3.1). They
+   need deleting or re-cutting to B1RG/B1RS.
+4. **The published K table** (`WSC/Honest.lean:998`) still says `K_base` witness
+   = 208. It is 194. `K_base = 600` itself is unchanged and still correct.
+5. **`WSC/Honest.lean` was NOT edited** — deliberately, to avoid colliding with
+   the global/seize units. `WSC.K_base` stays there and `K_base = 600` by `rfl`,
+   which is why `P3_BaseRun` states its theorems at the literal `600`.
+6. **No full-library baseline is claimed.** `lake build WSC` still cannot
+   succeed while `Prep.Seize` / `Prep.Global1600` are broken (§6).
+
+## §N5 SEIZE / P2 — RE-PROVED. Both substrate blockers CLEARED.
+
+Task **N5**, 2026-07-28, on top of N1 `de8d46d` and N2 `bbc9f26`. This section
+supersedes §6's D7/D8 entries and the seize rows of §3.
+
+### N5.1 Substrate: D7 and D8 are both FIXED, and D8 was fixed as a side effect
+
+* **D7 (seize flat does not decode)** — RESOLVED. PlutusCoreBlaster `3fdd3fb`
+  adds the CIP-153 builtin **`ScaleValue`**, flat tag **100**, which `830819b`
+  had omitted from its six. Tag read off BOTH sides of plutus-core
+  `instance Flat DefaultFun`, not inferred. `WSC/Prep/Seize.lean` now preps in
+  36 s; all 13 goldens decode, run, and pin K two-sided.
+  *(Correction to N1: plutus-core source IS on this machine — 1.63.0.0 lives in
+  the nix store as a source tarball. The local `/home/gumbo/iohk/plutus` git
+  checkout is 1.57, which is a different question and is what caused N5.2.)*
+
+* **D6/D8 (kernel-ill-typed `Blaster.dite'`)** — RESOLVED, in Blaster, by ONE
+  function. `dite'` is well typed only when its branch binders are syntactically
+  `c` and `¬c`, but the condition and the branch lambdas are optimized
+  independently, so any normalisation that rewrites `¬c` without rewriting `c`
+  yields a term the kernel rejects. Two fire on the #112 bytecode:
+  `¬(a ∧ b) ⇝ ¬a ∨ ¬b` (this is N1's D8, over `eqDataMap`) and
+  `¬(true = x) ⇝ false = x` (D6 for seize, over `eqData` on a TxOut
+  address/datum pair). `optimizeDITE` now rebuilds both binder types from the
+  final condition; branches that actually use their proof binder are untouched.
+
+  **This clears the global blocker too, which N5 did not own.** `WSC/Prep/
+  Global1600` — N1 measured it failing in the kernel after 8 m 9 s, blocking
+  every `WSC/Shaped/Global*` and therefore P1/P5/P6 — now **builds
+  successfully in 8 m 19 s**. Whoever owns the global reprove should re-plan on
+  that basis.
+
+  **Verdict-neutrality control** (this is a shared substrate, so the patch had
+  to be shown harmless): the eight `WSC/Props/Shaped/P4*` modules give
+  **42 ✅ Valid + 23 ✅ Expected Falsified** with the patched Blaster and
+  **the identical 42 + 23** with canonical Blaster `59db213`. Zero failures
+  either way. The patch can only repair a term the kernel would have rejected.
+
+  Substrate pin moved: Blaster is now a LOCAL PATH pin,
+  `/home/gumbo/iohk/Lean-blaster-wsc` @ `4d320dd` (= the previously pinned
+  `59db213` plus that one commit). Nothing was pushed.
+
+* PCB's `validQuantity` also had to be restated as a single comparison
+  (`|2i+1| < 2^128`, proved equal to the two-sided form by
+  `validQuantity_eq_and`). Three spellings were measured; the `&&` form and the
+  nested-`if` form BOTH still failed, because Blaster forms the conjunction
+  itself. This is a presentation change only.
+
+### N5.2 A pre-existing PCB COST-MODEL bug that only seize could expose
+
+With `ScaleValue` costed correctly, seize-1-input still disagreed with the
+ledger by **+1,725,250 CPU / −120 mem**. Cause: `unValueData` and `valueData`
+carried plutus-core **1.57** coefficients in a table that is otherwise **1.63**,
+the version wsc-poc pins. Full detail, including the arithmetic that closes to
+the unit, is in `WSC/goldens/K-MEASUREMENTS.md` §7.
+
+**Why nothing caught it for so long:** the builtin census is a STATIC scan of
+the term. The four `programmableLogicGlobal` goldens *reference* both builtins
+but never *execute* them on the paths their contexts take. The post-#112 seize
+goldens are the first that do.
+
+After the fix PCB's metered CEK reproduces the ledger `ExBudget` **exactly, to
+the unit, on all NINE accepting goldens** (was 7 of 9), and
+`verify-applied.py` reports **ALL-MATCH (of 13 decodable; 0 BLOCKED)** — the
+seize applied flats are byte-identical in their baked-in arguments to the golden
+JSONs, which N2 could never check.
+
+### N5.3 P2 — what changed, per conjunct
+
+| | pre-#112 | at 2306678 | |
+|---|---|---|---|
+| **P2b — containment of the seized delta** | ✅ Valid | ✅ **Valid, UNCHANGED** | same shape S1R, same budget 3800, same postcondition |
+| **P2a — structure preservation** | ✅ Valid | ❌ **FALSIFIED as previously stated**; ✅ Valid after restatement | the postcondition had to change because the code did |
+
+**P2b needed no change at all.** Its postcondition, its shape, its budget and
+the two canonicity facts it consumes (one-policy/one-token-name `adaPlusOne`
+values, `mintOne` mint field) are all as they were. That the CIP-153 rewrite did
+not disturb the containment conjunct is itself a result worth stating.
+
+**P2a is genuinely different.** #112 legalised an **ADA TOP-UP** on the
+continuing output. `WSC.seizeStructurePreserved`, whose per-pair rule demands
+every non-seized policy equal *ada included*, is now FALSE of production — the
+counterexample's sole defect is `i0Ada = 23101` against `o0Ada = 36307`. The
+replacement `WSC.seizeStructurePreservedAdaTopUp` (`WSC/Spec.lean`, ground-truth
+vocabulary only) keeps address/datum/refScript equality and non-seized non-ada
+policy equality, and replaces ada equality by `in ≤ out` — **guarded by
+`seizedCS ≠ adaSymbol`**, a guard forced by a SECOND measured counterexample in
+which the solver seized ada itself, so that ada's decrease *was* the seizure.
+
+The relaxation is not a hole, and that is proved rather than asserted:
+`P2a_R_ada_only_tops_up` shows acceptance forces `i0Ada ≤ o0Ada` — ada may be
+added, never removed — stated on the raw ledger leaves so no predicate can
+launder it.
+
+Final state of `WSC/Props/Shaped/P2ShapedR.lean`: **6 ✅ Valid + 3 ✅ Expected
+Falsified, 0 failures**, including the mandatory vacuity probe at its OWN prep
+term and OWN shape. Witness Ks re-measured and re-pinned two-sided:
+**2301** accepting (was 3004) and **2412** residual (was 3328).
+
+### N5.4 `WSC/Model/SeizeModel.lean` — NOT re-transcribed, and REFUTED
+
+Decision and justification, since the task asked for one.
+
+The differential test — the model's entire warrant — **still passes 13/13**
+against the new bytecode and the new goldens. That is a trap, not a reprieve:
+it passes only because **no golden exercises the behaviour that changed**. Every
+golden carries equal lovelace on every continuing pair, so none of them can tell
+the old rule from the new one.
+
+`WSC/Model/SeizeModelRefuted.lean` settles it by computation. Two contexts
+differing in exactly ONE leaf (output 0's lovelace, 300 vs 400):
+* control, ada equal — bytecode accepts **and** model accepts;
+* witness, ada topped up — bytecode **accepts** and model **rejects**.
+
+Both `native_decide`. So `WSC.SeizeModel.seizeModel_faithful` is **FALSE at
+2306678**, and with it `WSC.P2.P2a_bytecode`,
+`WSC.P2.P2b_model_implies_bytecode`, and the library's only UNBOUNDED seize
+result `P2a_seizeModel_preserves_structure` *as a statement about production*.
+The unbounded theorem remains a true theorem about `seizeModel`; it is the
+bridge that is broken.
+
+**I did not re-transcribe the model.** Doing it honestly means re-transcribing
+855 lines against the new builtin-valued delta, re-proving the unbounded theorem
+over it, and re-running the gate — a unit of work in its own right. The
+unbounded result is therefore a REAL LOSS at 2306678 and is reported as one.
+`WSC/Model/{SeizeModel,SeizeDiff}.lean` and `WSC/Props/P2_Seize.lean` carry a
+`⛔ REFUTED` marker.
+
+**Coverage gap to fix whoever regenerates goldens next:** add a seize golden
+whose continuing output has MORE lovelace than its input. It is the single
+cheapest thing that would have caught all of this, and it would restore the
+differential test's power.
+
+### N5.5 Not done / open
+
+* `Spec.lean:91` — N1's unowned one-token fix APPLIED by N5, exactly as
+  specified (`| some (.TransferAct _ _ _ ms _) => some ms`).
+* No full-library build was run: the base and global families are still owned by
+  other units and still fail to compile, so a whole-library verdict census would
+  be meaningless. No new baseline counts are claimed.
+* `WSC/Shaped/Probe/S1K.lean` and the other seize probes still carry PRE-#112
+  markers; they were not re-measured.
+* `AUDIT.md`, `STATUS.md`, `README.md`, `EXEC-SUMMARY.md`, `SHAPING-RESULTS.md`,
+  `COVERAGE.md`, `SHAPE-BRIDGE.md` still describe the pre-#112 state.
+
+---
+
+# APPENDIX N4 — THE GLOBAL VALIDATOR / P1, P5, P6
+
+Task **N4**, 2026-07-28, appended alongside the N3 and N5 appendices above.
+Supersedes §6's substrate verdicts for the GLOBAL side; nothing here changes
+§1-§5.
+
+### N4.1 D8 IS CLOSED — it was a duplicate of D6
 
 N1 reported D8 (`Prep/Global1600` fails in the kernel after ~8 min, `dite'`
 polarity mismatch) as a NEW blocker distinct from D6. It is not: it is D6, on a
@@ -515,7 +752,7 @@ until it is upstreamed or vendored.**
 After the fix `WSC.Prep.Global1600` builds in **1826 s** (30.4 min), and all
 seven global shaped preps build in 2-3 s each.
 
-### 7.2 D6's REACH WAS WIDER THAN RECORDED
+### N4.2 D6's REACH WAS WIDER THAN RECORDED
 
 Before this unit, D6 was documented as blocking SHAPES T3/T4 only (`COVERAGE.md`,
 `STATUS.md`). Against the #112 bytecode it also blocked **every shaped prep with
@@ -529,7 +766,7 @@ Not yet re-tested, and worth someone's time: `Probe/T3PrepFAILS.lean` and
 If they now prep, P1's containment dispatch Paths B/C and the input-side
 aggregation axis open up.
 
-### 7.3 D9 — NEW, OPEN. It costs the library P6.
+### N4.3 D9 — NEW, OPEN. It costs the library P6.
 
 `Unexpected smt error: (error "… Overflow encountered when expanding vector")` on
 all four solver stanzas over SHAPE G6R. Two hypotheses (the CIP-153 mint merge;
@@ -539,14 +776,14 @@ next step: `WSC/pr/05-blaster-issue-d9-bv-overflow.md`.
 P6's EXECUTABLE evidence is unaffected and was re-run green. It is the
 universally quantified theorem and its probes that have no verdict.
 
-### 7.4 D7 (seize flat does not decode) TRANSITIVELY BLOCKS P1 AND P5
+### N4.4 D7 (seize flat does not decode) TRANSITIVELY BLOCKS P1 AND P5
 
 Not obvious and worth recording: `Props/P1_Transfer` and `Props/P5_NonMember`
 import `WSC.Honest`, which imports `WSC.Runs`, which imports `WSC.Prep.Seize` for
 `seizeRun`. So the seize decode failure takes the two global properties down with
 it even though neither mentions seize. Unit N5 owns the PCB `ScaleValue` fix.
 
-### 7.5 STRUCTURAL CHANGES MADE HERE
+### N4.5 STRUCTURAL CHANGES MADE HERE
 
 * **`WSC/Prep/GlobalImport.lean` (new)** — the `#import_uplc` plus
   `globalInputs1600`, split out of `Prep/Global1600.lean` so the shaped preps
@@ -571,7 +808,7 @@ it even though neither mentions seize. Unit N5 owns the PCB `ScaleValue` fix.
   They had none, and Blaster's default is infinite — a real hang risk now that
   the bytecode moved. Per house rule this is a hang guard, not a soundness hole.
 
-### 7.6 MEASURED K CHANGE
+### N4.6 MEASURED K CHANGE
 
 SHAPE G6R witness: **K = 2837 → 2196** (−22.6 %), two-sided
 (`halts 2196 = true`, `halts 2195 = false`). In line with N2's golden
