@@ -1,3 +1,290 @@
+# K-MEASUREMENTS — true CEK step counts of the WSC golden runs
+
+**Current as of task N2, wsc-poc `main` @ `2306678` (PR #112, "Seize path:
+per-pair value delta via CIP-153 builtins, witnessed base delegation").**
+Everything below §8 is the pre-#112 document, preserved verbatim and clearly
+marked SUPERSEDED — the deltas are the interesting part, so the old numbers are
+kept rather than deleted.
+
+**Headline.** Re-measured against the post-#112 bytecode, **every** golden that
+can still be measured got CHEAPER — K falls by 6.5 % to 32 % — which is what an
+optimisation PR should do. But only **10 of 13** can be measured at all:
+PlutusCoreBlaster @ `9f9ca8c` **cannot decode the post-#112 `programmableSeize`
+script**, because #112 made it use the CIP-153 builtin **`ScaleValue`** (flat
+tag **100**) which PCB's builtin table does not carry. Seize K is therefore
+UNMEASURABLE today and is recorded as BLOCKED, not as a number. §7 has the
+diagnosis and the fix recipe.
+
+---
+
+## 1. Method (unchanged)
+
+`K` = the minimal CEK step budget at which the run's outcome appears, which for
+a halting program is exactly its step count. Measured by
+`WSC/goldens/KMeasure.lean.disabled` run from a `cp -a` of PlutusCoreBlaster
+(branch `cip153-value-builtins` @ `9f9ca8c`), over the fully-applied programs in
+`WSC/goldens/applied/*.flat` (prod script + params + golden `ScriptContext` all
+baked in as `Data` constants, so `initialState body` starts exactly the
+computation the ledger ran).
+
+Every K below is pinned **TWO-SIDED**, as required: `runSteps @ K` reaches the
+terminal state and `runSteps @ K-1` does not (`Error`, i.e. budget starvation),
+and `runSteps @ 10·K` is re-classified to show the outcome is stable at 10×
+budget rather than an artefact of a tight budget. The runner reports all three
+per golden; the raw log is quoted in §6.
+
+## 2. The goldens, post-#112
+
+| golden | accepts | outcome @K | **K** | @K−1 | @10K | ExBudget CPU | ExBudget mem | PCB budget = ledger? |
+|---|---|---|---|---|---|---|---|---|
+| programmableLogicBase.base-spend-transfer-tx | yes | Halt | **194** | Error | Halt | 4,617,501 | 10,724 | **exact** |
+| programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT | no | Error | 193 | Error | Error | — | — | n/a |
+| programmableTokenMinting.mint-burnonly | yes | Halt | **784** | Error | Halt | 14,213,355 | 43,421 | **exact** |
+| programmableTokenMinting.mint-delegate-transfer-topup | yes | Halt | **1,257** | Error | Halt | 26,453,981 | 69,372 | **exact** |
+| programmableTokenMinting.mint-local-registered-by-ref | yes | Halt | **1,681** | Error | Halt | 34,116,362 | 92,870 | **exact** |
+| programmableTokenMinting.mint-local-empty-withdrawals-REJECT | no | Error | 1,627 | Error | Error | — | — | n/a |
+| programmableSeize.seize-1-input | yes | — | **BLOCKED** | — | — | 51,415,864 | 126,764 | — |
+| programmableSeize.seize-2-inputs-partial-with-noise | yes | — | **BLOCKED** | — | — | 72,531,075 | 159,980 | — |
+| programmableSeize.seize-1-input-missing-residual-output-REJECT | no | — | **BLOCKED** | — | — | — | — | — |
+| programmableLogicGlobal.transfer-nonmember-covering-node | yes | Halt | **1,453** | Error | Halt | 27,817,781 | 80,469 | **exact** |
+| programmableLogicGlobal.transfer-member-single-policy | yes | Halt | **2,782** | Error | Halt | 56,258,707 | 151,501 | **exact** |
+| programmableLogicGlobal.transfer-mixed-many-policies | yes | Halt | **3,441** | Error | Halt | 74,010,662 | 188,987 | **exact** |
+| programmableLogicGlobal.transfer-containment-violation-REJECT | no | Error | 2,370 | Error | Error | — | — | n/a |
+
+`PCB budget = ledger` is an independent-implementation agreement check: PCB's
+budget-metered CEK run of the applied program reproduces the ledger `ExBudget`
+recorded in the golden JSON **exactly, to the unit**, for all 7 measurable
+accepting goldens (the ExBudget itself comes from Haskell
+`PlutusLedgerApi.V3.evaluateScriptCounting` at PV11). The seize ExBudget column
+is still populated — the ledger evaluator has no trouble with `ScaleValue`; it
+is only PCB that cannot read the script.
+
+## 3. DELTA vs pre-#112 — the point of the re-measurement
+
+Baseline = the pre-#112 table (now §9 below), measured against wsc-poc
+`f918ec6`.
+
+| golden | K before | K after | ΔK | Δ% | ExBudget CPU before → after | Δ% |
+|---|---|---|---|---|---|---|
+| base-spend-transfer-tx | 208 | **194** | −14 | **−6.7 %** | 4,525,794 → 4,617,501 | **+2.0 %** ⚠ |
+| base-…-REJECT | 286 | **193** | −93 | **−32.5 %** | — | — |
+| mint-burnonly | 784 | **784** | 0 | 0 % | 14,215,312 → 14,213,355 | −0.01 % |
+| mint-delegate-transfer-topup | 1,257 | **1,257** | 0 | 0 % | 26,455,938 → 26,453,981 | −0.01 % |
+| mint-local-registered-by-ref | 1,681 | **1,681** | 0 | 0 % | 34,116,362 → 34,116,362 | 0 % |
+| mint-local-empty-withdrawals-REJECT | 1,627 | **1,627** | 0 | 0 % | — | — |
+| seize-1-input | 3,002 | **BLOCKED** | — | — | 60,231,630 → 51,415,864 | **−14.6 %** |
+| seize-2-inputs-partial-with-noise | 5,079 | **BLOCKED** | — | — | 105,501,594 → 72,531,075 | **−31.3 %** |
+| seize-…-REJECT | 2,261 | **BLOCKED** | — | — | — | — |
+| transfer-nonmember-covering-node | 1,554 | **1,453** | −101 | **−6.5 %** | 29,160,036 → 27,817,781 | −4.6 % |
+| transfer-member-single-policy | 3,262 | **2,782** | −480 | **−14.7 %** | 62,665,145 → 56,258,707 | −10.2 % |
+| transfer-mixed-many-policies | 3,726 | **3,441** | −285 | **−7.6 %** | 78,031,424 → 74,010,662 | −5.2 % |
+| transfer-containment-violation-REJECT | 2,737 | **2,370** | −367 | **−13.4 %** | — | — |
+
+Reading of the deltas, with the caveats that matter:
+
+* **Minting is a control, and it behaves like one.** The minting bytecode is
+  byte-identical across `f918ec6 → 2306678` (cborHex sha256 `7274240514ff` both
+  sides) and all four minting K's are UNCHANGED to the step. This is the
+  strongest evidence that the measurement is sound: the goldens' contexts,
+  script parameters and two of the redeemers all changed underneath (see
+  MANIFEST.md), yet a validator whose bytecode did not change did not move by a
+  single step. The ~0.01 % CPU wobble on two of them comes from the ctx change,
+  not the script.
+* **Global falls 6.5–14.7 %**, which is the `pownerWdrlIdxs` witness replacing a
+  withdrawal-map scan doing exactly what #112 says it does.
+* **Seize's ledger CPU falls 14.6 % on one input and 31.3 % on two** — the
+  saving grows with the number of seized pairs, consistent with a per-pair
+  scan being replaced by a per-pair builtin. Its K is unknown.
+* ⚠ **Base is the one place a number ROSE, and it deserves to be flagged.** K
+  falls 208 → 194, but ledger CPU RISES 4,525,794 → 4,617,501 (+2.0 %). Fewer,
+  more expensive steps: the new body does `dropList 6` plus an indexed lookup
+  where the old one walked a 2-entry withdrawal map, and on a map this small the
+  hand-rolled walk was not the bottleneck. The in-source rationale
+  (`ProgrammableLogicBase.hs:713-719`) claims the win at scale, and these
+  goldens have 2- and 3-entry withdrawal maps, so they are simply not where the
+  claimed ~4.2M saving lives. **This is not evidence against #112 — it is
+  evidence that the goldens do not cover the case #112 optimises.** A golden
+  with a large withdrawal map would settle it; none exists today.
+* The base REJECT's −32.5 % is not an optimisation signal: the rejecting path
+  now fails at the indexed credential comparison instead of after a full scan,
+  so it exits earlier.
+
+## 4. Per-validator K for `LR-BUDGET`
+
+Same two numbers with the same two jobs as before (conflating them is the
+easiest way to publish a vacuous theorem):
+
+* **K_novac** = MIN over accepting goldens — a prep at budget ≥ K_novac provably
+  admits an accepting run, so the mandatory vacuity probe will be Falsified.
+* **K_cover** = MAX over accepting goldens × margin — what `LR-BUDGET_v` must
+  quantify over to cover these transaction shapes.
+
+| validator | K_novac (witness) | K_max (accepting goldens) | K_cover ×1.5 | K_cover ×2 | change vs pre-#112 |
+|---|---|---|---|---|---|
+| programmableLogicBase | **194** (base-spend-transfer-tx) | 194 | 291 | 388 | 208 → 194 (−6.7 %) |
+| programmableTokenMinting | **784** (mint-burnonly) | 1,681 | 2,522 | 3,362 | unchanged |
+| programmableSeize | **UNKNOWN** | UNKNOWN | — | — | was 3,002 / 5,079; now unmeasurable (§7) |
+| programmableLogicGlobal | **1,453** (transfer-nonmember-covering-node) | 3,441 | 5,162 | 6,882 | 1,554 → 1,453 / 3,726 → 3,441 |
+
+Caveat, unchanged and still binding: K_novac is an UPPER bound on the true
+minimum accepting budget (a hand-minimised accepting ctx could halt in fewer
+steps); it is exactly what a non-vacuity claim needs — a witness — not a lower
+bound on the threshold. K_cover covers only transactions no bigger than these
+goldens.
+
+For seize, `LR-BUDGET` currently has **no measured witness at all**. Any seize
+budget claim made before §7 is fixed is unbacked, and a seize vacuity probe
+cannot be interpreted, because we do not know whether the chosen budget is above
+or below the accepting floor.
+
+## 5. Applied-flat fidelity re-verification
+
+`WSC/goldens/KVerify.lean.disabled` + `WSC/goldens/verify-applied.py`, re-run on
+the regenerated flats:
+
+```
+ALL-MATCH (of 10 decodable; 3 BLOCKED)
+```
+
+Each decodable applied program's `Apply` spine, after the script's own top-level
+`Force`/let application (spine arg 0), carries exactly `paramsHex… ++
+[scriptContextHex]` from the sibling JSON, byte-identical after re-serialisation
+with PCB's `PlutusCore.Cbor.encodeData`. No file is a bare top-level lambda
+(`KMeasure`'s `shape=Apply(applied)` column), so no measurement is
+arity-vacuous. Polarity is preserved: the 7 measurable accepting goldens `Halt`,
+the 3 measurable rejecting goldens `Error`, still `Error` at 10× the budget.
+
+## 6. Raw runner output (task N2)
+
+Command:
+
+```
+cd <SCRATCH>/pcb-n2 && lake env lean KMeasureN2.lean
+```
+
+(`KMeasureN2.lean` = `WSC/goldens/KMeasure.lean.disabled` with the `applied/`
+path rewritten to the scratch copy of this repo; PCB copy at
+`cip153-value-builtins` @ `9f9ca8c`.)
+
+```
+programmableLogicBase.base-spend-transfer-tx: K=194 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=103 | pcbBudget[cpu=4617501,mem=10724]
+programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT: K=193 outcome=error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=103 | pcbBudget[n/a(rejecting)]
+programmableTokenMinting.mint-local-registered-by-ref: K=1681 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1285 | pcbBudget[cpu=34116362,mem=92870]
+programmableTokenMinting.mint-burnonly: K=784 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1285 | pcbBudget[cpu=14213355,mem=43421]
+programmableTokenMinting.mint-delegate-transfer-topup: K=1257 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=1285 | pcbBudget[cpu=26453981,mem=69372]
+programmableTokenMinting.mint-local-empty-withdrawals-REJECT: K=1627 outcome=error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=1285 | pcbBudget[n/a(rejecting)]
+programmableLogicGlobal.transfer-member-single-policy: K=2782 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=2789 | pcbBudget[cpu=56258707,mem=151501]
+programmableLogicGlobal.transfer-nonmember-covering-node: K=1453 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=2789 | pcbBudget[cpu=27817781,mem=80469]
+programmableLogicGlobal.transfer-mixed-many-policies: K=3441 outcome=halt | runSteps@K=Halt @K-1=Error @10K=Halt | shape=Apply(applied) nodes=2789 | pcbBudget[cpu=74010662,mem=188987]
+programmableLogicGlobal.transfer-containment-violation-REJECT: K=2370 outcome=error | runSteps@K=Error @K-1=Error @10K=Error | shape=Apply(applied) nodes=2789 | pcbBudget[n/a(rejecting)]
+```
+
+Applied-program node counts are 103 (base), 1,285 (minting), 2,789 (global) —
+constant within a validator family because each whole `Data` argument is a
+single `Const` node.
+
+## 7. ⛔ BLOCKER: PCB cannot decode the post-#112 seize script
+
+**Symptom.** All three `programmableSeize` applied flats, and the UNAPPLIED
+prod-exported `programmableSeize.json` as well, fail PCB's flat importer:
+
+```
+error: Decoding error in '…/programmableSeize.seize-1-input.flat': Could not decode program!
+error: Decoding error in '…/seize-unapplied.flat': Could not decode program!
+```
+
+`programmableLogicGlobal` decodes fine, so this is not a general CIP-153
+problem.
+
+**Cause, measured rather than guessed.** Traversing the prod-exported UPLC terms
+and collecting every `Builtin` node gives:
+
+| validator | builtins referenced |
+|---|---|
+| programmableLogicBase | EqualsInteger, IfThenElse, FstPair, SndPair, HeadList, TailList, UnConstrData, UnMapData, UnIData, EqualsData, DropList |
+| programmableLogicGlobal | + AddInteger, LessThanEqualsInteger, EqualsByteString, LessThanByteString, ChooseList, MkCons, NullList, MapData, UnListData, UnBData, **InsertCoin, UnionValue, ValueContains, ValueData, UnValueData** |
+| programmableSeize | AddInteger, EqualsInteger, LessThanInteger, LessThanEqualsInteger, EqualsByteString, LessThanByteString, IfThenElse, FstPair, SndPair, ChooseList, MkCons, HeadList, TailList, ListData, IData, UnConstrData, UnMapData, UnListData, UnIData, UnBData, EqualsData, MkPairData, DropList, UnionValue, ValueData, UnValueData, **ScaleValue** |
+| programmableTokenMinting | EqualsInteger, LessThanInteger, LessThanEqualsInteger, EqualsByteString, IfThenElse, FstPair, SndPair, ChooseList, MkCons, HeadList, TailList, ConstrData, BData, UnConstrData, UnMapData, UnListData, UnIData, UnBData, EqualsData, DropList |
+
+In seize but not global: `LessThanInteger, ListData, IData, MkPairData,
+**ScaleValue**`. The first four are ordinary builtins PCB has had for a long
+time. `ScaleValue` is a **seventh** CIP-153 Value builtin that PCB does not know
+at all:
+
+* plutus-core 1.63.0.0 assigns `ScaleValue` **flat tag 100** — decode side
+  `PlutusCore/Default/Builtins.hs:2720` (`go 100 = pure ScaleValue`), encode
+  side `:2616` (`ScaleValue -> 100`), declaration `:220`, meaning `:2467-2473`
+  (`scaleValue : integer → value → value`).
+* PCB's `builtinTable` (`PlutusCore/UPLC/FlatEncoding/Basic.lean:265-311`) stops
+  at `(99, .UnValueData)`. `decodeBuiltinFun` reads a 7-bit tag — 100 fits in 7
+  bits, so it is read successfully and then `List.lookup 100 builtinTable`
+  returns `none`, failing the whole program decode. That is why the error is a
+  flat "Could not decode program!" with no tag in it.
+* PCB also has no `.ScaleValue` `BuiltinFun` constructor and no denotation in
+  `PlutusCore/UPLC/BuiltinFunctions/Value.lean`, so adding the tag alone would
+  make the program decode and then get stuck at evaluation.
+
+**Blast radius.** This is not confined to K-measurement. Anything that imports
+the post-#112 seize bytecode into Lean is blocked: `WSC/flats` (the unapplied
+seize flat), any `#prep_uplc` over seize, and therefore P2 and the seize-side
+shapes.
+
+**Fix recipe** for whoever re-pins the substrate (this is a PCB change, and it
+moves the ARCHITECTURE substrate pin, so it is deliberately NOT done here):
+
+1. add `ScaleValue` to PCB's `BuiltinFun`;
+2. add `(100, .ScaleValue)` to `builtinTable`
+   (`PlutusCore/UPLC/FlatEncoding/Basic.lean`) and `"scaleValue" => some
+   .ScaleValue` to the text decoder (`PlutusCore/UPLC/TextEncoding/Basic.lean`,
+   next to the existing six at :403-408);
+3. implement the denotation next to the other Value builtins
+   (`PlutusCore/UPLC/BuiltinFunctions/Value.lean`), plus a cost-model entry;
+4. re-pin `lakefile.lean` + `lake-manifest.json` to the new PCB revision and
+   re-run this document's §6.
+
+Until then the three seize rows stay **BLOCKED**. They are deliberately not
+recorded as `0`, `n/a` or silently dropped.
+
+## 8. Reproduce
+
+```
+# 1. regenerate the goldens from wsc-poc main (see WSC/goldens/MANIFEST.md)
+cabal --project-dir=<wsc-poc-worktree> build golden-dump --extra-lib-dirs=/usr/local/lib
+<worktree>/dist-newstyle/.../golden-dump generated/scripts/unapplied/prod \
+    <CLAB>/WSC/goldens <CLAB>/WSC/goldens/applied
+
+# 2. K
+cp -a /home/gumbo/iohk/PlutusCoreBlaster <SCRATCH>/pcb-n2
+sed 's|/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied|<CLAB>/WSC/goldens/applied|g' \
+    <CLAB>/WSC/goldens/KMeasure.lean.disabled > <SCRATCH>/pcb-n2/KMeasureN2.lean
+cd <SCRATCH>/pcb-n2 && lake env lean KMeasureN2.lean
+
+# 3. applied-flat fidelity
+sed '…same path rewrite…' <CLAB>/WSC/goldens/KVerify.lean.disabled > <SCRATCH>/pcb-n2/KVerifyN2.lean
+cd <SCRATCH>/pcb-n2 && lake env lean KVerifyN2.lean > kverify.log
+python3 <CLAB>/WSC/goldens/verify-applied.py kverify.log <CLAB>/WSC/goldens
+
+# 4. the builtin census behind §7 (scratch driver in the wsc-poc worktree)
+cabal --project-dir=<worktree> build builtin-scan --extra-lib-dirs=/usr/local/lib
+<worktree>/dist-newstyle/.../builtin-scan generated/scripts/unapplied/prod
+```
+
+---
+---
+
+# ⛔ EVERYTHING BELOW IS SUPERSEDED (pre-PR-#112, wsc-poc `f918ec6`)
+
+The document that follows was current for the goldens dumped from wsc-poc
+`f918ec6`. It is kept verbatim because the deltas in §3 above are only
+meaningful against it, and because its §4-§5 prep-cost analysis (symbolic
+`#prep_uplc` cost as a function of budget) is about Blaster, not about wsc-poc,
+and is therefore **still valid** — only the K numbers it quantifies over moved.
+Its section numbers are its own and do not continue the numbering above.
+
+**Do not quote a K from below.** Use §2/§3.
+
+---
+
 # K-MEASUREMENTS — true CEK step counts of the 13 WSC golden runs (task X1)
 
 Answers SPIKE-FINDINGS open issue 2 ("the minimum non-vacuous seize budget is

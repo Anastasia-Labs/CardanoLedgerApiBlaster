@@ -148,6 +148,47 @@ end KMeasure
 open KMeasure
 
 -- The 13 goldens' fully-applied programs (double-CBOR hex, TextEnvelope layering).
+--
+-- ══ BLOCKER (task N2, wsc-poc main @ 2306678 = PR #112) ═════════════════════
+-- The three `programmableSeize` lines below are COMMENTED OUT because PCB
+-- @ 9f9ca8c CANNOT DECODE the post-#112 seize script at all:
+--
+--   error: Decoding error in '...programmableSeize.seize-1-input.flat':
+--          Could not decode program!
+--
+-- Cause, diagnosed not guessed.  #112 rewrote the seize path to compute the
+-- per-pair value delta with CIP-153 Value builtins, and the set of builtins the
+-- exported seize script now references is
+--   [AddInteger, EqualsInteger, LessThanInteger, LessThanEqualsInteger,
+--    EqualsByteString, LessThanByteString, IfThenElse, FstPair, SndPair,
+--    ChooseList, MkCons, HeadList, TailList, ListData, IData, UnConstrData,
+--    UnMapData, UnListData, UnIData, UnBData, EqualsData, MkPairData, DropList,
+--    UnionValue, ValueData, UnValueData, ScaleValue]
+-- (measured by traversing the prod-exported UPLC term; see the REPRODUCE note
+-- in K-MEASUREMENTS.md).  The last one, `ScaleValue`, is a SEVENTH CIP-153
+-- Value builtin that PCB does not know:
+--
+--   * plutus-core 1.63.0.0 assigns it flat tag 100
+--     (PlutusCore/Default/Builtins.hs:2720 decode side, :2616 encode side);
+--   * PCB's `builtinTable` (PlutusCore/UPLC/FlatEncoding/Basic.lean:265-311)
+--     stops at 99 (`UnValueData`), so `List.lookup 100 builtinTable` is `none`
+--     and `decodeBuiltinFun` fails the whole program;
+--   * PCB has no `.ScaleValue` `BuiltinFun` constructor and no denotation in
+--     PlutusCore/UPLC/BuiltinFunctions/Value.lean either, so adding the tag
+--     alone would not be enough to RUN it.
+--
+-- This is not specific to the applied flats: the UNAPPLIED prod-exported
+-- programmableSeize.json fails the same way, while programmableLogicGlobal.json
+-- (which uses InsertCoin/UnionValue/ValueContains/ValueData/UnValueData but NOT
+-- ScaleValue) decodes fine.  So it blocks WSC/flats too, not just this file.
+--
+-- FIX RECIPE for whoever re-pins the substrate: add `ScaleValue` to PCB's
+-- `BuiltinFun`, add `(100, .ScaleValue)` to `builtinTable`, and give it a
+-- denotation (`scaleValue : integer -> value -> value`, plutus-core
+-- Builtins.hs:2467-2473) plus a cost-model entry.  Until then seize K is
+-- UNMEASURABLE and the three rows are recorded as BLOCKED, not as 0.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 
 #import_uplc g01_base_transfer PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicBase.base-spend-transfer-tx.flat"
 #import_uplc g02_base_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicBase.base-spend-no-global-or-seize-invoked-REJECT.flat"
@@ -155,9 +196,9 @@ open KMeasure
 #import_uplc g04_mint_burnonly PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-burnonly.flat"
 #import_uplc g05_mint_topup PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-delegate-transfer-topup.flat"
 #import_uplc g06_mint_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-local-empty-withdrawals-REJECT.flat"
-#import_uplc g07_seize_1in PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input.flat"
-#import_uplc g08_seize_noise PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-2-inputs-partial-with-noise.flat"
-#import_uplc g09_seize_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input-missing-residual-output-REJECT.flat"
+-- BLOCKED (task N2): #import_uplc g07_seize_1in PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input.flat"
+-- BLOCKED (task N2): #import_uplc g08_seize_noise PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-2-inputs-partial-with-noise.flat"
+-- BLOCKED (task N2): #import_uplc g09_seize_reject PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input-missing-residual-output-REJECT.flat"
 #import_uplc g10_global_member PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-member-single-policy.flat"
 #import_uplc g11_global_nonmember PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-nonmember-covering-node.flat"
 #import_uplc g12_global_mixed PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-mixed-many-policies.flat"
@@ -169,9 +210,9 @@ open KMeasure
 #eval! measure "programmableTokenMinting.mint-burnonly" g04_mint_burnonly
 #eval! measure "programmableTokenMinting.mint-delegate-transfer-topup" g05_mint_topup
 #eval! measure "programmableTokenMinting.mint-local-empty-withdrawals-REJECT" g06_mint_reject
-#eval! measure "programmableSeize.seize-1-input" g07_seize_1in
-#eval! measure "programmableSeize.seize-2-inputs-partial-with-noise" g08_seize_noise
-#eval! measure "programmableSeize.seize-1-input-missing-residual-output-REJECT" g09_seize_reject
+-- BLOCKED (task N2): #eval! measure "programmableSeize.seize-1-input" g07_seize_1in
+-- BLOCKED (task N2): #eval! measure "programmableSeize.seize-2-inputs-partial-with-noise" g08_seize_noise
+-- BLOCKED (task N2): #eval! measure "programmableSeize.seize-1-input-missing-residual-output-REJECT" g09_seize_reject
 #eval! measure "programmableLogicGlobal.transfer-member-single-policy" g10_global_member
 #eval! measure "programmableLogicGlobal.transfer-nonmember-covering-node" g11_global_nonmember
 #eval! measure "programmableLogicGlobal.transfer-mixed-many-policies" g12_global_mixed

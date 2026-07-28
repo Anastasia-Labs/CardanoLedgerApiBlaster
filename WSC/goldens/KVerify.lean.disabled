@@ -6,6 +6,13 @@
 -- The hexes are diffed against the golden JSONs' paramsHex/scriptContextHex by
 -- WSC/goldens/verify-applied.py (in this directory).
 -- Run: cd <SCRATCH>/pcb-kmeasure && lake env lean KVerify.lean
+--
+-- BLOCKER (task N2, wsc-poc main @ 2306678): the three `programmableSeize`
+-- lines are commented out — PCB @ 9f9ca8c cannot decode the post-#112 seize
+-- script, which references the CIP-153 builtin `ScaleValue` (flat tag 100)
+-- that PCB's `builtinTable` does not carry.  Full diagnosis and fix recipe in
+-- the header of `KMeasure.lean.disabled` and in `K-MEASUREMENTS.md` §7.
+-- Consequently this run verifies 10 of 13 applied flats, not 13.
 import PlutusCore.UPLC.ScriptEncoding.Basic
 import PlutusCore.UPLC.CekMachine
 import PlutusCore.UPLC.PlutusScript
@@ -61,9 +68,9 @@ open KVerify
 #import_uplc g04 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-burnonly.flat"
 #import_uplc g05 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-delegate-transfer-topup.flat"
 #import_uplc g06 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableTokenMinting.mint-local-empty-withdrawals-REJECT.flat"
-#import_uplc g07 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input.flat"
-#import_uplc g08 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-2-inputs-partial-with-noise.flat"
-#import_uplc g09 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input-missing-residual-output-REJECT.flat"
+-- BLOCKED (task N2, PCB cannot decode ScaleValue): #import_uplc g07 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input.flat"
+-- BLOCKED (task N2, PCB cannot decode ScaleValue): #import_uplc g08 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-2-inputs-partial-with-noise.flat"
+-- BLOCKED (task N2, PCB cannot decode ScaleValue): #import_uplc g09 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableSeize.seize-1-input-missing-residual-output-REJECT.flat"
 #import_uplc g10 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-member-single-policy.flat"
 #import_uplc g11 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-nonmember-covering-node.flat"
 #import_uplc g12 PlutusV3 double_cbor_hex "/home/gumbo/iohk/CardanoLedgerApiBlaster/WSC/goldens/applied/programmableLogicGlobal.transfer-mixed-many-policies.flat"
@@ -75,9 +82,9 @@ open KVerify
 #eval! verify "programmableTokenMinting.mint-burnonly" g04
 #eval! verify "programmableTokenMinting.mint-delegate-transfer-topup" g05
 #eval! verify "programmableTokenMinting.mint-local-empty-withdrawals-REJECT" g06
-#eval! verify "programmableSeize.seize-1-input" g07
-#eval! verify "programmableSeize.seize-2-inputs-partial-with-noise" g08
-#eval! verify "programmableSeize.seize-1-input-missing-residual-output-REJECT" g09
+-- BLOCKED (task N2, PCB cannot decode ScaleValue): #eval! verify "programmableSeize.seize-1-input" g07
+-- BLOCKED (task N2, PCB cannot decode ScaleValue): #eval! verify "programmableSeize.seize-2-inputs-partial-with-noise" g08
+-- BLOCKED (task N2, PCB cannot decode ScaleValue): #eval! verify "programmableSeize.seize-1-input-missing-residual-output-REJECT" g09
 #eval! verify "programmableLogicGlobal.transfer-member-single-policy" g10
 #eval! verify "programmableLogicGlobal.transfer-nonmember-covering-node" g11
 #eval! verify "programmableLogicGlobal.transfer-mixed-many-policies" g12
