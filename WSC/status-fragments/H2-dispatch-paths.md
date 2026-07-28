@@ -134,8 +134,10 @@ like every other result in this library.
 
 ## 6. CENSUS
 
-Two clean-room runs (`rm -rf .lake/build/{lib/lean,ir}/WSC` then `lake build WSC`,
-in a copy — never in the canonical tree):
+Two clean-room runs at the sealed HEAD (`rm -rf .lake/build/{lib/lean,ir}/WSC`
+then `lake build WSC`, in a copy — never in the canonical tree), **identical**:
+wall **10:25 / 10:35**, peak RSS ≈ **4.35 GB** (`WSC.Prep.Global1600` alone
+accounts for ~11 min of user time and essentially all of the RSS):
 
 | measurement | N6 | H1 | **H2** |
 |---|---|---|---|

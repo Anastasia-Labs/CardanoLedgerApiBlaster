@@ -9,7 +9,7 @@ I have complete, verified grounding. Notably I confirmed several facts that corr
 > **The current measurements are (task H2, 2026-07-28): 444 jobs, 0 errors,
 > `175` solver verdicts (`110 ✅ Valid` + `65 ✅ Expected Falsified`),
 > 0 `⚠️`/`❌`, 20 `sorry`, 5 unused-variable, 106 WSC modules, two clean-room
-> runs, wall 10:35 / 11:35, peak RSS ≈ 4.35 GB.**
+> runs, wall 10:25 / 10:35, peak RSS ≈ 4.35 GB.**
 > The delta over the N6 census (440 / 170 / 102) is tasks H1 (SHAPE T8R's
 > certified inhabitant — no new solver verdicts) and H2 (SHAPES T3R/T4R:
 > +3 modules, +2 `✅ Valid`, +3 `✅ Expected Falsified`). Both composed results survive with **28** project axioms
