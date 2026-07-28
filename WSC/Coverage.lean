@@ -1,9 +1,10 @@
 /-
 WSC/Coverage.lean — **THE SHAPE-COVERAGE QUESTION, STATED IN LEAN, AND ANSWERED
-IN THE NEGATIVE FOR THIS LIBRARY'S FOURTEEN SHAPES** (task E4, audit finding
+IN THE NEGATIVE FOR THIS LIBRARY'S SIXTEEN SHAPES** (task E4, audit finding
 **F2** second half; extended from twelve to thirteen at the G stage, 2026-07-25,
 when SHAPE L2R closed audit **F19**; to fourteen at the N6 stage, 2026-07-28,
-when SHAPE T8R joined).
+when SHAPE T8R joined; to SIXTEEN at task H2 the same day, when the re-cut
+SHAPES T3R and T4R joined).
 
 **RE-ESTABLISHED AGAINST wsc-poc `main` @ 2306678 (PR #112) — task N6.** This
 module briefly carried a `⚠️ PRE-#112` banner (task N1) because §5's refutation
@@ -41,7 +42,8 @@ transactions". Until now the gap was an UNKNOWN: nobody had written down what
 coverage would even mean, so nobody could say whether it was within reach.
 
 This module writes the statement down (§1), and then decides it — negatively —
-for the fourteen re-cut shapes of tasks C1/C2, the G stage and the N6 stage (§6). **The result is a theorem, not
+for the sixteen re-cut shapes of tasks C1/C2, the G stage, the N6 stage and
+task H2 (§6). **The result is a theorem, not
 an absence of one**: the family does not cover, at a size bound that admits
 nothing bigger than the shapes themselves already contain, and the three
 witnesses are node-realizable transactions that the production
@@ -52,7 +54,7 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
 ════════════════════════════════════════════════════════════════════════════
 **PROVED (this module).**
 
-1. `not_covers_at_T1R_size` — the fourteen-shape family does **not** cover the
+1. `not_covers_at_T1R_size` — the sixteen-shape family does **not** cover the
    rewarding-context class at bound `SizeBound 2 2 2 2 0` (≤2 inputs, ≤2
    reference inputs, ≤2 outputs, ≤2 withdrawals, 0 mint entries), which is
    *exactly SHAPE T1R's own size*. Two independent witnesses.
@@ -83,7 +85,7 @@ WHAT IS PROVED HERE, AND WHAT IS NOT — read this before quoting anything
 
 **NOT PROVED, and NOT claimed.**
 
-* This is **not** "coverage is impossible". It is "*these fourteen shapes* do not
+* This is **not** "coverage is impossible". It is "*these sixteen shapes* do not
   cover *this bound*", plus an arithmetic argument in `WSC/COVERAGE.md` that the
   enumeration route is not affordable. A different, larger family could cover a
   smaller bound; nothing here rules that out.
@@ -118,17 +120,17 @@ parameter" is not an available repair:
 | `ctxThreeRefIns` | list length | a transfer that reads **three** reference inputs |
 | `ctxAlwaysRange` | constructor tag | a transfer with an **unbounded validity interval** — the default every wallet emits |
 
-All fourteen shapes carry ≤1 signatory, ≤2 reference inputs and a FINITE CLOSED
+All sixteen shapes carry ≤1 signatory, ≤2 reference inputs and a FINITE CLOSED
 validity interval (`ShapeInvariants`, §3, proved shape by shape). None of the
 three is exotic. ("What every wallet emits" is a statement about the world, not
 a measurement in this repository; what is machine-checked is that an unbounded
-validity interval is `validRewardingContext` and outside all fourteen shapes.)
+validity interval is `validRewardingContext` and outside all sixteen shapes.)
 
-PROVENANCE / SCOPE. The fourteen range predicates in §2 are transcribed
-mechanically from the `def` signatures of the fourteen shape builders at this
-revision (`WSC/Shaped/{GlobalShapedR, MintingShapedR, MintingShapedRIdx,
-MintingLocalShapedR, MintingLocalShapedRIdx, MintingDelegateShapedR,
-SeizeShapedR}.lean`); the free-leaf count in each docstring is the builder's own
+PROVENANCE / SCOPE. The sixteen range predicates in §2 are transcribed
+mechanically from the `def` signatures of the sixteen shape builders at this
+revision (`WSC/Shaped/{GlobalShapedR, GlobalShapedP1BC, MintingShapedR,
+MintingShapedRIdx, MintingLocalShapedR, MintingLocalShapedRIdx,
+MintingDelegateShapedR, SeizeShapedR}.lean`); the free-leaf count in each docstring is the builder's own
 arity, and the totals are reported in `WSC/COVERAGE.md` §3.
 
 **CORRECTED AT THE G STAGE (2026-07-25).** This paragraph used to end *"SHAPE L2
@@ -148,6 +150,9 @@ import WSC.Props.Shaped.RealizableShapes
 import WSC.Props.P3_Base
 import WSC.Runs
 import WSC.Realizability
+-- task H2: SHAPES T3R / T4R, the two re-cuts that reach the containment
+-- dispatch's PATH B/C arm and `pvalueFromCred`'s PHASE 3.
+import WSC.Shaped.GlobalShapedP1BC
 
 set_option maxHeartbeats 0
 set_option maxRecDepth 1000000
@@ -225,7 +230,7 @@ def RealizableRewarding (ctx : ScriptContext) : Prop :=
   validRewardingContext ctx = true ∧ redeemersExactAllPlutus ctx.scriptContextTxInfo = true
 
 /-! ════════════════════════════════════════════════════════════════════════
-## §2 THE THIRTEEN SHAPE RANGES
+## §2 THE SIXTEEN SHAPE RANGES
 
 One `def` per re-cut shape, transcribed from the builder's `def` signature. The
 existential binds exactly the builder's own arguments, so `rangeXYZ ctx` holds
@@ -344,6 +349,44 @@ def rangeT8R : ShapeClass := fun ctx =>
       key next tlsH ilsH gsCS w0 w1 w2 a0 a1 a2 rBase rTls rOwn fee
       = ctx
 
+/-- The range of shape builder `p1BCShapedCtx` — **SHAPE T3R**, 44 free leaves
+(task H2). The one shape in the family whose expected value carries TWO token
+names, so it is the one whose containment runs `checkWholesaleThenBuiltin`
+(PATHS B/C) rather than the single-asset scan. Certified inhabitant:
+`P1BCShapedWitness.ctxB`, via `WSC.t3R_realizable`. -/
+def rangeT3R : ShapeClass := fun ctx =>
+  ∃ (cs tn0 tn1 : ByteString) (plc owner : ByteString) (inAda qIn0 qIn1 : Integer)
+    (ext : ByteString) (in2Ada qX0 qX1 : Integer) (outAda qOut0 qOut1 : Integer)
+    (dest : ByteString) (escAda qE0 qE1 : Integer) (pHash pCS pTn : ByteString)
+    (pAda pQty : Integer) (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString) (w0 w1 : ByteString) (a0 a1 : Integer)
+    (rBase rTls : Integer) (fee : Integer),
+    p1BCShapedCtx cs tn0 tn1 plc owner inAda qIn0 qIn1 ext in2Ada qX0 qX1
+      outAda qOut0 qOut1 dest escAda qE0 qE1 pHash pCS pTn pAda pQty
+      dirCS glc slc nHash nCS nTn nAda nQty key next tlsH ilsH gsCS
+      w0 w1 a0 a1 rBase rTls fee
+      = ctx
+
+/-- The range of shape builder `p1AggRCtx` — **SHAPE T4R**, 42 free leaves
+(task H2). Two mini-ledger inputs, so `pvalueFromCred` enters its PHASE 3
+builtin accumulation. Certified inhabitant: `P1BCShapedWitness.ctxAgg`, via
+`WSC.t4R_realizable`. Note this is the only shape in the family with THREE
+inputs, so it is also the one that makes the `SizeBound` `mIn` dimension bite. -/
+def rangeT4R : ShapeClass := fun ctx =>
+  ∃ (cs tn : ByteString) (plc owner : ByteString) (inAda0 qIn0 inAda1 qIn1 : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer) (pHash pCS pTn : ByteString)
+    (pAda pQty : Integer) (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString) (w0 w1 : ByteString) (a0 a1 : Integer)
+    (rBase0 rBase1 rTls : Integer) (fee : Integer),
+    p1AggRCtx cs tn plc owner inAda0 qIn0 inAda1 qIn1 ext in2Ada qIn2
+      outAda qOut dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
+      nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1
+      rBase0 rBase1 rTls fee
+      = ctx
+
 /-- The range of shape builder `mintRCtx` (18 free leaves). -/
 def rangeM1R : ShapeClass := fun ctx =>
   ∃ (ownCS : CurrencySymbol) (tn : TokenName) (q : Integer) (owner : ByteString)
@@ -384,7 +427,7 @@ before `fee`, transcribed from `WSC/Shaped/MintingLocalShapedRIdx.lean:163-174`.
 
 **Why adding it STRENGTHENS §6 rather than weakening it.** `Covers` is an
 existential over the family, so a LARGER family is EASIER to satisfy and harder to
-refute. Refuting coverage for fourteen shapes therefore says strictly more than
+refute. Refuting coverage for sixteen shapes therefore says strictly more than
 refuting it for twelve, and the three counterexamples still work because SHAPE L2R
 freezes the same five skeleton features every other member does (`inv_L2R`). Note
 that `rangeL1R ⊆ rangeL2R` definitionally (`localRCtxIdx_at_one` is `rfl`), so the
@@ -443,7 +486,7 @@ def rangeS1R : ShapeClass := fun ctx =>
       = ctx
 
 /-! ════════════════════════════════════════════════════════════════════════
-## §3 WHAT ALL THIRTEEN SHAPES FREEZE
+## §3 WHAT ALL SIXTEEN SHAPES FREEZE
 
 Five features of the `Data` skeleton that **every** re-cut shape fixes, and that
 `validRewardingContext` / `SizeBound` leave entirely free. Each is proved shape
@@ -468,7 +511,7 @@ def loBoundTag : Data → Option Integer
   | .Constr _ [.Constr _ [.Constr t _, _], _] => some t
   | _ => none
 
-/-- The five skeleton features every one of the fourteen re-cut shapes freezes. -/
+/-- The five skeleton features every one of the sixteen re-cut shapes freezes. -/
 structure ShapeInvariants (ctx : ScriptContext) : Prop where
   sigLe : ctx.scriptContextTxInfo.txInfoSignatories.length ≤ 1
   refLe : ctx.scriptContextTxInfo.txInfoReferenceInputs.length ≤ 2
@@ -509,6 +552,14 @@ theorem inv_T8R : ∀ ctx, rangeT8R ctx → ShapeInvariants ctx := by
   simp only [rangeT8R, forall_exists_index]; intros; subst_vars
   exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
 
+theorem inv_T3R : ∀ ctx, rangeT3R ctx → ShapeInvariants ctx := by
+  simp only [rangeT3R, forall_exists_index]; intros; subst_vars
+  exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
+
+theorem inv_T4R : ∀ ctx, rangeT4R ctx → ShapeInvariants ctx := by
+  simp only [rangeT4R, forall_exists_index]; intros; subst_vars
+  exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
+
 theorem inv_M1R : ∀ ctx, rangeM1R ctx → ShapeInvariants ctx := by
   simp only [rangeM1R, forall_exists_index]; intros; subst_vars
   exact ⟨Nat.le_of_ble_eq_true rfl, Nat.le_of_ble_eq_true rfl, rfl, rfl, rfl⟩
@@ -539,8 +590,8 @@ theorem inv_S1R : ∀ ctx, rangeS1R ctx → ShapeInvariants ctx := by
 
 end Invariants
 
-/-- **The family**: the fourteen re-cut shapes of tasks C1/C2, the G stage and
-the N6 stage — every shape in this library whose class is not proved empty.
+/-- **The family**: the sixteen re-cut shapes of tasks C1/C2, the G stage, the
+N6 stage and task H2 — every shape in this library whose class is not proved empty.
 
 **TWELVE → THIRTEEN at the G stage (2026-07-25).** `rangeL2R` joined when SHAPE
 L2R landed (audit **F19**).
@@ -549,13 +600,20 @@ L2R landed (audit **F19**).
 SHAPE T8R landed (task N4) — the shape that exercises PR #112's new
 `ownerWdrlIdxs` script-owner arm.
 
+**FOURTEEN → SIXTEEN at task H2 (2026-07-28).** `rangeT3R` and `rangeT4R` joined
+when the re-cuts of SHAPES T3/T4 landed — the first shapes in the library whose
+containment leaves dispatch PATH A (T3R) and whose input total is computed by
+CIP-153 builtin accumulation (T4R). Both carry a CERTIFIED inhabitant
+(`t3R_realizable`, `t4R_realizable`), so the F23 caveat below applies to T8R
+alone: fifteen of sixteen.
+
 Growing the family can only make `Covers` easier to satisfy, so every negative
 result below is now stated over a strictly larger family and is correspondingly
 stronger.
 
 **PRECISION ABOUT "node-realizable" (finding F23).** This docstring used to say
 "the thirteen NODE-REALIZABLE shapes". That adjective is no longer true of the
-family as a whole: thirteen of the fourteen carry a certified inhabitant — a
+family as a whole: fifteen of the sixteen carry a certified inhabitant — a
 concrete `ScriptContext` satisfying `validXContext`, Conway's exact-redeemer rule
 and real-CEK acceptance at a two-sided K — but **T8R does not**. T8R's class is
 known non-empty only through a solver model (`D9_T8R_vacuity`, `✅ Expected
@@ -565,8 +623,8 @@ it would matter if the family were ever used to support a POSITIVE coverage
 claim, and `WSC/COVERAGE.md` §"Shape roster" flags it at the one place that
 could. -/
 def recutFamily : List ShapeClass :=
-  [rangeG1R, rangeG6R, rangeT1R, rangeT2R, rangeT6R, rangeT7R, rangeT8R,
-   rangeM1R, rangeM2R, rangeL1R, rangeL2R, rangeDT1R, rangeDS1R, rangeS1R]
+  [rangeG1R, rangeG6R, rangeT1R, rangeT2R, rangeT3R, rangeT4R, rangeT6R, rangeT7R,
+   rangeT8R, rangeM1R, rangeM2R, rangeL1R, rangeL2R, rangeDT1R, rangeDS1R, rangeS1R]
 
 /-- Every member of the family satisfies all five invariants at every leaf
 assignment. This is the only fact about the shapes §6 uses. -/
@@ -574,11 +632,13 @@ theorem family_invariants :
     ∀ S ∈ recutFamily, ∀ ctx, S ctx → ShapeInvariants ctx := by
   intro S hS ctx h
   simp only [recutFamily, List.mem_cons, List.not_mem_nil, or_false] at hS
-  rcases hS with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+  rcases hS with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
   · exact inv_G1R ctx h
   · exact inv_G6R ctx h
   · exact inv_T1R ctx h
   · exact inv_T2R ctx h
+  · exact inv_T3R ctx h
+  · exact inv_T4R ctx h
   · exact inv_T6R ctx h
   · exact inv_T7R ctx h
   · exact inv_T8R ctx h
@@ -633,7 +693,7 @@ inhabitant, accepted by the production bytecode in **2,343** CEK steps
 **RE-MEASURED AT wsc-poc `main` @ 2306678 (PR #112), task N6: THE REFUTATION
 REPRODUCES, unchanged in substance.** All three contexts are still
 `validRewardingContext ∧ redeemersExactAllPlutus`, still ACCEPTED by the
-post-#112 `programmableLogicGlobal`, still outside all fourteen shapes, still
+post-#112 `programmableLogicGlobal`, still outside all sixteen shapes, still
 inside `SizeBound 2 2 2 2 0`. The only thing that moved is the step count:
 2,603 → **2,343**, for the three missed transactions AND for the certified
 inhabitant, still byte-identical to each other. #112 made the global validator
@@ -744,7 +804,7 @@ theorem missed_transactions_cost_exactly_2343_steps :
      ∧ P1ShapedWitness.isHaltB (Runs.globalRun 2342 ppCS ctxAlwaysRange) = false) := by
   native_decide
 
-/-! ### §5.3 …and none of the three is in ANY of the fourteen shapes -/
+/-! ### §5.3 …and none of the three is in ANY of the sixteen shapes -/
 
 theorem ctxTwoSigners_outside : ¬ ShapeInvariants ctxTwoSigners := by
   intro h; exact absurd h.sigLe (by decide)
@@ -767,7 +827,7 @@ theorem ctxThreeRefIns_size : SizeBound 2 3 2 2 0 ctxThreeRefIns := by
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> decide
 
 /-! ════════════════════════════════════════════════════════════════════════
-## §6 THE RESULT — the fourteen shapes DO NOT COVER
+## §6 THE RESULT — the sixteen shapes DO NOT COVER
 
 Stated at SHAPE T1R's own size: ≤2 inputs, ≤2 reference inputs, ≤2 outputs,
 ≤2 withdrawals, no mint. Not a bigger transaction, not a different validator, not
@@ -778,7 +838,7 @@ longer "no coverage argument exists", it is **"coverage is false for this family
 at this bound, and here are three node-realizable transactions the production
 validator accepts to prove it"**. -/
 
-/-- **MAIN NEGATIVE RESULT.** The fourteen re-cut shapes do not cover the
+/-- **MAIN NEGATIVE RESULT.** The sixteen re-cut shapes do not cover the
 rewarding-context class at their own size. Witness: a transfer with two required
 signers. -/
 theorem not_covers_at_T1R_size :
@@ -891,7 +951,8 @@ right-hand side mentions only `length` and the `Credential` constructor, never
 **It is also the cost anchor.** This one component took ~15 lines. SHAPE T1R has
 39 free leaves spread over 16 `TxInfo` fields, two inputs, two reference inputs
 with structured datums, two outputs, a withdrawal map, a redeemer map and a
-`Data`-encoded redeemer; the fourteen shapes together have 500 free leaves. The
+`Data`-encoded redeemer; the sixteen shapes together have 586 free leaves (500
+plus SHAPE T3R's 44 and SHAPE T4R's 42). The
 extrapolation, and why the other side of the ledger (the number of skeletons)
 makes the exercise pointless anyway, is `WSC/COVERAGE.md` §4-§5. -/
 
@@ -980,13 +1041,13 @@ def skeletonLowerBound (mIn mRef mOut mWdrl : Nat)
 
 /-- **At SHAPE T1R's own size** (≤2 in, ≤2 ref, ≤2 out, ≤2 wdrl; 2 value
 profiles; mint empty-or-one-policy; 9 interval forms; 0–2 signatories):
-**305,258,198,870,016** skeletons — 3.05 × 10¹⁴, against a family of **13**. -/
+**305,258,198,870,016** skeletons — 3.05 × 10¹⁴, against a family of **16**. -/
 theorem skeletons_at_T1R_size :
     skeletonLowerBound 2 2 2 2 2 2 9 3 = 305258198870016 := by native_decide
 
 /-- **At the SMALLEST interesting size** — SHAPE M1R's (1 input, 0 reference
 inputs, 1 output, ≤1 withdrawal, 0–1 signatories): **995,328**. Even the floor
-is five orders of magnitude above the fourteen shapes that exist. -/
+is five orders of magnitude above the sixteen shapes that exist. -/
 theorem skeletons_at_M1R_size :
     skeletonLowerBound 1 0 1 1 2 2 9 2 = 995328 := by native_decide
 

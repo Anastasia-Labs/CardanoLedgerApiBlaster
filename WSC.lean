@@ -236,6 +236,24 @@ import WSC.Props.Shaped.P5ShapedR
 import WSC.Props.Shaped.P6ShapedR
 import WSC.Props.Shaped.GlobalRealizability
 import WSC.Props.Shaped.ShapeRealizability
+-- ── task H2: the RE-CUTS that reach the OTHER containment dispatch paths ─────
+-- SHAPES T1R/T2R/T6R/T7R/T8R above all carry a SINGLE-asset expected value, so
+-- every one takes containment PATH A (the single-asset accumulate-scan).
+-- ARCHITECTURE.md Tier 3.1 asks for all three dispatch paths.  SHAPE T3R (two
+-- token names per policy) leaves PATH A and runs `checkWholesaleThenBuiltin` —
+-- PATH B's wholesale `Data` equality falling through to PATH C's CIP-153
+-- `pvalueContains`; SHAPE T4R (two mini-ledger inputs) drives `pvalueFromCred`
+-- into its PHASE 3 builtin accumulation.  Both were blocked TWICE — by upstream
+-- Blaster defect D6 (fixed at `4d320dd`) and, independently, by the fact that
+-- the pre-re-cut SHAPES T3/T4 are provably unbuildable on a node (3 and 4
+-- redeemer entries demanded, 1 supplied).  P1ShapedBC proves P1 over both to the
+-- four-point bar and BACKS the dispatch-path claim with executable witnesses:
+-- PATH A excluded and PATH C's execution PROVED; PATH B's separated by cost
+-- (K 1936 vs 2228), because on ledger-valid contexts PATH B implies PATH C and
+-- so no accept/reject test can isolate it.
+import WSC.Shaped.GlobalShapedP1BC
+import WSC.Shaped.GlobalShapedP1BCPrep
+import WSC.Props.Shaped.P1ShapedBC
 -- ── task C2: NODE-REALIZABLE RE-CUTS of the MINTING and SEIZE shapes ─────────
 -- Audit F2 / WSC/Props/Shaped/ShapeRealizability.lean proved every pre-C2 shape
 -- EMPTY as a class of ledger transactions: the redeemer map is too small to
