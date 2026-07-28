@@ -1,0 +1,172 @@
+-- WSC/Props/P3Unshaped.lean.disabled — TASK N3: the UNSHAPED P3 attempt against
+-- the post-#112 base validator, kept verbatim and re-runnable.
+--
+-- WHY IT IS `.disabled` (lake ignores the suffix, so this file is NOT part of
+-- the `WSC` lean_lib and does not build): every goal in it is measured
+-- `⚠️ Undetermined`, and each one costs its Z3 cap in wall time. Left enabled at
+-- the caps below it would add ~40 minutes to a library build whose baseline is
+-- under 2 minutes, and it would put `⚠️ Undetermined` warnings into a build log
+-- whose census is otherwise "N verdicts, 0 errors, all ✅". Neither is worth it
+-- for a negative result that does not change.
+--
+-- WHY IT IS KEPT: the negative result IS the deliverable of `P3_Base.lean`
+-- §MEASUREMENT, and a claim of the form "this no longer closes" is only worth
+-- as much as the ability to re-run it. Any future improvement to Blaster's
+-- handling of `dropList` at a symbolic index — the identified blocker — should
+-- be tested by copying the sections below into `WSC/Props/` as `.lean` files and
+-- building them.
+--
+-- HOW TO RE-RUN (from a copy of this repository; do NOT build in a canonical
+-- checkout). Split into ONE MODULE PER GOAL: Blaster's `timeout` is per Z3
+-- QUERY, not per module (`WSC/Props/P5_NonMember.lean:30` measured that the hard
+-- way), so several goals in one module do not each get their own cap and the
+-- module can outrun any wall-clock expectation.
+--
+--   mkdir -p WSC/Probe
+--   <split the four sections below into WSC/Probe/{U1,U2,U3,U4}.lean>
+--   lake build WSC.Probe.U1 WSC.Probe.U2 WSC.Probe.U3 WSC.Probe.U4
+--
+-- MEASURED, task N3, wsc-poc main @ 2306678, CLAB @ bbc9f26, PCB @ 9f9ca8c:
+--
+--   U1  P3, unshaped, budget 600        cap  600 s  ⚠️ Undetermined (602 s)
+--   U1  P3, unshaped, budget 600        cap 2400 s  ⚠️ Undetermined (2404 s)
+--   U2  negative control, budget 600    cap  600 s  ⚠️ Undetermined (602 s)
+--   U3  vacuity probe, budget 600       cap  600 s  ⚠️ Undetermined (602 s)
+--   U3  vacuity probe, budget 600       cap 2400 s  ⚠️ Undetermined (2403 s)
+--   U4  P3 at the MINIMAL shape (only the redeemer's Data skeleton frozen,
+--       everything else symbolic), budget 600      cap 900 s  ⚠️ Undetermined
+--   U4  its vacuity probe                          cap 900 s  ⚠️ Undetermined
+--   U5  P3, unshaped, budget 250 (K = 194, so 250 still admits the accepting
+--       witnesses)                                 cap 900 s  ⚠️ Undetermined
+--   U5  its vacuity probe                          cap 900 s  ⚠️ Undetermined
+--
+-- WHAT THE MEASUREMENT LOCALIZES. U4 freezes the redeemer skeleton and changes
+-- nothing (still Undetermined); SHAPES B1RG/B1RS additionally freeze the
+-- WITHDRAWAL MAP to two entries and close in under 2 seconds
+-- (`WSC/Props/Shaped/P3ShapedR.lean`). So the blocker is the symbolic
+-- withdrawal LIST under `pdropList <symbolic index>`, not the redeemer and not
+-- the budget. U5 shows a smaller budget does not help either.
+--
+-- ════════════════════════════════════════════════════════════════════════
+-- U1 — P3 itself, unshaped
+-- ════════════════════════════════════════════════════════════════════════
+-- import WSC.Prep.Base
+-- import Blaster
+-- namespace WSC.P3Unshaped
+-- open CardanoLedgerApi.V3 (Credential ScriptContext validSpendingContext
+--                           credentialInWithdrawals)
+-- open PlutusCore.UPLC.Utils (isSuccessful)
+-- set_option warn.sorry false
+-- set_option maxHeartbeats 0
+-- def thm : Prop :=
+--   ∀ (globalCred seizeCred : Credential) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     isSuccessful (appliedBase.prop globalCred seizeCred ctx) →
+--       credentialInWithdrawals globalCred ctx.scriptContextTxInfo.txInfoWdrl
+--       ∨ credentialInWithdrawals seizeCred ctx.scriptContextTxInfo.txInfoWdrl
+-- #blaster (timeout: 600) (gen-cex: 0) (solve-result: 0) [thm]
+-- end WSC.P3Unshaped
+--
+-- ════════════════════════════════════════════════════════════════════════
+-- U2 — negative control, unshaped
+-- ════════════════════════════════════════════════════════════════════════
+-- import WSC.Prep.Base
+-- import Blaster
+-- namespace WSC.P3Unshaped
+-- open CardanoLedgerApi.V3 (Credential ScriptContext validSpendingContext
+--                           credentialInWithdrawals)
+-- open PlutusCore.UPLC.Utils (isUnsuccessful)
+-- set_option warn.sorry false
+-- set_option maxHeartbeats 0
+-- def neg : Prop :=
+--   ∀ (globalCred seizeCred : Credential) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     ¬(credentialInWithdrawals globalCred ctx.scriptContextTxInfo.txInfoWdrl
+--       ∨ credentialInWithdrawals seizeCred ctx.scriptContextTxInfo.txInfoWdrl) →
+--     isUnsuccessful (appliedBase.prop globalCred seizeCred ctx)
+-- #blaster (timeout: 600) (gen-cex: 0) (solve-result: 0) [neg]
+-- end WSC.P3Unshaped
+--
+-- ════════════════════════════════════════════════════════════════════════
+-- U3 — the MANDATORY vacuity probe, unshaped
+-- ════════════════════════════════════════════════════════════════════════
+-- import WSC.Prep.Base
+-- import Blaster
+-- namespace WSC.P3Unshaped
+-- open CardanoLedgerApi.V3 (Credential ScriptContext validSpendingContext)
+-- open PlutusCore.UPLC.Utils (isSuccessful)
+-- set_option warn.sorry false
+-- set_option maxHeartbeats 0
+-- def vac : Prop :=
+--   ∀ (globalCred seizeCred : Credential) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     ¬ isSuccessful (appliedBase.prop globalCred seizeCred ctx)
+-- #blaster (timeout: 600) (gen-cex: 0) (solve-result: 1) [vac]
+-- end WSC.P3Unshaped
+--
+-- ════════════════════════════════════════════════════════════════════════
+-- U4 — the MINIMAL shape: ONLY the redeemer's Data skeleton is frozen
+-- ════════════════════════════════════════════════════════════════════════
+-- import WSC.Prep.Base
+-- import Blaster
+-- namespace WSC.P3RedOnly
+-- open CardanoLedgerApi.IsData.Class (toTerm)
+-- open CardanoLedgerApi.V3 (Credential ScriptContext spendingInputs
+--                           validSpendingContext credentialInWithdrawals)
+-- open PlutusCore.Data (Data)
+-- open PlutusCore.Integer (Integer)
+-- open PlutusCore.UPLC.Term (Term)
+-- open PlutusCore.UPLC.Utils (isSuccessful)
+-- set_option warn.sorry false
+-- set_option maxHeartbeats 0
+-- def baseRedInputs (tag : Nat) (globalCred seizeCred : Credential) (red : Integer)
+--     (ctx : ScriptContext) : List Term :=
+--   toTerm globalCred :: toTerm seizeCred ::
+--     spendingInputs { ctx with scriptContextRedeemer := Data.Constr tag [Data.I red] }
+-- def baseRedGInputs := baseRedInputs 0
+-- #prep_uplc appliedBaseRedG programmableLogicBase baseRedGInputs 600
+-- def thmRedG : Prop :=
+--   ∀ (g s : Credential) (red : Integer) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     isSuccessful (appliedBaseRedG.prop g s red ctx) →
+--       credentialInWithdrawals g ctx.scriptContextTxInfo.txInfoWdrl
+--       ∨ credentialInWithdrawals s ctx.scriptContextTxInfo.txInfoWdrl
+-- def vacRedG : Prop :=
+--   ∀ (g s : Credential) (red : Integer) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     ¬ isSuccessful (appliedBaseRedG.prop g s red ctx)
+-- #blaster (timeout: 900) (gen-cex: 0) (solve-result: 0) [thmRedG]
+-- #blaster (timeout: 900) (gen-cex: 0) (solve-result: 1) [vacRedG]
+-- end WSC.P3RedOnly
+--
+-- ════════════════════════════════════════════════════════════════════════
+-- U5 — unshaped at a SMALLER prep budget (250; K = 194)
+-- ════════════════════════════════════════════════════════════════════════
+-- import PlutusCore.UPLC
+-- import CardanoLedgerApi.V3
+-- import Blaster
+-- namespace WSC.P3At250
+-- open CardanoLedgerApi.IsData.Class (toTerm)
+-- open CardanoLedgerApi.V3 (ScriptContext Credential spendingInputs
+--                           validSpendingContext credentialInWithdrawals)
+-- open PlutusCore.UPLC.Term (Term)
+-- open PlutusCore.UPLC.Utils (isSuccessful)
+-- set_option warn.sorry false
+-- set_option maxHeartbeats 0
+-- #import_uplc plb250 PlutusV3 double_cbor_hex "WSC/flats/programmableLogicBase.flat"
+-- def inputs250 (globalCred seizeCred : Credential) (ctx : ScriptContext) : List Term :=
+--   toTerm globalCred :: toTerm seizeCred :: spendingInputs ctx
+-- #prep_uplc applied250 plb250 inputs250 250
+-- def thm250 : Prop :=
+--   ∀ (g s : Credential) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     isSuccessful (applied250.prop g s ctx) →
+--       credentialInWithdrawals g ctx.scriptContextTxInfo.txInfoWdrl
+--       ∨ credentialInWithdrawals s ctx.scriptContextTxInfo.txInfoWdrl
+-- def vac250 : Prop :=
+--   ∀ (g s : Credential) (ctx : ScriptContext),
+--     validSpendingContext ctx →
+--     ¬ isSuccessful (applied250.prop g s ctx)
+-- #blaster (timeout: 900) (gen-cex: 0) (solve-result: 0) [thm250]
+-- #blaster (timeout: 900) (gen-cex: 0) (solve-result: 1) [vac250]
+-- end WSC.P3At250

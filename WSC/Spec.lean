@@ -88,7 +88,12 @@ def isDelegateSeize (r : Data) : Bool :=
 one. -/
 def transferMintProofs (r : Data) : Option (List MintProof) :=
   match (IsData.fromData r : Option PLGRedeemer) with
-  | some (.TransferAct _ _ ms _) => some ms
+  -- FOUR wildcards, not three: PR #112 gave `TransferAct` a THIRD field of
+  -- five, `ownerWdrlIdxs` (`ProgrammableLogicBase.hs:1046`,
+  -- `WSC/Redeemer.lean`), so `mintProofs` is now the FOURTH positional field.
+  -- Applied by task N3 (identified and left unapplied by N1 to avoid three
+  -- parallel units colliding on one line).
+  | some (.TransferAct _ _ _ ms _) => some ms
   | _ => none
 
 /-- POSITIONAL mint classification (ADDENDUM E8).

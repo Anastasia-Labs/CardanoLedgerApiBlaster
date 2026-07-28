@@ -492,3 +492,94 @@ Everything else listed above is INVALIDATED or STALE and is retained only as a
 template. Each such module carries a `⚠️ PRE-#112` marker on its first line
 naming this file. **Do not quote a marked module's theorem as a statement about
 production.**
+
+---
+
+# APPENDIX N3 — THE BASE VALIDATOR / P3, RESOLVED
+
+Task **N3**, 2026-07-28, appended (not edited into the tables above, so that the
+parallel reprove units' merges stay trivial). Everything here is measured
+against wsc-poc `main` @ `2306678`, CLAB @ `bbc9f26`, PCB @ `9f9ca8c`.
+
+## N3.1 Verdict changes to the tables above
+
+| artifact | §3 verdict | N3 verdict |
+|---|---|---|
+| `Prep/Base.lean` | NEEDS-REVIEW | **DONE** — re-pointed, citations remapped to `:711/:712`, the "never reads its redeemer" prose deleted, budget 600 re-justified against K = 194 |
+| `Props/P3_Base.lean` | INVALIDATED | **REPLACED** — no longer holds P3. Holds the unshaped prep's two re-cut bootstrap witnesses (K = 194, two-sided) and the §MEASUREMENT record of why the unshaped route is gone |
+| `Props/P3_BaseRun.lean` | INVALIDATED | **RE-PROVED, SHAPED** — run-form keystone over SHAPES B1RG/B1RS, with `rfl` shape bridges and vacuity probes at the run terms |
+| `Shaped/BaseShaped.lean` (SHAPE B1) | INVALIDATED | **PROVED DEAD** — its accept class is EMPTY under the new bytecode (`B1_accept_class_is_empty`, ✅ Valid, 5.1 s). Its redeemer is `Data.I red` and `pasConstr` on a `Data.I` errors |
+| `Goldens/Witnesses.lean` | INVALIDATED / N2 "UNRESOLVED, still building at 25 min" | **BUILDS GREEN IN 3.0 s.** The hang was `Props/P3_Base.lean`, which it imports; with the non-terminating unshaped `blaster` goals removed from that file the witness module is fine. K = 194 now pinned two-sided in Lean here as well |
+| `WSC/Runs.lean` | PRE-#112 (PARTIAL) | `baseRun` **SPLIT OUT** to `WSC/Runs/Base.lean` (new leaf). Same constant, same definition, no consumer changes. See N3.4 |
+
+NEW modules: `WSC/Runs/Base.lean`, `WSC/Shaped/BaseShapedR.lean`,
+`WSC/Props/Shaped/P3ShapedR.lean`, `WSC/Props/P3Unshaped.lean.disabled`.
+
+## N3.2 THE HEADLINE, and it is a REGRESSION
+
+**P3 is no longer provable unshaped.** Pre-#112 it was the ONE property in the
+campaign that needed no coverage argument (`WSC/Coverage.lean` §7). Post-#112
+the validator does `pdropList <symbolic index>` into the withdrawal map, and:
+
+| goal, UNSHAPED at `appliedBase.prop`, budget 600 | cap | verdict |
+|---|---|---|
+| P3 | 600 s | `⚠️ Undetermined` |
+| negative control | 600 s | `⚠️ Undetermined` |
+| vacuity probe | 600 s | `⚠️ Undetermined` |
+| P3, UNCAPPED | ∞ | no verdict at 93 min, killed |
+| P3 + vacuity probe | 2400 s | `⚠️ Undetermined` (2404 s / 2403 s wall) |
+| P3 + vacuity probe, MINIMAL shape (only the redeemer's `Data` skeleton frozen) | 900 s | `⚠️ Undetermined` |
+| P3 + vacuity probe, prep budget 250 | 900 s | `⚠️ Undetermined` |
+
+The blocker is LOCALIZED: freezing the redeemer alone does not help; freezing
+the redeemer **and** the withdrawal map (SHAPES B1RG/B1RS, two entries) closes
+every goal in under 2 s; a smaller budget does not help. It is the symbolic
+withdrawal LIST under a symbolic-index `dropList`. Re-runnable goals:
+`WSC/Props/P3Unshaped.lean.disabled`.
+
+## N3.3 What P3 is now — the four-point bar, both arms
+
+SHAPES **B1RG** (redeemer `SpendViaGlobal red`) and **B1RS** (`SpendViaSeize
+red`), `red` SYMBOLIC. The cut is T1R's: 1 script input, 2 script withdrawals,
+**3** redeemer entries (the F2-compliant count, and the measured shape of the
+real accepting golden).
+
+| bar | B1RG | B1RS |
+|---|---|---|
+| (a) theorem `✅ Valid` | `P3_base_requires_global_or_seize_B1RG` + run form | `…_B1RS` + run form |
+| (b) vacuity probe at its OWN term and shape | ✅ Expected Falsified, at BOTH the `.prop` term and the `Runs.baseRun 600` term | same |
+| (c) concrete accepting witness, K two-sided | K = **194**, `Halt` at 194 / `Error` at 193 / stable at 1940 | same |
+| (d) realizability | class-level `redeemerCoverageAllPlutus = true` ∀ leaves; point-level `validSpendingContext` ∧ `redeemersExactAllPlutus` (both halves) ∧ real-CEK accept | same |
+
+Also shipped: negative controls and tightness stanzas per arm; `exec_B1RG` /
+`exec_B1RS`, `rfl` bridges from the shaped prep to `Runs.baseRun 600`, so
+`PropExecFaithful` stays off the keystone path.
+
+**A gap closed by accident:** N2 recorded that no golden exercises
+`SpendViaSeize` (tag 1 pinned only negatively). SHAPE B1RS and its witness are
+now the library's positive evidence for that arm.
+
+## N3.4 HANDOVER — things N3 did NOT do, with the exact fix
+
+1. **`WSC/Composition.lean` §7 `p3_lifted` will not compile.** It calls
+   `WSC.P3_base_requires_global_or_seize_run`, which no longer exists — the
+   run-form keystone is now `…_run_B1RG` / `…_run_B1RS` and is SHAPED, so
+   `p3_lifted` must either be restated over the shape or must consume a shape
+   bridge. This is a genuine change to the composition's reach, not a rename,
+   and it must not be papered over with an alias. (The witness names
+   `P3Witness.ctx_valid` / `P3Witness.exec_accepts` that `Composition.lean:1185`
+   uses were deliberately KEPT, so only the keystone line breaks.)
+2. **`WSC/Coverage.lean` §7 must be retired.**
+   `p3_lives_over_a_covering_class` and the surrounding prose ("the only
+   property in the campaign of which this is true", "an unshaped prep needs no
+   coverage argument at all") are false of production now. `unshaped_covers` and
+   `wdrl_range_char` are pure and survive.
+3. **`WSC/ShapeBridge.lean`'s B1 entries are vacuous, provably** (N3.1). They
+   need deleting or re-cutting to B1RG/B1RS.
+4. **The published K table** (`WSC/Honest.lean:998`) still says `K_base` witness
+   = 208. It is 194. `K_base = 600` itself is unchanged and still correct.
+5. **`WSC/Honest.lean` was NOT edited** — deliberately, to avoid colliding with
+   the global/seize units. `WSC.K_base` stays there and `K_base = 600` by `rfl`,
+   which is why `P3_BaseRun` states its theorems at the literal `600`.
+6. **No full-library baseline is claimed.** `lake build WSC` still cannot
+   succeed while `Prep.Seize` / `Prep.Global1600` are broken (§6).
