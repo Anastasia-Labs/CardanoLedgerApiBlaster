@@ -119,5 +119,36 @@ theorem seize_model_and_bytecode_DISAGREE :
     bytecodeAccepts ctxAdaToppedUp = true
     ∧ SeizeModel.seizeModel ppCS ctxAdaToppedUp = false := by native_decide
 
+/-! ## The retraction certificate (task R1)
+
+`seizeModel_faithful` was DELETED at task R1, so the two theorems above no
+longer contradict anything that is in the environment.  The theorem below is what
+replaces the axiom: the axiom's STATEMENT, refuted as an ordinary Lean fact, so
+that the deletion stays justified even after the axiom's text is gone and cannot
+be reinstated by accident. -/
+
+/-- **NO SUCH BRIDGE EXISTS.**  The proposition `seizeModel_faithful` used to
+assert is refutable: `ctxAdaToppedUp` is accepted by the real compiled
+`programmableSeize` (at 20,000 steps, against the ~2.3k this shape needs) and
+rejected by `seizeModel`.  A `↔` cannot hold at that context, so no axiom of that
+shape may be re-added. -/
+theorem no_faithful_bridge :
+    ¬ (∀ (pcs : CurrencySymbol) (ctx : ScriptContext),
+        SeizeModel.seizeModel pcs ctx = true ↔ SeizeModel.seizeAcceptsUnbounded pcs ctx) := by
+  intro h
+  have hd := seize_model_and_bytecode_DISAGREE
+  have hacc : SeizeModel.seizeAcceptsUnbounded ppCS ctxAdaToppedUp := by
+    refine ⟨20000, ?_⟩
+    have := hd.1
+    unfold bytecodeAccepts isHaltB at this
+    unfold SeizeModel.seizeExecAt PlutusCore.UPLC.Utils.isSuccessful
+      PlutusCore.UPLC.Utils.isHaltState
+    split at this
+    · next h' => rw [h']; trivial
+    · exact absurd this (by simp)
+  have hmodel := (h ppCS ctxAdaToppedUp).mpr hacc
+  rw [hd.2] at hmodel
+  exact Bool.noConfusion hmodel
+
 end SeizeModelRefuted
 end WSC
