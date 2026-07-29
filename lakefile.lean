@@ -5,21 +5,30 @@ package «CardanoLedgerApi» where
   -- add package configuration options here
   moreGlobalServerArgs := #["--threads=4"]
   moreLeanArgs := #["--threads=4"]
-  -- ══ SUBSTRATE PIN (WSC U5/X4; C3, audit D5; made reproducible by task E3) ══
+  -- Blaster is required FIRST on purpose (task R2): `PlutusCore`'s own lakefile
+  -- requires `Blaster` from `input-output-hk/Lean-blaster` @ `"main"`, and lake
+  -- resolves a package name once, at first encounter. Requiring our pinned
+  -- Blaster before PlutusCore is what keeps that transitive `@ "main"` from
+  -- winning. The rationale for this exact revision is the block below.
+  require Blaster from git
+    "https://github.com/Anastasia-Labs/Lean-blaster"
+    @ "4d320dd5f70ac953945b5126f5cfd45128da8131"
+  -- ══ SUBSTRATE PINS (WSC U5/X4; C3, audit D5; MACHINE-ENFORCED at task R2) ══
   --
-  -- ┌── READ THIS FIRST IF THE BUILD DOES NOT RESOLVE ────────────────────────┐
-  -- │ The `require` below is an ABSOLUTE LOCAL PATH. It is the one line that  │
-  -- │ makes this repository non-portable. To build elsewhere, edit BOTH:      │
-  -- │   1. this file — the `require PlutusCore from "…"` path, and            │
-  -- │   2. `lake-manifest.json` — the PlutusCore entry's `"dir"` field.       │
-  -- │ Editing only one leaves lake resolving the manifest's stale `dir`.      │
-  -- │ Full third-party recipe: `WSC/REPRODUCE.md`.                            │
+  -- ┌── BOTH REQUIRES WERE ABSOLUTE LOCAL PATHS UNTIL 2026-07-28 ─────────────┐
+  -- │ That was audit defect D5: lake does NOT verify the `rev` key on a       │
+  -- │ `"type": "path"` manifest entry, so the recorded revisions were         │
+  -- │ documentation rather than a lock and this repository could be built on  │
+  -- │ one machine only. Both branches are now PUBLISHED and the requires      │
+  -- │ below carry FULL 40-hex SHAs, which lake checks out by object id.       │
+  -- │ DO NOT replace a SHA with a branch name — branch names move, object     │
+  -- │ ids do not. Full third-party recipe: `WSC/REPRODUCE.md`.                │
   -- └─────────────────────────────────────────────────────────────────────────┘
   --
-  -- PlutusCoreBlaster, pinned BY REVISION (not merely by path):
+  -- PlutusCoreBlaster, pinned BY REVISION:
   --
-  --   path         /home/gumbo/iohk/PlutusCoreBlaster
-  --   branch       cip153-value-builtins     (NOT on the public remote — E3 §2)
+  --   fork         https://github.com/Anastasia-Labs/PlutusCoreBlaster
+  --   branch       cip153-value-builtins
   --   commit       3fdd3fb  (task N5; was 9f9ca8c)
   --   upstream base a04042c4b7b19c66e7e6fa5bbcc3b1c985894ed0
   --                = `refs/heads/main` of the PUBLIC repo
@@ -68,27 +77,29 @@ package «CardanoLedgerApi» where
   -- (negative control, `WSC/Prep/Global.lean:10-13`). So EVERY P1/P5/P6 result
   -- "proved against production bytecode" inherits this pin.
   --
-  -- RESIDUAL RISK: the bundle removes the "unpushed branch" objection but not the
-  -- "single machine" one — the artifact is only as good as its custody. Publish
-  -- the branch, then restore a real git pin by replacing the `require` with:
-  --   require PlutusCore from git "https://github.com/input-output-hk/PlutusCoreBlaster" @ "3fdd3fb…"
+  -- RESIDUAL RISK, CLOSED at task R2: the bundle removed the "unpushed branch"
+  -- objection but not the "single machine" one — an offline artifact is only as
+  -- good as its custody. The branch is now published, so the require below is a
+  -- real git pin and `WSC/substrate/` is historical rather than load-bearing.
   --
   -- Cross-references: `WSC/REPRODUCE.md` (third-party recipe, rehearsed end to
   -- end), `WSC/substrate/README.md` (bundle verify/apply),
   -- `WSC/flats/PROVENANCE.md` (bytecode chain), `WSC/ARCHITECTURE.md` E11.
-  require PlutusCore from "/home/gumbo/iohk/PlutusCoreBlaster"
+  require PlutusCore from git
+    "https://github.com/Anastasia-Labs/PlutusCoreBlaster"
+    @ "3fdd3fb5cb259f039b60cc584cd954de18c819dc"
   -- Blaster IS pinned by rev in `lake-manifest.json`:
   --   59db213ca6396269d2606b7dd9ac2bc26ae7c4ce
   -- on the PUBLIC repo https://github.com/input-output-hk/Lean-blaster, where
   -- `refs/heads/beta-lambda-cache-optimization` still resolved to exactly that
   -- rev when E3 re-checked it (2026-07-25). Branch names move; the manifest rev
   -- is what is verified.
-  -- ══ BLASTER IS NOW ALSO A LOCAL PATH PIN (task N5, defect D6) ═════════════
+  -- ══ BLASTER MOVED PIN TOO (task N5, defect D6; republished at task R2) ════
   --
   -- Blaster WAS `from git … @ "beta-lambda-cache-optimization"` (rev 59db213).
-  -- It is now a local clone of THAT EXACT REV plus ONE commit:
+  -- It is now THAT EXACT REV plus ONE commit, on a published fork:
   --
-  --   path    /home/gumbo/iohk/Lean-blaster-wsc
+  --   fork    https://github.com/Anastasia-Labs/Lean-blaster
   --   branch  wsc-d6-dite-branch-retype
   --   commit  4d320dd  "Optimize/DITE: re-type branch binders from the final
   --                     condition (defect D6)"
@@ -106,8 +117,9 @@ package «CardanoLedgerApi» where
   -- verdict counts (42 ✅ Valid + 23 ✅ Expected Falsified) with and without —
   -- measured as a control, see WSC/IMPACT-PR112.md.
   --
-  -- NOT PUSHED anywhere. To build elsewhere, clone Lean-blaster at 59db213 and
-  -- apply that one commit, then edit this path and lake-manifest.json.
+  -- PUBLISHED at task R2 (it was previously an unpushed local clone, and this
+  -- comment said so). Nothing to edit to build elsewhere: the require is a git
+  -- pin at a full SHA.
   --
   -- OFFLINE ARTIFACT (NEW at task N6 — before it, this dependency had NONE, so
   -- `WSC/substrate/` did not actually reconstruct the substrate):
@@ -118,7 +130,9 @@ package «CardanoLedgerApi» where
   --   Equivalently `WSC/substrate/patches/0003-Optimize-DITE-re-type-branch-binders-D6.patch`.
   -- Both bundles verify with `git bundle verify` against the LOCAL repos only;
   -- they have not been tested against a fresh clone of the public remotes.
-  require Blaster from "/home/gumbo/iohk/Lean-blaster-wsc"
+  --
+  -- The `require Blaster` line itself is at the TOP of this block, ahead of
+  -- `require PlutusCore` — see the ordering note there. It must stay ahead of it.
 
 @[default_target]
 lean_lib «CardanoLedgerApi» where

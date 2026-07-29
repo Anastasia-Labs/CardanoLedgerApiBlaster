@@ -3,25 +3,28 @@
   "packagesDir": ".lake/packages",
   "packages": [
     {
-      "type": "path",
+      "url": "https://github.com/Anastasia-Labs/Lean-blaster",
+      "type": "git",
+      "subDir": null,
+      "scope": "",
+      "rev": "4d320dd5f70ac953945b5126f5cfd45128da8131",
       "name": "Blaster",
       "manifestFile": "lake-manifest.json",
+      "inputRev": "wsc-d6-dite-branch-retype",
       "inherited": false,
-      "dir": "/home/gumbo/iohk/Lean-blaster-wsc",
-      "configFile": "lakefile.lean",
-      "rev": "4d320dd5f70ac953945b5126f5cfd45128da8131",
-      "inputRev": "wsc-d6-dite-branch-retype"
+      "configFile": "lakefile.lean"
     },
     {
-      "type": "path",
+      "url": "https://github.com/Anastasia-Labs/PlutusCoreBlaster",
+      "type": "git",
+      "subDir": null,
       "scope": "",
+      "rev": "3fdd3fb5cb259f039b60cc584cd954de18c819dc",
       "name": "PlutusCore",
       "manifestFile": "lake-manifest.json",
+      "inputRev": "cip153-value-builtins",
       "inherited": false,
-      "dir": "/home/gumbo/iohk/PlutusCoreBlaster",
-      "configFile": "lakefile.lean",
-      "rev": "3fdd3fb5cb259f039b60cc584cd954de18c819dc",
-      "inputRev": "cip153-value-builtins"
+      "configFile": "lakefile.lean"
     }
   ],
   "name": "CardanoLedgerApi",
