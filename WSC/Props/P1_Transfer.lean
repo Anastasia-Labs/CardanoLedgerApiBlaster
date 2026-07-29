@@ -1,8 +1,13 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ⚠️ PRE-#112 SOURCE-MODEL ARTEFACT, WITH NO BRIDGE TO THE BYTECODE. The faithfulness axiom this module used to declare (`globalModel_faithful`) is FALSE and was RETRACTED at task R1 — machine-checked refutations in WSC/Model/GlobalModelRefuted.lean. NOTHING here is a statement about production. P1/P5/P6 against production live in WSC/Props/Shaped/.
 /-
 WSC/Props/P1_Transfer.lean — P1 (containment) on the source model of the global
-transfer validator (task Z4 step 3), plus the ONE faithfulness axiom that
-connects the model to the production bytecode (step 4).
+transfer validator (task Z4 step 3).  **The faithfulness axiom that used to
+connect the model to the production bytecode (step 4) was RETRACTED at task R1
+because it is FALSE** — see the retraction block below, and
+`WSC/Model/GlobalModelRefuted.lean` for the two machine-checked refutations.
+What remains is a pre-#112 transcription plus the specification vocabulary the
+live UPLC results consume; it is DOCUMENTATION of the B3 route that was tried,
+not evidence about production.
 
 READ THE "OBLIGATION STATUS" BLOCK AT THE BOTTOM before citing anything from
 this file.  Some links in P1's chain are PROVED here; the rest are recorded as
@@ -15,9 +20,14 @@ unreachable at UPLC: the containment-carrying accepting runs cost 3,262 and 3,72
 CEK steps, symbolic `#prep_uplc` at 3,300 never completes, and at the affordable
 budget 1,600 every bytecode obligation over a fully symbolic `Data`
 ScriptContext comes back Undetermined even with 3,300 s of Z3
-(`WSC/Props/P5_NonMember.lean`).  ARCHITECTURE.md §2 B3 is the sanctioned
+(`WSC/Props/P5_NonMember.lean`).  ARCHITECTURE.md §2 B3 was the sanctioned
 fallback, with **one** explicit `_faithful` axiom and golden cross-checks — which
-is what this file ships.
+is what this file used to ship.  **That premise is now obsolete and the route is
+dead.**  Shaped-context UPLC (task V1 onward) broke the wall it was a fallback
+from: P1 is proved against the real compiled bytecode over named node-realizable
+shapes at budget 4400 with no faithfulness axiom.  B3's axiom then turned out to
+be false on top of that, so the route lost both its motivation and its
+soundness.
 -/
 import WSC.Model.Ground
 import WSC.Prep.Global1600
@@ -375,104 +385,76 @@ def P6_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
   outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs
     ≥ mintPosOf cs tn ctx.scriptContextTxInfo.txInfoMint
 
-/-! ## The ONE faithfulness axiom (task Z4 step 4) -/
+/-! ## THE FAITHFULNESS AXIOM — **RETRACTED at task R1** (2026-07-28)
 
-/-- **`globalModel_faithful` — the single trust delta of the B3 route.**
+An axiom stood here:
 
-STATEMENT: the model of `WSC/Model/GlobalModel.lean` accepts exactly when the
-prepped production bytecode of `programmableLogicGlobal` accepts.
+    /-- `globalModel_faithful` — "the single trust delta of the B3 route". -/
+    axiom globalModel_faithful :
+      ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext),
+        globalModel ppCS ctx = true ↔
+          PlutusCore.UPLC.Utils.isSuccessful (appliedGlobal1600.prop ppCS ctx)
 
-**EVIDENCE FOR IT.**
-1. *Line-by-line transcription with citations.*  Every clause of the model cites
-   the Plutarch line it mirrors, in
-   `src/programmable-tokens-onchain/lib/SmartTokens/Contracts/ProgrammableLogicBase.hs`
-   (validator :1176-1274; `pvalueFromCred` :392-484; the transfer lockstep walk
-   :859-942; the mint lockstep walk :976-1026; the three containment dispatch
-   paths :563-699; helpers :129-341, :754-757, :824-838).  The four modelling
-   deviations are enumerated as D-M1…D-M4 in that file's header; all four are in
-   the "model rejects at least as much as the bytecode" direction except D-M3,
-   which is called out explicitly.
-2. *The CIP-153 builtins are not modelled at all* — the model calls
-   PlutusCoreBlaster's own denotations (`PlutusCore/Value/Basic.lean`,
-   branch `cip153-value-builtins` @ 9f9ca8c), i.e. the very functions the CEK
-   machine executes.  So `punValueData`/`punionValue`/`pvalueContains`/
-   `pvalueData`/`pinsertCoin` carry ZERO transcription risk.
-3. *4/4 differential agreement with the real bytecode*
-   (`WSC/Model/GlobalGoldens.lean`): the model's verdict equals the verdict the
-   production script produced at PV11 on all four global goldens — the three
-   accepting ones (`transfer-member-single-policy` K=3,262,
-   `transfer-nonmember-covering-node` K=1,554,
-   `transfer-mixed-many-policies` K=3,726) and, crucially, the REJECTING
-   `transfer-containment-violation-REJECT` (a genuine containment violation:
-   `outAtBase 2 < 5 inAtBase`).  Between them the four vectors exercise the
-   positive-proof branch, the negative-proof branch, the single-asset dispatch
-   and the multi-asset dispatch.
-4. *The redeemer mirror is gated* against off-chain-produced CBOR
-   (`WSC/Goldens/RedeemerGate.lean`, ADDENDUM E8), so `decodeRedeemer` is not a
-   guess about `makeIsDataIndexed` tags.
+**IT IS FALSE.  It has been DELETED**, and with it the four declarations that
+rested on it — `P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode`,
+`P6_bytecode_of_P6_model`.  A published proof library must not carry an axiom
+that is known to be false: every theorem downstream of one is worthless, and
+relabelling such a theorem rather than deleting it would be worse than either.
 
-**WHAT WOULD DISCHARGE IT.**  A `by blaster` proof of
-`globalModel ppCS ctx = true ↔ isSuccessful (appliedGlobal.prop ppCS ctx)` over
-`WSC/Prep/Global1600.lean` — measured out of reach today (`WSC/STATUS.md` §1) —
-or the shaped-context route (fixed list spines + concrete redeemer indices) with a
-per-shape budget.  Either would delete this axiom outright.
+**THE TWO REFUTATIONS**, both machine-checked, both in
+`WSC/Model/GlobalModelRefuted.lean`, neither of them mentioning the axiom (so
+they stand on their own now that its text is gone):
 
-**RISK.**  This is the ONLY unverified step between the P1/P6 statements and the
-production bytecode, and it is a WHOLE-VALIDATOR equivalence: a transcription
-error the four goldens do not exercise would silently weaken every theorem that
-depends on it.  Concretely un-exercised by the goldens: the `PStakingPtr` and
-`PNothing` staking-credential error arms (:441), the `unionValue` OVERFLOW error
-path, the wholesale-equality fast path taken on a MULTI-output transaction, and
-`paramsRefIdx`/proof-index values that are negative.  Any published claim must
-carry this caveat verbatim. -/
-axiom globalModel_faithful :
-  ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext),
-    globalModel ppCS ctx = true ↔
-      PlutusCore.UPLC.Utils.isSuccessful (appliedGlobal1600.prop ppCS ctx)
+1. **SEMANTIC — finding F24.**  PR #112 replaced the withdrawal-map SCAN that
+   witnessed a script-owned mini-ledger input's owner with an INDEXED lookup
+   driven by the redeemer's new `plgrOwnerWdrlIdxs` field
+   (`ProgrammableLogicBase.hs:386-393` at wsc-poc `2306678`; the field is
+   declared at `:1043-1051`).  `WSC/Model/GlobalModel.lean` still transcribes
+   the scan (`gateInput`, `:224-236`) and binds the new field as
+   `_ownerWdrlIdxsUnmodelled` (`:668-676`).
+   `GlobalModelRefuted.global_model_and_bytecode_DISAGREE`: on
+   `P1RShapedWitness.ctxSOwnMisindexed` the MODEL ACCEPTS and the real compiled
+   `programmableLogicGlobal` reaches `State.Error` with 20,000 steps available
+   — against the 2,288 its accepting sibling needs
+   (`P1RShapedWitness.K_T8R_is_2288`), so that is a REFUSAL, not budget
+   exhaustion.  The divergence therefore runs in the UNSOUND direction: the
+   model accepts a transaction production refuses.
 
-/-! ## Explicit BYTECODE-level statements (the dependency made visible) -/
+2. **BUDGET — and this half never needed PR #112.**  The axiom's right-hand side
+   is `appliedGlobal1600`, a run METERED AT 1600 CEK STEPS.
+   `GlobalModelRefuted.golden_shows_budget_gap`: on the decoded
+   `transfer-member-single-policy` golden — which `WSC/Model/GlobalGoldens.lean`
+   proves the model accepts — the bytecode does not halt within 1,600 steps, and
+   K is pinned two-sided at **2,782**.  So the left-to-right direction fails at a
+   real off-chain-produced transaction, for reasons entirely internal to the
+   axiom's own statement.
 
-/-- **P1 at the bytecode level.**  Identical to `P1_model` with the model's
-accept replaced by an accepting run of the real prepped bytecode.  The ONLY extra
-assumption relative to `P1_model` is `globalModel_faithful`; the composition below
-is what makes that visible rather than implicit. -/
-def P1_bytecode (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
-    (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName) : Prop :=
-  PlutusCore.UPLC.Utils.isSuccessful (appliedGlobal1600.prop ppCS ctx) →
-  cs ≠ ByteString.mk "" →
-  paramsPinned ppCS dirCS base ctx.scriptContextTxInfo.txInfoReferenceInputs = true →
-  coveringNodeExists dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = false →
-  (∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs, validTxOutValue o.txOutValue = true) →
-  outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs
-    ≥ inSum base cs tn ctx.scriptContextTxInfo.txInfoInputs
-      + mintSigned cs tn ctx.scriptContextTxInfo.txInfoMint
+**NOTHING OF VALUE WAS LOST — THE LIBRARY'S CLAIMS ARE STRICTLY STRONGER.**
 
-/-- Transport of P1 from the model to the production bytecode.  PROVED — the
-axiom is the only ingredient, so the dependency is explicit in the term. -/
-theorem P1_bytecode_of_P1_model (ppCS : CurrencySymbol) (ctx : ScriptContext)
-    (base : Credential) (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName)
-    (h : P1_model ppCS ctx base dirCS cs tn) :
-    P1_bytecode ppCS ctx base dirCS cs tn := by
-  intro hacc hcs hp hcov hcanon
-  exact h ((globalModel_faithful ppCS ctx).mpr hacc) hcs hp hcov hcanon
+* `P1_model` and `P6_model` were never PROVED.  They are `Prop` DEFINITIONS
+  whose links `L1_1a_pathA_sound`, `L1_1b_pathB_sound`, `L1_2_union_adds`,
+  `L1_3_valueFromCred_counts_all_base_inputs`,
+  `L1_4_registered_survives_transfer_walk`, `L1_5_registered_keeps_mint_entry`
+  and `L1_6_filter_preserves_positive` are all open (OBLIGATION STATUS, bottom of
+  this file).  The deleted `P1_bytecode_of_P1_model` was therefore an implication
+  out of an unproved hypothesis: the B3 route never yielded a proved statement
+  about the bytecode for P1 or P6 at all.
+* P1, P5 and P6 are all proved AT UPLC against the compiled production program
+  with NO faithfulness axiom — `WSC/Props/Shaped/P1Shaped.lean`,
+  `P1ShapedR.lean`, `P1ShapedBC.lean`, `P5ShapedR.lean`, `P6ShapedR.lean`.
+  `WSC/Shaped/Probe/P1Axioms.lean` is the census showing the axiom was already
+  absent from every one of them.
+* Consequently the retraction removes **0** solver verdicts and weakens **0**
+  composed results: measured over the whole clean-room build,
+  `globalModel_faithful` appeared in the transitive axiom set of NOTHING.
 
-/-- **P6 at the bytecode level.** -/
-def P6_bytecode (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
-    (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName) : Prop :=
-  PlutusCore.UPLC.Utils.isSuccessful (appliedGlobal1600.prop ppCS ctx) →
-  cs ≠ ByteString.mk "" →
-  paramsPinned ppCS dirCS base ctx.scriptContextTxInfo.txInfoReferenceInputs = true →
-  coveringNodeExists dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = false →
-  (∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs, validTxOutValue o.txOutValue = true) →
-  outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs
-    ≥ mintPosOf cs tn ctx.scriptContextTxInfo.txInfoMint
-
-theorem P6_bytecode_of_P6_model (ppCS : CurrencySymbol) (ctx : ScriptContext)
-    (base : Credential) (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName)
-    (h : P6_model ppCS ctx base dirCS cs tn) :
-    P6_bytecode ppCS ctx base dirCS cs tn := by
-  intro hacc hcs hp hcov hcanon
-  exact h ((globalModel_faithful ppCS ctx).mpr hacc) hcs hp hcov hcanon
+WHAT SURVIVES IN THIS FILE, and in which category.  `pathC_sound` and
+`accum_lookup` are TRUE LEAN FACTS about the CIP-153 builtin algebra and the
+model's Path-C accumulation — true of the model, not claims about the bytecode.
+`mintSigned`, `mintPosOf`, `coveringNodeExists` and `paramsPinned` are
+SPECIFICATION VOCABULARY consumed by the live shaped P1/P6 theorems and by
+`WSC/Composition.lean`.  Neither category needs a bridge.  See `WSC/AUDIT.md`
+entry **R1**. -/
 
 /-! ## Controls (ARCHITECTURE.md Tier 0.2 / 0.3, ADDENDUM E9)
 
@@ -525,8 +507,15 @@ analogous builtin lemma is ~100 lines, and `pcurrencyPairsUnionFast` is the same
 shape); L1.3 is the three-phase hybrid and is the largest single item; L1.4/L1.5
 are lockstep-walk inductions of the shape the E2 spike closed in 2.9 s (row A3).
 
-**ASSUMED (§B).**  `globalModel_faithful` — one axiom, docstring above, with its
-evidence, its discharge route and its residual risk.
+**ASSUMED (§B).**  **NOTHING.  This module declares NO axiom.**  It used to
+declare `globalModel_faithful`; that axiom is FALSE and was RETRACTED at task R1
+together with `P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode` and
+`P6_bytecode_of_P6_model`.  See the retraction block above and
+`WSC/Model/GlobalModelRefuted.lean`.  Consequence for this table: the file no
+longer contains, and can no longer be quoted for, ANY statement about the
+production bytecode — everything above is either a proved fact about the model
+(the PROVED rows) or an open `Prop` (the STATED-NOT-PROVED rows).  The bytecode
+statements of P1 and P6 live at UPLC, in `WSC/Props/Shaped/`.
 
 **NOT AVAILABLE FROM `WSC/Honest.lean` (§C).**  The interval-partition conjunct of
 `DirWF` (see `DirWF_partition_conjunct_missing`).  Until U10 adds it, the

@@ -1,4 +1,4 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ✅ LIVE, and NOT a source model. This module is GROUND-TRUTH VOCABULARY over `ScriptContext` fields only (ARCHITECTURE.md D3 / Tier 0.1); it is consumed by the UPLC-level shaped theorems and by WSC/Composition.lean. Task R1 cut its `import WSC.Model.GlobalModel` so that nothing live depends, even transitively, on the retracted pre-#112 transcription.
 /-
 WSC/Model/Ground.lean — GROUND-TRUTH vocabulary and the ledger-canonicity
 toolkit that the model-level P1/P6 proofs need (task Z4 step 3).
@@ -22,7 +22,8 @@ mention a validator-computed accumulator.  Everything below is a function of
   (`CardanoLedgerApi/V1/Contexts.lean:769-784`), i.e. from the LEDGER RULE that
   `validRewardingContext` already asserts, not from a predicate invented here.
 -/
-import WSC.Model.GlobalModel
+import WSC.Spec
+import PlutusCore.Value.Algebra
 
 namespace WSC.Model
 

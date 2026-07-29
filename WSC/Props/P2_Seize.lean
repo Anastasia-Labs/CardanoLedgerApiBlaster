@@ -1,4 +1,4 @@
--- ⛔ REFUTED AT PR #112: `seizeModel_faithful` is FALSE at main 2306678 — machine-checked counterexample in WSC/Model/SeizeModelRefuted.lean. The 13/13 differential test still passes but no golden covers the change. Results bridged by that axiom are INVALID for production.
+-- ⛔ AXIOM RETRACTED (task R1). `seizeModel_faithful` is FALSE at main 2306678 and has been DELETED, together with `P2a_bytecode`, `P2b_bytecode` and `P2b_model_implies_bytecode` — machine-checked refutations in WSC/Model/SeizeModelRefuted.lean. What survives here is TRUE OF THE MODEL and is NOT a statement about production. P2 against production: WSC/Props/Shaped/P2ShapedR.lean.
 /-
 WSC/Props/P2_Seize.lean — **P2 (seize)** via the SOURCE-MODEL route (B3).
 
@@ -22,13 +22,21 @@ HOW TO READ THIS FILE (the honest summary, first, before any theorem):
   and it is **verified concretely** on both accepting seize goldens and
   **refuted** on the rejecting one by `native_decide` (§6).  What is missing is
   the general proof, not confidence in the statement.
-* **The bytecode-level result** (§7) is conjunct 1 composed with the ONE
-  fidelity axiom `WSC.SeizeModel.seizeModel_faithful`.  That axiom is the whole
-  trust delta of this route: read its docstring (`WSC/Model/SeizeModel.lean` §7)
-  and the 13/13 differential evidence (`WSC/Model/SeizeDiff.lean`) before
-  quoting the composed theorem.
+* **There is NO bytecode-level result in this file any more.**  §7 used to
+  compose conjunct 1 with the fidelity axiom
+  `WSC.SeizeModel.seizeModel_faithful`; that axiom is FALSE of the post-#112
+  bytecode and both it and everything it carried were DELETED at task R1
+  (`WSC/Model/SeizeModelRefuted.lean` refutes it by computation).  **Everything
+  below is a statement about `WSC.SeizeModel.seizeModel`, not about
+  production.**  P2 against production is
+  `WSC/Props/Shaped/P2ShapedR.lean` — both conjuncts, at UPLC, no model, no
+  faithfulness axiom, bounded by budget 3800 and SHAPE S1R.
 
-WHY THE SOURCE-MODEL ROUTE AT ALL.  P2 is measured out of reach at UPLC:
+WHY THE SOURCE-MODEL ROUTE AT ALL — a premise that has since EXPIRED.  When this
+file was written P2 was measured out of reach at UPLC; shaped contexts (task Z6,
+re-cut at N5) broke that wall, and `WSC/Props/Shaped/P2ShapedR.lean` now proves
+both conjuncts against the compiled program.  The paragraph below is kept as the
+record of why the model was built:
 cheapest accepting seize run 2,570 CEK steps; `#prep_uplc` at 2,000 unfinished
 in 77 min and at 9,000 unfinished in 62 min; the budgets whose prep DOES
 complete (600, 1,000) have vacuity probes returning `Valid` for "no accepting
@@ -238,8 +246,11 @@ points at; the paired-output cursor = `txInfoOutputs` from the redeemer's
 `outputsStartIdx`; the base credential = field 1 of the authenticated
 protocol-params datum).
 
-SCOPE: this is a theorem about `WSC.SeizeModel.seizeModel`.  For the bytecode
-statement see §7 — it adds `seizeModel_faithful`. -/
+SCOPE: this is a theorem about `WSC.SeizeModel.seizeModel` **and about nothing
+else**.  The §7 transport to the bytecode was RETRACTED at task R1 (its axiom is
+false), so this statement no longer implies anything about production; the
+production statement is `WSC.P2a_R_structure`
+(`WSC/Props/Shaped/P2ShapedR.lean`). -/
 theorem P2a_seizeModel_preserves_structure
     (ppCS : CurrencySymbol) (base : Credential) (ctx : ScriptContext)
     (seizedCS : CurrencySymbol) (paired : List TxOut)
@@ -510,58 +521,50 @@ theorem projections_are_satisfiable :
      | none => true) = false := by
   native_decide
 
-/-! ## 7. Composition — from the model to the deployed bytecode
+/-! ## 7. Composition to the deployed bytecode — **RETRACTED at task R1**
 
-The dependency is deliberately made explicit as a theorem so it cannot be lost:
-P2(a) about the bytecode = P2(a) about the model + `seizeModel_faithful`. -/
+Three declarations stood here and are DELETED:
 
-/-- **P2 (a) ABOUT THE PRODUCTION BYTECODE** (structure preservation).
+    theorem P2a_bytecode …                -- P2(a) about the production bytecode
+    def     P2b_bytecode : Prop           -- P2(b) about the production bytecode
+    theorem P2b_model_implies_bytecode …
 
-*If the deployed `programmableSeize` script accepts a transaction (at ANY step
-count — this statement is not budget-bounded, unlike every other row of
-`WSC/STATUS.md`), then that transaction relocates only the seized policy: every
-mini-ledger input is paired with a continuing output at the same address with the
-same datum and reference script, differing at most in the seized policy.*
+All three were `P2a_seizeModel_preserves_structure` / `P2b_seized_delta_contained`
+transported across `WSC.SeizeModel.seizeModel_faithful`.  **That axiom is FALSE
+of the post-#112 bytecode** and was deleted at task R1;
+`WSC/Model/SeizeModelRefuted.lean` settles it by computation on two contexts
+differing in ONE lovelace leaf (`seize_model_and_bytecode_DISAGREE`), and
+`no_faithful_bridge` there refutes the axiom's proposition outright, so no axiom
+of that shape may be re-added.  PR #112 deleted the hand-rolled sorted lockstep
+walk this model transcribes and replaced it with a CIP-153 builtin value delta,
+legalising an ADA TOP-UP on the continuing output that `seizeModel` still
+forbids.
 
-DEPENDENCIES, IN FULL: `P2a_seizeModel_preserves_structure` (kernel-checked, no
-`sorry`) and `WSC.SeizeModel.seizeModel_faithful` (the ONE unproven bridge —
-`WSC/Model/SeizeModel.lean` §7; evidence: clause-by-clause transcription with
-line citations, and 13/13 golden differential agreement including the rejecting
-seize golden, `WSC/Model/SeizeDiff.lean`).  No `WSC/Honest.lean` axiom is used:
-in particular no `LR_BUDGET_seize` (there is none) and no `DirWF` — the seized
-policy is taken from whatever node the redeemer points at, and P2 does not claim
-that node is authentic.  The claim "the node is authentic" is a separate
-obligation (ARCHITECTURE.md's L2.5) that lives with `DirWF`. -/
-theorem P2a_bytecode
-    (ppCS : CurrencySymbol) (base : Credential) (ctx : ScriptContext)
-    (seizedCS : CurrencySymbol) (paired : List TxOut)
-    (hacc : seizeAcceptsUnbounded ppCS ctx)
-    (hcs : seizedPolicyOf ctx = some seizedCS)
-    (hout : pairedOutputsOf ctx = some paired)
-    (hbase : progLogicCredDataOf ppCS ctx = some (IsData.toData base)) :
-    WSC.seizeStructurePreserved base seizedCS
-      ctx.scriptContextTxInfo.txInfoInputs paired = true :=
-  P2a_seizeModel_preserves_structure ppCS base ctx seizedCS paired
-    ((seizeModel_faithful ppCS ctx).mpr hacc) hcs hout hbase
+**THE COST, STATED PLAINLY.**  The library loses its only UNBOUNDED
+(non-shape-limited, non-budget-limited) statement about the seize path.  That
+loss is real and is not repaired here.  It was already recorded as a loss at task
+N5; task R1 only stops the false axiom from being the thing that carries it.
 
-/-- The same composition for conjunct 2, kept as a `Prop` so the shape of the
-remaining work is explicit: discharging `P2b_seized_delta_contained` (§5) would
-immediately give the bytecode statement by the same one-line composition. -/
-def P2b_bytecode : Prop :=
-  ∀ (ppCS : CurrencySymbol) (base : Credential) (ctx : ScriptContext)
-    (seizedCS : CurrencySymbol),
-    seizeAcceptsUnbounded ppCS ctx →
-    seizedPolicyOf ctx = some seizedCS →
-    progLogicCredDataOf ppCS ctx = some (IsData.toData base) →
-    ∀ tn : TokenName,
-      sumOutAtBase base seizedCS tn ctx.scriptContextTxInfo.txInfoOutputs
-        ≥ sumInAtBase base seizedCS tn ctx.scriptContextTxInfo.txInfoInputs
-          + WSC.mintOf seizedCS tn ctx.scriptContextTxInfo.txInfoMint
+**WHAT REPLACES IT.**  `WSC/Props/Shaped/P2ShapedR.lean` proves BOTH conjuncts of
+P2 against the real compiled `programmableSeize`, at budget 3800 over SHAPE S1R,
+citing no model and no faithfulness axiom (`#print axioms` there lists only
+`propext, sorryAx, Classical.choice, Quot.sound`).  It is bounded twice — budget
+AND shape — where the deleted route was bounded not at all; that is a genuine
+trade, and it is the honest one, because the unbounded route's bridge is false
+and the shaped route's is a theorem.
 
-theorem P2b_model_implies_bytecode :
-    P2b_seized_delta_contained → P2b_bytecode := by
-  intro h ppCS base ctx seizedCS hacc hcs hbase tn
-  exact h ppCS base ctx seizedCS ((seizeModel_faithful ppCS ctx).mpr hacc) hcs hbase tn
+**WHAT SURVIVES IN THIS FILE, and in which category.**
+* `P2a_seizeModel_preserves_structure` — a TRUE LEAN THEOREM about `seizeModel`,
+  kernel-checked, `[propext, Classical.choice, Quot.sound]`, no `sorry`.  It is
+  true; it is simply not about the bytecode any more, because the bridge that
+  made it so is gone.  Do not quote it as a property of production.
+* `sumOutAtBase` / `sumInAtBase`, `tokSum`, `goldenBase` — SPECIFICATION
+  VOCABULARY, consumed by the live UPLC theorems in
+  `WSC/Props/Shaped/P2ShapedR.lean`.
+* `tokensContain_unsound_with_duplicate_names` /
+  `tokensContain_unsound_when_unsorted` — TRUE LEAN FACTS, and the reason P2's
+  containment conjunct is shape-dependent.  Unaffected.
+* `P2b_seized_delta_contained` — still an open `Prop`, as before. -/
 
 /-! ## 8. AXIOM AUDIT
 
@@ -571,15 +574,13 @@ log and cannot drift silently.  Expected:
 * `P2a_seizeModel_preserves_structure` — the standard Lean axioms only
   (`propext`, `Classical.choice`, `Quot.sound`).  **No** `sorry`, no
   `seizeModel_faithful`, no `WSC/Honest.lean` axiom.
-* `P2a_bytecode` — the same plus `WSC.SeizeModel.seizeModel_faithful`, and
-  nothing else.  That single extra name IS the trust delta of the source-model
-  route.
+* `P2a_bytecode` — **gone** (task R1).  It was the same plus
+  `WSC.SeizeModel.seizeModel_faithful`, and that axiom is false; with it deleted
+  no result in this file reaches any project axiom at all.
 * the golden theorems — additionally `Lean.ofReduceBool` (the `native_decide`
   compiler-trust axiom), as everywhere else in this library
   (`WSC/Goldens/*.lean`). -/
 #print axioms WSC.P2.P2a_seizeModel_preserves_structure
-#print axioms WSC.P2.P2a_bytecode
-#print axioms WSC.P2.P2b_model_implies_bytecode
 #print axioms WSC.P2.accepting_goldens_satisfy_both_conjuncts
 #print axioms WSC.P2.rejecting_golden_is_the_negative_control
 #print axioms WSC.SeizeModel.Diff.all_13_model_agrees_with_bytecode

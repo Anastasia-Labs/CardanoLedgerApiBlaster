@@ -1,4 +1,4 @@
--- ⛔ REFUTED AT PR #112: `seizeModel_faithful` is FALSE at main 2306678 — machine-checked counterexample in WSC/Model/SeizeModelRefuted.lean. The 13/13 differential test still passes but no golden covers the change. Results bridged by that axiom are INVALID for production.
+-- ⛔ AXIOM RETRACTED (task R1). `seizeModel_faithful` was FALSE at main 2306678 and has been DELETED — machine-checked refutations in WSC/Model/SeizeModelRefuted.lean. This file is now a PRE-#112 SOURCE-MODEL ARTEFACT with NO bridge to the bytecode: nothing in it is a statement about production. P2 against production: WSC/Props/Shaped/P2ShapedR.lean.
 /-
 WSC/Model/SeizeModel.lean — the SOURCE MODEL of `mkProgrammableSeize`
 (ARCHITECTURE.md's pre-planned **B3** route, §"Justification for hybrid").
@@ -12,9 +12,12 @@ vacuity probes that DID complete (budgets 600 and 1,000) returned `Valid` for
 provably vacuous.  Independently, task Y1 established that the wall is Z3
 SEARCH rather than prep: at or above the minimal-accepting step count every
 bytecode obligation is `Undetermined` even with 3,300 s of solver time.  So the
-only route to a NON-VACUOUS P2 today is to model the validator at SOURCE level
-and carry ONE explicit compilation-fidelity bridge (`seizeModel_faithful`,
-bottom of this file).
+only route to a NON-VACUOUS P2 **at the time this file was written** was to model
+the validator at SOURCE level and carry ONE explicit compilation-fidelity bridge
+(`seizeModel_faithful`).  **Both halves of that premise have since failed**:
+shaped contexts made P2 reachable at UPLC (`WSC/Props/Shaped/P2ShapedR.lean`),
+and the bridge turned out to be FALSE and was retracted at task R1 — see the
+retraction block at the bottom of this file.
 
 WHAT IS MODELLED.  `mkProgrammableSeize`, transcribed clause-by-clause from
   /home/gumbo/iohk/wsc-poc/.claude/worktrees/new-session-3c417d/
@@ -739,117 +742,49 @@ budget-bounded (contrast ADDENDUM E1 and every other row of `WSC/STATUS.md`). -/
 def seizeAcceptsUnbounded (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext) : Prop :=
   ∃ n, isSuccessful (seizeExecAt n protocolParamsCS ctx)
 
-/-- **THE ONE UNPROVEN BRIDGE: `seizeModel` computes what the compiled
-`programmableSeize` bytecode computes.**
+/-! ## THE FIDELITY BRIDGE — **RETRACTED at task R1** (2026-07-28)
 
-Read `WSC/STATUS.md`'s P2 row with this axiom in hand: P2 is proven *about the
-model*, and only this axiom turns that into a statement about the deployed
-script.
+An axiom stood here:
 
-**Evidence FOR it.**
-1. *Line-by-line transcription.*  Every clause of every definition above cites
-   the `ProgrammableLogicBase.hs` line it mirrors (file read 2026-07-25 at the
-   wsc-poc worktree `new-session-3c417d`), including all fourteen `perror`
-   paths (`:1298`, `:1450`, `:1469`, `:1508`, `:1767`, `:1768`, `:1797`,
-   `:1799`, `:1810`, `:1815`, `:1830`, `:836`, `:838`, `:1312`) and the four
-   raw-`Data` decode gaps that a naive use of `WSC/Redeemer.lean`'s strict
-   mirrors would have got WRONG (constructor fall-through in `seizeFieldsOf`;
-   partial params datum in `paramsDirCSAndProgCred`; partial node datum in
-   `nodeKeyAndIssuer`; `Data`-level credential comparison in `seizeWalk` /
-   `residualBaseTokens`).
-2. *Differential agreement on the golden suite.*  `WSC/Model/SeizeDiff.lean`
-   runs `seizeModel` against the recorded verdicts of the production bytecode
-   (executed at PV11 by `PlutusLedgerApi.V3.evaluateScriptCounting`, and
-   independently reproduced to the ExBudget unit by PlutusCoreBlaster's CEK —
-   `WSC/goldens/MANIFEST.md`) on **all three seize goldens: 2 accepting and 1
-   rejecting**, plus the 10 non-seize goldens as off-purpose controls.  Every
-   comparison is closed by `native_decide`.  The rejecting golden
-   (`seize-1-input-missing-residual-output-REJECT`) is the load-bearing one: a
-   model that accepted everything would still pass the two accepting goldens.
-3. *Strictness argument S1* (file header): on an accepting run every value the
-   model forces is forced by the bytecode too, so the strict-`Option` model
-   cannot manufacture an error the bytecode did not have.
+    /-- THE ONE UNPROVEN BRIDGE: `seizeModel` computes what the compiled
+    `programmableSeize` bytecode computes. -/
+    axiom seizeModel_faithful :
+        ∀ (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext),
+          seizeModel protocolParamsCS ctx = true ↔ seizeAcceptsUnbounded protocolParamsCS ctx
 
-**What would discharge it.**  A `by blaster` theorem `seizeModel params ctx =
-true ↔ isSuccessful (appliedSeize.prop params ctx)` over the real prepped
-bytecode.  That is blocked TODAY, and the block is measured, not assumed:
-`#prep_uplc` at budget 2,000 did not finish in 77 min and at 9,000 not in
-62 min, the cheapest accepting seize run needs 2,570 CEK steps, and the two
-budgets whose prep DID complete (600, 1,000) have vacuity probes returning
-`Valid` for "no accepting context exists"
-(`WSC/goldens/K-MEASUREMENTS.md` §5.1/§5.2, `WSC/STATUS.md` P2 row).  Task Y1
-further showed the binding constraint is Z3 SEARCH over a fully symbolic `Data`
-`ScriptContext`, not prep: at or above the minimal accepting step count, every
-bytecode obligation stayed `Undetermined` with 3,300 s of solver time.  The
-shaped-context route (fixed list spines + concrete redeemer indices, security
-fields left symbolic) is the identified next lever.
+**IT IS FALSE, and it has been DELETED**, together with `WSC.P2.P2a_bytecode`,
+`WSC.P2.P2b_bytecode` and `WSC.P2.P2b_model_implies_bytecode`
+(`WSC/Props/P2_Seize.lean` §7).
 
-**The risk, plainly.**  This axiom is a hand transcription of ~340 lines of
-Plutarch into Lean.  If the transcription is wrong in a way the three seize
-goldens do not exercise, P2 is wrong.  Concretely un-exercised by the goldens:
-the constructor fall-through path (no golden uses an out-of-range redeemer
-tag), the negative-index clamping of `pdropList` (no golden uses a negative
-index), the `remainingProgCSDelta` `perror` branches (:1767/:1768), and the
-laziness/strictness boundary of S1.  A transcription error in `perror`
-POLARITY — modelling a `perror` as `false`, or vice versa — would be
-invisible on accepting goldens; that is why every `perror` above is separately
-line-cited, and why the rejecting golden is in the differential suite.
+WHY.  PR #112 deleted the hand-rolled sorted lockstep walk this file transcribes
+and replaced it with a CIP-153 builtin value delta (`punionValue` of the input
+and `pscaleValue (-1)` of the output), and in doing so LEGALISED AN ADA TOP-UP on
+the continuing output.  `seizeModel` still implements the old exact-equality
+rule.  `WSC/Model/SeizeModelRefuted.lean` exhibits ONE context on which the real
+compiled `programmableSeize` HALTS and `seizeModel` returns `false`, both by
+`native_decide`, with a CONTROL context differing in a single lovelace leaf on
+which the two still agree; `no_faithful_bridge` there turns that computation into
+a refutation of the axiom's proposition, so no axiom of this shape may be
+re-added.
 
-────────────────────────────────────────────────────────────────────────────
-APPENDED (task Z6, 2026-07-25) — WHAT THE SHAPED UPLC PROOF DOES AND DOES NOT
-DO FOR THIS AXIOM.
-────────────────────────────────────────────────────────────────────────────
-`WSC/Props/Shaped/P2Shaped.lean` now proves BOTH conjuncts of P2 **against the
-real compiled `programmableSeize` bytecode**, with no reference to this model and
-no use of this axiom (`#print axioms` there lists only `propext, sorryAx,
-Classical.choice, Quot.sound` — `sorryAx` being `blaster`'s `admit`).  The proof
-is bounded twice: CEK budget 3800 and the transaction shape SHAPE S1
-(`WSC/Shaped/SeizeShaped.lean`).
+THE TRAP THAT MADE THIS SURVIVE PR #112 UNNOTICED, restated because it is the
+transferable lesson: `WSC/Model/SeizeDiff.lean`'s differential test STILL PASSES,
+13 of 13, against the post-#112 bytecode and the regenerated goldens.  It passes
+because no golden exercises the behaviour that changed — every continuing pair in
+the suite carries equal lovelace.  **A green differential test over a suite that
+does not cover the delta is not evidence of fidelity.**
 
-**It does NOT discharge this axiom.**  The axiom is unbounded in BOTH dimensions
-that the shaped theorem bounds: it quantifies over every `ScriptContext` and over
-every step count.  A shaped, budgeted theorem cannot imply it, and there is no
-shape-coverage argument in this library that would let it (that gap is recorded
-as limit 1 of WSC/SHAPING-RESULTS.md §7).  So P2-via-this-model remains the only
-UNBOUNDED P2 statement, and it still rests entirely on this axiom.
+THE COST.  The library loses its only UNBOUNDED seize result as a statement about
+production.  `WSC.P2.P2a_seizeModel_preserves_structure` is still a true theorem
+about `seizeModel`; it is the bridge that is broken, not the proof.  P2 against
+production is `WSC/Props/Shaped/P2ShapedR.lean` (both conjuncts, budget 3800,
+SHAPE S1R, no model, no faithfulness axiom).
 
-**What it DOES do — it narrows the residual risk, in four specific ways.**
-1. *The `#prep_uplc` justification quoted above ("what would discharge it") is
-   now obsolete as a description of the tooling limit.*  Shaping makes the prep
-   cost essentially budget-independent: the shaped prep at budget 3800 takes
-   ~3 s, against "did not finish in 77 min at 2,000".  What remains blocking is
-   only the SHAPE-FREE part of the obligation, not prep.
-2. *Two of the four risks this docstring names as "un-exercised by the goldens"
-   are now exercised by machine-checked runs of the real bytecode.*  Concretely,
-   `WSC/Props/Shaped/P2Shaped.lean`'s four concrete instances add, beyond the
-   three goldens, an accepting run with a NON-ZERO seize-time mint of the seized
-   policy, an accepting run whose residual base output over-covers the delta, a
-   ledger-legal ESCAPE attempt (rejected at 3800 and at 20000 steps), and a
-   ledger-legal attempt to re-point the continuing output at a DIFFERENT staking
-   credential (also rejected at both budgets).  The last two probe exactly the
-   `perror` POLARITY of `checkBalanceInvariant` (:1508) and of the per-pair
-   conjunction (:1469) that this docstring flags as the invisible-error risk.
-3. *The two conclusions agree.*  On SHAPE S1 the bytecode satisfies the SAME two
-   predicates (`WSC.seizeStructurePreserved`,
-   `WSC.P2.sumOutAtBase ≥ sumInAtBase + WSC.mintOf`) that the model route derives
-   from `seizeModel`.  A transcription error that changed P2's meaning would have
-   to be invisible on all three goldens AND consistent with the bytecode's
-   behaviour on the whole SHAPE S1 class, which is a strictly stronger demand
-   than before.
-4. *Conjunct 2 is no longer unproven anywhere.*  §5 of
-   `WSC/Props/P2_Seize.lean` records `P2b_seized_delta_contained` as NOT proven,
-   because bridge lemma B1 is false without ledger canonicity.  At SHAPE S1 that
-   canonicity is structural (one token name per policy), so conjunct 2 is a
-   theorem about the bytecode on that class.  The general, shape-free conjunct 2
-   is still open, and obligations B1/B2 there are still the way to get it.
+NOT DONE, deliberately: `seizeModel` was NOT re-transcribed.  Doing it honestly
+means re-transcribing ~855 lines against the new builtin-valued delta, re-proving
+the unbounded theorem over it, and re-running the gate — a unit of work in its own
+right.  Everything above `seizeAcceptsUnbounded` is therefore kept as a PRE-#112
+ARTEFACT: true of what it models, with no claim on the deployed script. -/
 
-Nothing above changes the STRENGTH of any statement that cites this axiom; it
-changes only how much independent evidence stands behind it.  A reviewer quoting
-`P2a_bytecode` should now also read `WSC/Props/Shaped/P2Shaped.lean`'s SCOPE
-block, and should note the two routes trade different trust: this axiom is a hand
-transcription, the shaped route trusts the solver, `admit`, and the shape. -/
-axiom seizeModel_faithful :
-    ∀ (protocolParamsCS : CurrencySymbol) (ctx : ScriptContext),
-      seizeModel protocolParamsCS ctx = true ↔ seizeAcceptsUnbounded protocolParamsCS ctx
 
 end WSC.SeizeModel

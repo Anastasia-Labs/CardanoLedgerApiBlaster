@@ -9,7 +9,10 @@ steps (`WSC/goldens/K-MEASUREMENTS.md` §3).  Symbolic `#prep_uplc` at 3,300
 never completes and Z3 is Undetermined already at the affordable budget 1,600
 (`WSC/STATUS.md` §1, `WSC/Props/P5_NonMember.lean`).  So P1/P6 are proved here
 against a HAND-TRANSCRIBED model of the validator, bridged to the bytecode by
-ONE explicit axiom (`WSC/Props/P1_Transfer.lean`, `globalModel_faithful`).
+ONE explicit axiom (`WSC/Props/P1_Transfer.lean`, `globalModel_faithful`) —
+**which is FALSE and was RETRACTED at task R1**.  There is no longer any bridge
+from this model to the bytecode; `WSC/Model/GlobalModelRefuted.lean` carries the
+two machine-checked refutations, one of them at the `gateInput` scan below.
 
 FIDELITY DISCIPLINE (what makes this a model of the REAL validator, not an
 invented abstraction):

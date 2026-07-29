@@ -1,4 +1,4 @@
--- ⛔ REFUTED AT PR #112: `seizeModel_faithful` is FALSE at main 2306678 — machine-checked counterexample in WSC/Model/SeizeModelRefuted.lean. The 13/13 differential test still passes but no golden covers the change. Results bridged by that axiom are INVALID for production.
+-- ⛔ THIS GATE IS GREEN AND THAT MEANS NOTHING. `seizeModel_faithful` was FALSE at main 2306678 and was RETRACTED at task R1. The 13/13 differential test below still passes, because NO GOLDEN EXERCISES THE BEHAVIOUR PR #112 CHANGED (every continuing pair in the suite carries equal lovelace). Read this file as the case study in why a green differential test over an uncovering suite is not evidence of fidelity — see WSC/Model/SeizeModelRefuted.lean.
 /-
 WSC/Model/SeizeDiff.lean — **THE FIDELITY GATE** for the source-model route.
 

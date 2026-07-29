@@ -69,30 +69,43 @@ import WSC.Props.P5_NonMember
 -- theorems over the fully applied golden flat, was deleted as redundant with it —
 -- nothing in Lean ever depended on them.  The golden's own K = 1554 remains
 -- recorded in WSC/goldens/K-MEASUREMENTS.md §3.)
--- SOURCE MODEL of the global transfer validator (task Z4, ARCHITECTURE.md §2 B3
--- route): P1 (containment) and P6 (Member self-penalization) are unreachable at
--- UPLC (accepting runs cost 3,262/3,726 CEK steps), so they are proved against a
--- source-cited transcription bridged by ONE axiom.  The model's verdict equals
--- the real bytecode's on 4/4 global goldens, incl. the rejecting containment
--- violation.  READ the OBLIGATION STATUS block at the bottom of
--- WSC/Props/P1_Transfer.lean before citing anything from it.
+-- ── THE SOURCE-MODEL LAYER (ARCHITECTURE.md §2 route B3) — **DEAD ROUTE, KEPT
+-- ── AS DOCUMENTATION.  NO AXIOM.  NO BRIDGE TO THE BYTECODE.**
+--
+-- These modules hand-transcribe the PRE-#112 `mkProgrammableLogicGlobal` and
+-- `mkProgrammableSeize`.  They were the fallback for a wall that no longer
+-- exists: shaped contexts (task V1/Z6, re-cut at N5/H2) put P1, P2, P5 and P6 at
+-- UPLC against the compiled production program.  Each model carried ONE
+-- faithfulness axiom bridging it to the bytecode; **BOTH AXIOMS ARE FALSE AND
+-- BOTH WERE RETRACTED AT TASK R1**, together with every declaration that rested
+-- on them (`P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode`,
+-- `P6_bytecode_of_P6_model`, `P2a_bytecode`, `P2b_bytecode`,
+-- `P2b_model_implies_bytecode`).  The refutations are machine-checked, in
+-- WSC/Model/GlobalModelRefuted.lean and WSC/Model/SeizeModelRefuted.lean.
+--
+-- HOW TO READ ANYTHING THAT SURVIVES HERE.  Everything is in exactly one of two
+-- categories, and neither is a claim about production:
+--   * TRUE LEAN FACTS ABOUT A STALE MODEL — `P1.pathC_sound`, `P1.accum_lookup`,
+--     `P6_Member.mintWalk_sublist` / `mintWalk_member_retains`,
+--     `P2.P2a_seizeModel_preserves_structure`, the two `tokensContain_unsound_*`
+--     counterexamples.  Still true; simply not about the deployed script.
+--   * SPECIFICATION VOCABULARY that the LIVE UPLC results consume —
+--     WSC/Model/Ground.lean's `outSum`/`inSum` (which is NOT a model at all and
+--     no longer imports one), `mintSigned`/`mintPosOf`/`coveringNodeExists`/
+--     `paramsPinned`, `P2.sumOutAtBase`/`sumInAtBase`, and the seize redeemer
+--     projections `seizedPolicyOf`/`pairedOutputsOf`/`progLogicCredDataOf`.
+--
+-- WSC/Model/SeizeDiff.lean is retained as a CASE STUDY: its 13/13 differential
+-- test is still green against the post-#112 bytecode, because no golden in the
+-- suite exercises the rule PR #112 changed.  A green differential test over a
+-- suite that does not cover the delta is not evidence of fidelity.
 import WSC.Model.GlobalModel
 import WSC.Model.Ground
 import WSC.Model.GlobalGoldens
 import WSC.Props.P1_Transfer
 import WSC.Props.P6_Member
--- P2 (seize) via the SOURCE-MODEL route (B3), task Z3: seize is unreachable at
--- UPLC (cheapest accepting run 2,570 CEK steps; prep at 2,000 unfinished in
--- 77 min; the budgets whose prep completes have vacuity probes returning Valid),
--- so it is proved against a source-cited transcription bridged by ONE axiom,
--- `WSC.SeizeModel.seizeModel_faithful`.  The model's verdict equals the real
--- bytecode's on 13/13 goldens, including the rejecting seize golden.  READ the
--- "HOW TO READ THIS FILE" block at the top of WSC/Props/P2_Seize.lean: conjunct 1
--- (structure preservation) is PROVEN unconditionally about the model, conjunct 2
--- (containment) is stated + verified on the goldens but NOT proven.
 import WSC.Model.SeizeModel
 import WSC.Model.SeizeDiff
-import WSC.Model.SeizeModelRefuted
 import WSC.Props.P2_Seize
 -- ── SHAPED-CONTEXT layer (task Z2) ──────────────────────────────────────────
 -- Read WSC/SHAPING-RESULTS.md first.  These modules prove P4a, P4's BurnOnly arm
@@ -353,3 +366,28 @@ import WSC.Props.Shaped.RealizableLeavesS1R
 -- enumeration route out (3.05 × 10^14 skeletons at that bound).  Prose,
 -- costings and the recommendation: `WSC/COVERAGE.md`.
 import WSC.Coverage
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TASK R1 — THE TWO RETRACTION CERTIFICATES.
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Imported LAST because they are stated against the SHAPED results above (the
+-- global one needs `WSC.P1RShapedWitness.ctxSOwnMisindexed`).  Between them they
+-- are the machine-checked reason the library declares two fewer axioms than it
+-- did, and they are deliberately in the default build so that the reason is a
+-- measurement in the log rather than a sentence in a changelog:
+--
+--   * `WSC/Model/GlobalModelRefuted.lean` — `globalModel_faithful` refuted
+--     TWICE.  SEMANTIC (finding F24): the model ACCEPTS `ctxSOwnMisindexed`
+--     while the real compiled `programmableLogicGlobal` reaches `State.Error`
+--     with 20,000 steps available, so the model is UNSOUND, not conservative,
+--     at the indexed owner check PR #112 introduced.  BUDGET: the model accepts
+--     `transfer-member-single-policy`, whose run costs K = 2,782 (pinned
+--     two-sided here), against the axiom's own 1,600-step meter — a defect of
+--     the axiom's statement that predates PR #112.
+--   * `WSC/Model/SeizeModelRefuted.lean` — `seizeModel_faithful` refuted by ONE
+--     context on which the real `programmableSeize` halts and `seizeModel`
+--     rejects, the two differing in a single lovelace leaf (the ada top-up #112
+--     legalised), plus `no_faithful_bridge`, which refutes the axiom's
+--     proposition outright so it cannot be re-added.
+import WSC.Model.GlobalModelRefuted
+import WSC.Model.SeizeModelRefuted

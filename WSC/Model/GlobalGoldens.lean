@@ -133,8 +133,12 @@ theorem model_matches_bytecode_containment_violation :
 
 /-- **AGGREGATE (4/4).**  The model's verdict equals the real bytecode's verdict
 on every global golden — 3 accepting and 1 rejecting.  This is the empirical
-evidence cited in the docstring of the `globalModel_faithful` axiom
-(`WSC/Props/P1_Transfer.lean`). -/
+evidence that WAS cited in the docstring of the `globalModel_faithful` axiom —
+and it was not enough.  **That axiom is FALSE and was RETRACTED at task R1**
+(`WSC/Model/GlobalModelRefuted.lean`), and one of the two refutations runs
+through THIS suite: the model accepts `transfer-member-single-policy`, whose
+bytecode run costs K = 2,782 CEK steps, against the axiom's own 1,600-step
+meter.  Agreement on four goldens is agreement on four goldens. -/
 theorem model_agrees_with_bytecode_on_all_global_goldens :
     globals.all agrees = true := by
   native_decide
