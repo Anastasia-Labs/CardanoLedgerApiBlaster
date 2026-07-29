@@ -323,20 +323,295 @@ def tokSum (tn : TokenName) : Tokens → Integer
   | (Data.B n, Data.I q) :: rest => (if n == tn then q else 0) + tokSum tn rest
   | _ :: rest => tokSum tn rest
 
-/-- **FINDING (B1a) — machine-checked counterexample: `ptokenPairsContain` is NOT
-pointwise sound when the "actual" list has DUPLICATE token names.**
+/-! ### CANONICITY — the ledger rule, and the bridge lemma **B1**, PROVED
+
+The two theorems at the end of this section are the machine-checked witnesses on
+which the library once rested a much stronger claim than they support.  They show
+that `tokensContain` is unsound over ARBITRARY `List (Data × Data)`.  They do NOT
+show anything about the values a ledger delivers, because **neither witness is a
+value any ledger can produce**: CLAB's own `[LEDGER-RULE]` predicate
+`validTxOutValue` (CardanoLedgerApi/V1/Contexts.lean:787-802) requires ada first,
+STRICTLY ASCENDING currency symbols and token names, and EVERY quantity `> 0`,
+and it is a conjunct of the `validRewardingContext` hypothesis every shaped P2
+theorem already carries (`validRewardingContext` → `validScriptContext` →
+`validTxInfo` → `validInputs` / `validOutputs` → `validTxOutValue`, V3/Contexts
+:1645, :1696, :1821-1826, :1849, :1867).
+
+So B1 is a THEOREM, not a gap, and this section proves it.  The proof also
+identifies WHICH conjunct of canonicity is load-bearing, and the answer is
+narrower than "canonicity": **only non-negativity of the `actual` list**.
+Sortedness and duplicate-freeness are not used anywhere in `tokensContain_sound`;
+what makes the two witnesses counterexamples is the NEGATIVE quantity each of
+them carries in `actual`.
+
+Everything here is ordinary Lean — no `blaster`, no `native_decide`, no axiom. -/
+
+/-- `omega` does not fire on goals whose type is spelled
+`PlutusCore.Integer.Integer` (the `abbrev` for `Int`), so the three arithmetic
+steps below are isolated over plain `Int` and applied by name.  Same
+tactic-plumbing detail as `WSC/Composition.lean` §3's `Int` helpers. -/
+theorem int_le_add_left {a b : Int} (h : 0 ≤ a) : b ≤ a + b := by omega
+theorem int_add_le_left {a b : Int} (h : a ≤ 0) : a + b ≤ b := by omega
+theorem int_add_le_add {a b c d : Int} (h1 : a ≤ b) (h2 : c ≤ d) : a + c ≤ b + d := by omega
+
+/-- One entry of a token list records no NEGATIVE quantity.  Entries whose value
+is not a `Data.I` record nothing at all, and `tokSum` skips them. -/
+def nonnegP : Data × Data → Bool
+  | (_, Data.I q) => decide (0 ≤ q)
+  | _ => true
+
+/-- No entry of the list records a negative quantity. -/
+def tokensNonneg : Tokens → Bool
+  | [] => true
+  | p :: rest => nonnegP p && tokensNonneg rest
+
+/-- **LEDGER CANONICITY OF ONE POLICY'S TOKEN LIST**, stated exactly as CLAB
+states it.  `validTxOutValue` admits a policy's token map only in the form
+`(Data.B tn, Data.I n) :: tokens` with `n > 0` and
+`validTxOutValue.validTokens tokens tn` — strictly ascending names, every
+quantity `> 0` (CardanoLedgerApi/V1/Contexts.lean:787-792).  The empty list is
+admitted too, because that is what `tokensForCS` returns for an ABSENT policy.
+The tail predicate is CLAB's own function, re-used rather than transcribed, so
+this definition cannot drift from the ledger rule. -/
+def canonTokens : Tokens → Bool
+  | [] => true
+  | (Data.B tn, Data.I q) :: rest =>
+      decide (0 < q) && CardanoLedgerApi.V1.Contexts.validTxOutValue.validTokens rest tn
+  | _ => false
+
+theorem tokSum_cons_B_I (tn n : TokenName) (q : Integer) (rest : Tokens) :
+    tokSum tn ((Data.B n, Data.I q) :: rest)
+      = (if n == tn then q else 0) + tokSum tn rest := rfl
+
+/-- Prepending a non-negative entry can only raise a `tokSum`. -/
+theorem tokSum_cons_le (tn : TokenName) (p : Data × Data) (rest : Tokens)
+    (h : nonnegP p = true) : tokSum tn rest ≤ tokSum tn (p :: rest) := by
+  obtain ⟨a, b⟩ := p
+  cases a <;> cases b <;>
+    first
+      | exact Int.le_refl _
+      | (rename_i n q
+         have hq : (0:Integer) ≤ q := by simpa [nonnegP] using h
+         rw [tokSum_cons_B_I]
+         split
+         exact int_le_add_left hq
+         exact int_le_add_left (Int.le_refl 0))
+
+/-- Prepending a non-positive entry can only lower a `tokSum`. -/
+theorem tokSum_cons_ge (tn : TokenName) (k : Data) (q : Integer) (rest : Tokens)
+    (h : 0 ≥ q) : tokSum tn ((k, Data.I q) :: rest) ≤ tokSum tn rest := by
+  cases k <;>
+    first
+      | exact Int.le_refl _
+      | (rw [tokSum_cons_B_I]
+         split
+         exact int_add_le_left h
+         exact int_add_le_left (Int.le_refl 0))
+
+theorem tokSum_nonneg (tn : TokenName) :
+    ∀ (l : Tokens), tokensNonneg l = true → 0 ≤ tokSum tn l := by
+  intro l
+  induction l with
+  | nil => intro _; exact Int.le_refl 0
+  | cons p rest ih =>
+      intro h
+      simp only [tokensNonneg, Bool.and_eq_true] at h
+      exact Int.le_trans (ih h.2) (tokSum_cons_le tn p rest h.1)
+
+/-- **B1 — `tokensContain` IS POINTWISE SOUND, and the only hypothesis it needs
+is that the ACTUAL list records no negative quantity.**
+
+*If `ptokenPairsContain actualTokens requiredTokens` returns `True` and no entry
+of `actualTokens` carries a negative quantity, then for EVERY token name the
+actual total is at least the required total.*
+
+This is the obligation §5 used to name as missing.  It is proved here by the
+merge-walk induction `tokensContain` itself performs
+(ProgrammableLogicBase.hs:1381-1411), one case per branch:
+
+* required exhausted (:1410) — the required total is 0 and the actual total is
+  `≥ 0`; **this is the case, and the only case, that consumes non-negativity**;
+* actual exhausted (:1407) — the branch is taken only when `0 ≥ requiredQty`, so
+  the required total is `≤ 0` and the actual total is 0;
+* equal names (:1399-1400) — the branch tests `actualQty ≥ requiredQty` and the
+  tails are handled by the induction hypothesis;
+* actual name smaller (:1402-1403) — the actual head is DROPPED; its quantity is
+  `≥ 0`, so dropping it can only lower the actual side, and the induction
+  hypothesis already bounds the lowered side;
+* actual name larger (:1404) — the branch is taken only when `0 ≥ requiredQty`;
+* every other branch is a `perror`, refuted by the `some true` hypothesis.
+
+SORTEDNESS IS NOT USED.  Neither is duplicate-freeness.  That is worth stating
+because the two counterexamples below were read, for several revisions, as
+showing that both were needed. -/
+theorem tokensContain_sound :
+    ∀ (actual required : Tokens),
+      tokensNonneg actual = true →
+      tokensContain actual required = some true →
+      ∀ tn : TokenName, tokSum tn required ≤ tokSum tn actual := by
+  intro actual required
+  fun_induction tokensContain actual required with
+  | case1 x => intro hn _ tn; exact tokSum_nonneg tn x hn
+  | case2 kr rrest aq h ih =>
+      intro hn hc tn
+      exact Int.le_trans (tokSum_cons_ge tn kr aq rrest h) (ih hn hc tn)
+  | case3 kr rrest aq h => intro _ hc _; simp at hc
+  | case4 rrest aq arest na nb hbeq aq1 hge ih =>
+      intro hn hc tn
+      simp only [tokensNonneg, Bool.and_eq_true] at hn
+      have ihh := ih hn.2 hc tn
+      have hnab : na = nb := by simpa using hbeq
+      subst hnab
+      rw [tokSum_cons_B_I, tokSum_cons_B_I]
+      by_cases hEq : (na == tn) = true
+      · rw [if_pos hEq, if_pos hEq]; exact int_add_le_add hge ihh
+      · rw [if_neg hEq, if_neg hEq]; exact int_add_le_add (Int.le_refl 0) ihh
+  | case5 rrest aq arest na nb hbeq aq1 hge => intro _ hc _; simp at hc
+  | case6 rrest aq va arest na nb hbeq hva => intro _ hc _; simp at hc
+  | case7 rrest aq va arest na nb hne hlt ih =>
+      intro hn hc tn
+      simp only [tokensNonneg, Bool.and_eq_true] at hn
+      exact Int.le_trans (ih hn.2 hc tn) (tokSum_cons_le tn (Data.B na, va) arest hn.1)
+  | case8 rrest aq va arest na nb hne hnlt hle ih =>
+      intro hn hc tn
+      exact Int.le_trans (tokSum_cons_ge tn (Data.B nb) aq rrest hle) (ih hn hc tn)
+  | case9 rrest aq va arest na nb hne hnlt hgt => intro _ hc _; simp at hc
+  | case10 kr rrest aq ka va arest hk => intro _ hc _; simp at hc
+  | case11 actual kr vr rrest hvr => intro _ hc _; simp at hc
+
+/-- Canonicity implies the non-negativity B1 consumes. -/
+theorem validTokens_nonneg :
+    ∀ (ts : Tokens) (prev : ByteString),
+      CardanoLedgerApi.V1.Contexts.validTxOutValue.validTokens ts prev = true →
+        tokensNonneg ts = true := by
+  intro ts
+  induction ts with
+  | nil => intro _ _; rfl
+  | cons p rest ih =>
+      obtain ⟨a, b⟩ := p
+      cases a <;> cases b <;> intro prev h <;>
+        simp [CardanoLedgerApi.V1.Contexts.validTxOutValue.validTokens] at h
+      rename_i n q
+      simp only [tokensNonneg, nonnegP, Bool.and_eq_true, decide_eq_true_eq]
+      exact ⟨Int.le_of_lt h.1.2, ih n h.2⟩
+
+theorem canonTokens_nonneg (ts : Tokens) (h : canonTokens ts = true) :
+    tokensNonneg ts = true := by
+  match ts with
+  | [] => rfl
+  | (Data.B tn, Data.I q) :: rest =>
+      simp only [canonTokens, Bool.and_eq_true, decide_eq_true_eq] at h
+      simp only [tokensNonneg, nonnegP, Bool.and_eq_true, decide_eq_true_eq]
+      exact ⟨Int.le_of_lt h.1, validTokens_nonneg rest tn h.2⟩
+  | (Data.B _, Data.Constr _ _) :: _ | (Data.B _, Data.Map _) :: _
+  | (Data.B _, Data.List _) :: _ | (Data.B _, Data.B _) :: _
+  | (Data.Constr _ _, _) :: _ | (Data.Map _, _) :: _
+  | (Data.List _, _) :: _ | (Data.I _, _) :: _ => simp [canonTokens] at h
+
+/-- **B1, in the form the ladder quotes it: `tokensContain` IS SOUND UNDER
+LEDGER CANONICITY.** -/
+theorem tokensContain_sound_of_canon (actual required : Tokens)
+    (ha : canonTokens actual = true)
+    (h : tokensContain actual required = some true) :
+    ∀ tn : TokenName, tokSum tn required ≤ tokSum tn actual :=
+  tokensContain_sound actual required (canonTokens_nonneg actual ha) h
+
+theorem tokensForCS_nil (cs : CurrencySymbol) :
+    tokensForCS cs ([] : Value) = some [] := rfl
+
+theorem tokensForCS_nonneg_go (cs : CurrencySymbol) :
+    ∀ (v : Value) (prev : ByteString) (ts : Tokens),
+      CardanoLedgerApi.V1.Contexts.validTxOutValue.validCurrencySymbol v prev = true →
+      tokensForCS cs v = some ts → tokensNonneg ts = true := by
+  intro v
+  induction v with
+  | nil =>
+      intro _ ts _ hf
+      simp only [tokensForCS_nil, Option.some.injEq] at hf
+      subst hf; rfl
+  | cons p rest ih =>
+      obtain ⟨a, b⟩ := p
+      cases a <;> cases b <;> intro prev ts hv hf <;>
+        try simp [CardanoLedgerApi.V1.Contexts.validTxOutValue.validCurrencySymbol] at hv
+      rename_i c toks
+      cases toks with
+      | nil => simp [CardanoLedgerApi.V1.Contexts.validTxOutValue.validCurrencySymbol] at hv
+      | cons q toks' =>
+          obtain ⟨ka, va⟩ := q
+          cases ka <;> cases va <;>
+            try simp [CardanoLedgerApi.V1.Contexts.validTxOutValue.validCurrencySymbol] at hv
+          rename_i tn n
+          simp only [tokensForCS] at hf
+          by_cases hc : (c == cs) = true
+          · rw [if_pos hc, Option.some.injEq] at hf
+            subst hf
+            simp only [tokensNonneg, nonnegP, Bool.and_eq_true, decide_eq_true_eq]
+            exact ⟨Int.le_of_lt hv.1.1.2, validTokens_nonneg toks' tn hv.1.2⟩
+          · rw [if_neg hc] at hf
+            by_cases hlt : cs < c
+            · rw [if_pos hlt, Option.some.injEq] at hf; subst hf; rfl
+            · rw [if_neg hlt] at hf; exact ih c ts hv.2 hf
+
+/-- **THE LEDGER SUPPLIES WHAT B1 NEEDS.**  Every token list the validator's
+`ptokensForCurrencySymbol` (ProgrammableLogicBase.hs:1345-1364) can extract from
+a `validTxOutValue`-canonical `Value` satisfies `tokensNonneg`.  Since
+`validRewardingContext` forces `validTxOutValue` on every resolved input value
+and every output value, this is available at every use site inside a shaped P2
+theorem, and it needs no new assumption. -/
+theorem tokensForCS_nonneg (cs : CurrencySymbol) (v : Value) (ts : Tokens)
+    (hv : CardanoLedgerApi.V1.Contexts.validTxOutValue v = true)
+    (hf : tokensForCS cs v = some ts) : tokensNonneg ts = true := by
+  unfold CardanoLedgerApi.V1.Contexts.validTxOutValue at hv
+  split at hv
+  · simp only [Bool.and_eq_true, decide_eq_true_eq] at hv
+    simp only [tokensForCS] at hf
+    by_cases hc : ((ByteString.mk "") == cs) = true
+    · rw [if_pos hc, Option.some.injEq] at hf
+      subst hf
+      simp only [tokensNonneg, nonnegP, Bool.and_eq_true, decide_eq_true_eq]
+      exact ⟨Int.le_of_lt hv.1, trivial⟩
+    · rw [if_neg hc] at hf
+      by_cases hlt : cs < (ByteString.mk "")
+      · rw [if_pos hlt, Option.some.injEq] at hf; subst hf; rfl
+      · rw [if_neg hlt] at hf
+        exact tokensForCS_nonneg_go cs _ _ ts hv.2 hf
+  · simp at hv
+
+/-- **THE TWO WITNESSES ARE LEDGER-IMPOSSIBLE, machine-checked.**  Each token
+list the theorems below use as `actual` FAILS `canonTokens`, i.e. fails the
+`validTxOutValue` shape the ledger imposes on every `TxOut` value; so does the
+second one's `required`.  This is the fact that bounds what those theorems show.
+`[(x,50)]` is included to make the point sharp: it IS canonical, and the first
+counterexample is therefore caused by `actual` alone. -/
+theorem counterexample_witnesses_are_not_canonical :
+    canonTokens [(Data.B (ByteString.mk "x"), Data.I 100),
+                 (Data.B (ByteString.mk "x"), Data.I (-100))] = false ∧
+    canonTokens [(Data.B (ByteString.mk "x"), Data.I 50)] = true ∧
+    canonTokens [(Data.B (ByteString.mk "x"), Data.I (-5)),
+                 (Data.B (ByteString.mk "z"), Data.I 10)] = false ∧
+    canonTokens [(Data.B (ByteString.mk "z"), Data.I 10),
+                 (Data.B (ByteString.mk "x"), Data.I (-3))] = false := by
+  native_decide
+
+/-- **WHAT `tokensContain` DOES WITHOUT CANONICITY (1/2) — a duplicate token name
+and a negative quantity.**  A TRUE Lean fact about `List (Data × Data)`, and
+nothing more.
 
 `actual = [(x,100),(x,-100)]`, `required = [(x,50)]`: the helper matches the first
 pair (`100 ≥ 50`, ProgrammableLogicBase.hs:1400), the required list is then
 exhausted and it returns `True` (:1410) — while the actual per-name total is 0,
 which does not cover 50.
 
-This is not a defect of the deployed system: on chain every `Value` is
-`validTxOutValue`-canonical (CardanoLedgerApi/V1/Contexts.lean:769-789), which
-forbids duplicate names.  It IS the precise reason conjunct 2 cannot be proven
-without carrying that ledger rule as a hypothesis, and it is why the containment
-half of P2 is harder than the structural half. -/
-theorem tokensContain_unsound_with_duplicate_names :
+**THIS IS NOT A COUNTEREXAMPLE TO ANYTHING THE LIBRARY CLAIMS**, and for two
+independent reasons.  (a) `actual` is not a value any ledger can produce: it
+repeats a token name, which `validTxOutValue`'s `prev_tn < tn` forbids, and it
+carries `-100`, which its `n > 0` forbids —
+`counterexample_witnesses_are_not_canonical` checks both.  (b) Under the ONE
+hypothesis the ledger does supply, `tokensContain_sound` is a theorem.  The witness
+therefore delimits the PROOF's hypothesis, not the system's behaviour; the
+containment conjunct is not "false in general" in any sense that reaches a
+transaction. -/
+theorem tokensContain_needs_canonicity_dup :
     tokensContain [(Data.B (ByteString.mk "x"), Data.I 100),
                    (Data.B (ByteString.mk "x"), Data.I (-100))]
                   [(Data.B (ByteString.mk "x"), Data.I 50)] = some true ∧
@@ -347,15 +622,20 @@ theorem tokensContain_unsound_with_duplicate_names :
       [(Data.B (ByteString.mk "x"), Data.I 50)] = 50 := by
   native_decide
 
-/-- **FINDING (B1b) — machine-checked counterexample: duplicate-freeness alone is
-not enough; the lists must be SORTED by token name.**
+/-- **WHAT `tokensContain` DOES WITHOUT CANONICITY (2/2) — an unsorted required
+list and negative quantities on both sides.**  Again a TRUE Lean fact about
+`List (Data × Data)`, and nothing more.
 
 `actual = [(x,-5),(z,10)]`, `required = [(z,10),(x,-3)]` with `x < z`: the helper
 skips the `x` entry of `actual` because `x < z` (:1402-1403), matches `z`, then
 faces an exhausted `actual` with a NEGATIVE requirement, which :1407 accepts —
-yet `-5 ≥ -3` is false.  Again sortedness is a ledger rule on chain
-(`validTxOutValue` clause 3), so this bounds the PROOF, not the system. -/
-theorem tokensContain_unsound_when_unsorted :
+yet `-5 ≥ -3` is false.
+
+`actual` here is SORTED and duplicate-free; what it violates is `validTxOutValue`'s
+`n > 0`.  `required` violates both `prev_tn < tn` and `n > 0`.  Once more, the
+one hypothesis `tokensContain_sound` needs — non-negativity of `actual` — is
+exactly what this witness breaks, and exactly what the ledger guarantees. -/
+theorem tokensContain_needs_canonicity_unsorted :
     tokensContain [(Data.B (ByteString.mk "x"), Data.I (-5)),
                    (Data.B (ByteString.mk "z"), Data.I 10)]
                   [(Data.B (ByteString.mk "z"), Data.I 10),
@@ -368,40 +648,46 @@ theorem tokensContain_unsound_when_unsorted :
        (Data.B (ByteString.mk "x"), Data.I (-3))] = -3 := by
   native_decide
 
-/-! ## 5. WHAT IS MISSING FOR CONJUNCT 2 — stated, not hidden
+/-! ## 5. WHAT IS STILL MISSING FOR CONJUNCT 2 — one obligation, not two
 
-`P2b_seized_delta_contained` reduces, via §4's additivity, to TWO further
-obligations, and NEITHER is discharged in this file:
+`P2b_seized_delta_contained` reduces, via §4's additivity, to two obligations.
+**(B1) IS NOW DISCHARGED** — `tokensContain_sound` / `tokensContain_sound_of_canon`
+above — and only (B2) remains.
 
-**(B1) `tokensContain` is pointwise sound — only under canonicity.**
-`tokensContain actual required = true → ∀ tn, tokSum tn actual ≥ tokSum tn required`
-is **FALSE** without a duplicate-freeness/sortedness hypothesis on both lists.
-Counterexample found while developing this ladder (a real finding about the
-helper, recorded here rather than papered over):
-`actual = [(x,100),(x,-100)]`, `required = [(x,50)]`.  `ptokenPairsContain`
-matches the first pair (`100 ≥ 50`), then the required list is exhausted and it
-returns `True` (ProgrammableLogicBase.hs:1410) — while `tokSum x actual = 0 <
-50`.  A second counterexample breaks it with duplicate-free but UNSORTED lists:
-`actual = [(x,-5),(z,10)]`, `required = [(z,10),(x,-3)]` with `x < z` — accepted,
-yet `-5 ≥ -3` is false.  So the ladder genuinely needs the values to be
-CS-sorted and token-name-sorted, which on chain they are: it is the ledger rule
-`validTxOutValue` (CardanoLedgerApi/V1/Contexts.lean:769-789, a conjunct of
-`validRewardingContext`).  This is exactly the load-bearing precondition
-ARCHITECTURE.md §3-P2 flags ("`validTxOutValue` on every value — load-bearing
-since the seize walk assumes well-formed sorted values").
+**(B1) `tokensContain` is pointwise sound.  PROVED (§4b).**  The earlier text
+here said this was "FALSE without a duplicate-freeness/sortedness hypothesis on
+both lists" and cited the two witnesses below.  **That was an error, and it
+understated what the library had.**  The witnesses are values no ledger can
+build: `validTxOutValue` (CardanoLedgerApi/V1/Contexts.lean:787-802 — ada first,
+strictly ascending currency symbols, strictly ascending token names, every
+quantity `> 0`) is a conjunct of `validRewardingContext`, which every shaped P2
+theorem already assumes, and the `ScriptContext` is built BY THE LEDGER from the
+transaction — the user-controlled parts are datums and redeemers, not the values
+in resolved inputs and outputs.  Under that rule `tokensContain` is sound, and
+the proof needs only ONE of its conjuncts (non-negativity of `actual`; not
+sortedness, not duplicate-freeness).  `tokensForCS_nonneg` shows the ledger rule
+delivers exactly that at the point of use.
 
-**(B2) sortedness must be propagated through the walk.**
-Even given `validTxOutValue` on every input and output value, one must show that
+**(B2) canonicity must be propagated through the walk.  STILL OPEN.**
+`validTxOutValue` bounds the values the ledger hands over; it says nothing about
+the INTERMEDIATE token lists the validator computes.  One must still show that
 `ptokensForCurrencySymbol`, `ptokenPairsUnionFast`, `psubtractTokens` and
-`pnegateTokens` all PRESERVE token-name sortedness, so that (B1) applies to the
-lists that `checkBalanceInvariant` actually compares, and then that the delta
-accumulator equals `Σ_pairs (in − out)` on the seized policy (this last step is
-§4's additivity plus a `seizeWalk` induction, and is the easy part).
+`pnegateTokens` deliver a `tokensNonneg` (in fact, canonical) list to the
+`tokensContain` call at `checkBalanceInvariant`
+(ProgrammableLogicBase.hs:1504-1506) — note `psubtractTokens` and `pnegateTokens`
+manifestly do NOT preserve non-negativity in general, which is why this is a real
+obligation and not a formality — and then that the delta accumulator equals
+`Σ_pairs (in − out)` on the seized policy (that last step is §4's additivity plus
+a `seizeWalk` induction, and is the easy part).
 
-NEITHER (B1) NOR (B2) IS ATTEMPTED HERE — a time-boxed decision, recorded so the
-gap is visible.  Nothing above assumes them: conjunct 1 does not use them at
-all, and conjunct 2 is a `Prop` definition, not a theorem.  §6 is the concrete
-evidence that stands in for the missing general proof today. -/
+**(B2) IS NOT ATTEMPTED HERE** — a time-boxed decision, recorded so the gap is
+visible.  Nothing above assumes it: conjunct 1 does not use it at all, and
+conjunct 2 is a `Prop` definition, not a theorem.  §6 is the concrete evidence
+that stands in for the missing general proof today, and
+`WSC/Props/Shaped/P2ShapedR.lean` / `P2ShapedR2.lean` prove conjunct 2 against
+the compiled bytecode over a bounded shape class, where the whole ladder — B1,
+B2 and the accumulator step — is discharged by symbolic execution rather than by
+this reduction. -/
 
 /-! ## 6. Controls
 
@@ -495,7 +781,19 @@ not a tautology.**  On the rejecting seize golden (the `seize-1-input`
 transaction with its residual seized-tokens output deleted) the model REJECTS —
 and conjunct 2's inequality is FALSE on that very transaction.  So conjunct 2 has
 real content: it is refutable, and the transaction that refutes it is precisely
-one the validator rejects. -/
+one the validator rejects.
+
+SCOPE OF THIS CONTROL, stated because the same care is owed here as in §4b:
+deleting an output from a balanced transaction unbalances it, so this golden is
+one of the three that fail `validRewardingContext` on `isBalanced`
+(`WSC/Goldens/Audit.lean`'s `verdicts_are_exactly_as_tabulated` /
+`remaining_failures_are_tamper_intrinsic`).  It therefore witnesses "the
+postcondition is refutable at all", which is what a tautology check needs, and
+NOT "an accepted, ledger-legal transaction can refute it".  The refutability of
+the postcondition over LEDGER-LEGAL contexts is established separately and
+symbolically, by `WSC.P2b_R_tightness` and `WSC.P2b_R_negative_control`
+(`WSC/Props/Shaped/P2ShapedR.lean`), both of which carry `validRewardingContext`
+as a hypothesis and both of which return `✅ Expected Falsified`. -/
 theorem rejecting_golden_is_the_negative_control :
     Diff.modelVerdict Terms.programmableSeize_seize_1_input_missing_residual_output_REJECT_ctx
       = some false ∧
@@ -561,10 +859,23 @@ and the shaped route's is a theorem.
 * `sumOutAtBase` / `sumInAtBase`, `tokSum`, `goldenBase` — SPECIFICATION
   VOCABULARY, consumed by the live UPLC theorems in
   `WSC/Props/Shaped/P2ShapedR.lean`.
-* `tokensContain_unsound_with_duplicate_names` /
-  `tokensContain_unsound_when_unsorted` — TRUE LEAN FACTS, and the reason P2's
-  containment conjunct is shape-dependent.  Unaffected.
-* `P2b_seized_delta_contained` — still an open `Prop`, as before. -/
+* `tokensContain_needs_canonicity_dup` /
+  `tokensContain_needs_canonicity_unsorted` — TRUE LEAN FACTS about arbitrary
+  `List (Data × Data)`.  They were formerly described here as "the reason P2's
+  containment conjunct is shape-dependent"; **that description was wrong**.  Both
+  witnesses fail `validTxOutValue` — machine-checked by
+  `counterexample_witnesses_are_not_canonical` — so neither is a statement about
+  any value a ledger can deliver, and under the ledger rule `tokensContain` is
+  sound (`tokensContain_sound`, §4b).  What they show is that the ledger
+  precondition is LOAD-BEARING for the proof, not that the property is
+  shape-dependent: `WSC/Props/Shaped/P2ShapedR2.lean` proves P2b over a shape
+  whose values carry two token names apiece.
+* §4b's `tokensContain_sound` / `tokensContain_sound_of_canon` /
+  `tokensForCS_nonneg` — obligation **B1**, now PROVED in the kernel, no
+  `blaster`, no `native_decide`, no axiom.
+* `P2b_seized_delta_contained` — still an open `Prop`, as before: obligation
+  **B2** (canonicity propagated through the validator's own token-list
+  combinators) is what remains. -/
 
 /-! ## 8. AXIOM AUDIT
 
