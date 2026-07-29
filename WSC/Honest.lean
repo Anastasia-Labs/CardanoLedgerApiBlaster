@@ -1,7 +1,7 @@
 -- ⚠️ PRE-#112 (PARTIAL): part of this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Read WSC/IMPACT-PR112.md for the split before quoting anything here.
 /-
 WSC/Honest.lean — the honest-deployment vocabulary (arch §4.2) and the FULL
-axiom base of the WSC containment campaign.
+assumption base of the WSC containment campaign.
 
 Every axiom is a SIGNATURE ONLY (no proof obligations discharged here); each
 carries a plain-English doc comment, a statement of WHY it is unavoidable, and
@@ -1456,7 +1456,7 @@ so no seize prep is needed at all.
 
 STATUS NOW: `K_seize = 3800` is published, `SeizeNonVacuous K_seize` is a THEOREM
 (`NonVacuity.seizeNonVacuous_at_3800`, from SHAPE S1's K = 3004 witness), and this
-axiom can be applied.
+assumption can be applied.
 
 THE REPLACEMENT WARNING: nothing applies it. `WSC/Composition.lean` has no seize
 clause in `WithinBudget` and never invokes this axiom; `LeafSet.p2` is open
@@ -1698,7 +1698,7 @@ projection `IsRegistered`, which is sound for POSITIVE registration facts only
 (see `IsRegistered`'s audit note). The LEDGER-level form — "`cs ∉ R L`" — needs a
 `Ledger` type and is proved in `WSC/Composition.lean`
 (`covering_excludes_ledger_registration`) from the ledger-level non-overlap
-axiom `DIRWF_L` there. Both bottom out in the SAME conjunct (iv) and the SAME
+the `DIRWF_L` axiom there. Both bottom out in the SAME conjunct (iv) and the SAME
 discharge (U10). -/
 theorem covering_node_excludes_registration
     (hp : HonestParams) (ctx : ScriptContext) (cs : CurrencySymbol)

@@ -1104,8 +1104,8 @@ one: on `ctxSOwnMisindexed` the MODEL ACCEPTS and the BYTECODE REJECTS, so the
 model is UNSOUND (not merely incomplete) at this context.
 
 Consequence, stated plainly: `WSC.Model.globalModel_faithful` was FALSE of the
-post-#112 program, and this context is a counterexample to it. **At task R1 that
-axiom and everything resting on it were DELETED**; this theorem is half of the
+post-#112 program, and this context is a counterexample to it. **At task R1 the
+axiom, and everything resting on it, were DELETED**; this theorem is half of the
 retraction certificate, and `WSC/Model/GlobalModelRefuted.lean` completes it by
 running the real bytecode on the same context. The shaped results here are
 untouched — they are proved against the bytecode directly, and

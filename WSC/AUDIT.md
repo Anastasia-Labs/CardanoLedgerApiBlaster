@@ -100,12 +100,13 @@
 > ### R1.4 Correction to a published number: the axiom count is 47, not 51
 >
 > `README.md` §3.2 and its reproduction recipe both quote
-> `grep -rn '^axiom ' --include='*.lean' WSC/ | wc -l` **= 51**. That grep counts
-> four PROSE lines inside docstrings that happen to begin with the word `axiom`
-> (`WSC/Honest.lean:4`, `:1459`, `:1701`, `WSC/Props/P1_Transfer.lean:451`). The
-> true count of axiom DECLARATIONS at `12dfa20` is **47**; after R1 it is **45**.
-> The recipe is corrected in place to `grep -rnE '^axiom [A-Za-z_][A-Za-z_0-9]*'`,
-> which is exact. No claim anywhere depended on the figure — the load-bearing
+> `grep -rn '^axiom ' --include='*.lean' WSC/ | wc -l` **= 51**. That grep counted
+> **five PROSE lines** inside docstrings that happen to begin with the word `axiom`
+> (`WSC/Honest.lean:4`, `:1459`, `:1701`, `WSC/Props/P1_Transfer.lean:451`, and one
+> more that the H2 tree introduced). The true count of axiom DECLARATIONS at
+> `12dfa20` is **47**; after R1 it is **45**. R1 reworded all five prose lines, so
+> the plain `^axiom ` recipe and the anchored
+> `grep -rnE '^axiom [A-Za-z_][A-Za-z_0-9]* *[:({]'` now BOTH report 45. No claim anywhere depended on the figure — the load-bearing
 > numbers are the 25/28 *reached* by the composed results, and those were measured
 > from `#print axioms`, not from grep.
 >

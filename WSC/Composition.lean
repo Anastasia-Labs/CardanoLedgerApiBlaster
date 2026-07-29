@@ -116,6 +116,15 @@ import WSC.Props.P4_Minting
 -- imports only `CardanoLedgerApi.V3`, `WSC.Redeemer`, `WSC.Spec` and
 -- `PlutusCore.Value.Algebra` — no `#prep_uplc`, no `blaster`, no `WSC.Honest`.
 import WSC.Model.Ground
+-- The GROUND-TRUTH-vocabulary import above used to pull `WSC/Model/GlobalModel.lean`
+-- in transitively; task R1 cut that edge so nothing depends on the retracted
+-- transcription by accident. This file does need TWO raw `Data` decoders that live
+-- there — `WSC.Model.dirNodeFields` and `WSC.Model.hasCSH`, used by §7.1's
+-- `authenticDirNode_of_hasCSH` / `coveringIn_of_coveringRaw` — so the dependency is
+-- now DECLARED rather than inherited. It is a dependency on two decoders, NOT on
+-- `WSC.Model.globalModel`: no theorem in this file mentions the model's verdict, and
+-- the model's faithfulness axiom no longer exists (WSC/Model/GlobalModelRefuted.lean).
+import WSC.Model.GlobalModel
 
 namespace WSC.Composition
 

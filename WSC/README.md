@@ -289,8 +289,8 @@ The **+2** differ by side and are the price of making the bytecode load-bearing:
 
 **Read 26/28 as a floor.** The library declares **45** axioms (task R1; it was 47
 before the two `*_faithful` retractions — the **51** printed here until R1 was a
-grep artefact, four prose lines beginning with the word "axiom" inside docstrings,
-see `AUDIT.md` R1.4); the ones no top-level theorem reaches are what a fuller
+grep artefact, five prose lines beginning with the word "axiom" inside docstrings,
+now reworded so the recipe below is exact; see `AUDIT.md` R1.4); the ones no top-level theorem reaches are what a fuller
 bytecode discharge would add. **The two `*_faithful` axioms are no longer among
 them: they are deleted, because they are false.** And **zero** axioms are declared
 under `WSC/Prep/`, `WSC/Shaped/` or `WSC/Props/Shaped/` — the shaped layer adds no
@@ -552,9 +552,11 @@ grep -cE '⚠️|❌' build.log ; grep -c 'error:' build.log        # 0 ; 0
 #   Coverage.not_covers_at_T1R_size                   -> 0, no sorryAx
 
 # 4. the shaped layer adds no assumption
-# NOTE (task R1): '^axiom ' matches 4 PROSE lines inside docstrings. Use the
-# anchored form, which counts declarations only.
-grep -rnE '^axiom [A-Za-z_][A-Za-z_0-9]*' --include='*.lean' WSC/ | wc -l           # 45
+# NOTE (task R1): '^axiom ' USED to match 5 prose lines inside docstrings and so
+# reported 51 where the truth was 47. R1 reworded those five lines, so the two
+# forms now agree exactly; prefer the anchored one, which cannot drift back.
+grep -rnE '^axiom [A-Za-z_][A-Za-z_0-9]* *[:({]' --include='*.lean' WSC/ | wc -l    # 45
+grep -rn  '^axiom ' --include='*.lean' WSC/ | wc -l                                 # 45
 grep -rn  '^axiom ' --include='*.lean' WSC/Prep WSC/Shaped WSC/Props/Shaped | wc -l # 0
 
 # 5. the re-cut, checked in BOTH directions

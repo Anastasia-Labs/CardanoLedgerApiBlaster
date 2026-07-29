@@ -9,8 +9,8 @@ docstring called that "the ONLY unverified step" and flagged the risk. The shape
 theorems are stated against the REAL prepped bytecode, so that axiom must NOT
 appear below — and neither may any `WSC/Honest.lean` axiom.
 
-**POSTSCRIPT (task R1).** The risk this audit was hedging against was real: the
-axiom is FALSE (`WSC/Model/GlobalModelRefuted.lean`) and was DELETED. Because
+**POSTSCRIPT (task R1).** The risk this audit was hedging against was real — the
+bridge is FALSE (`WSC/Model/GlobalModelRefuted.lean`) and was DELETED. Because
 this census had already measured it absent, the deletion cost the shaped route
 nothing — which is exactly what an audit like this is for.
 

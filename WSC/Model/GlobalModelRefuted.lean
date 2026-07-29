@@ -55,8 +55,8 @@ same object the library's K-measurements, its acceptance witnesses and
 at any budget it is given: the machine reaches `State.Error`, not budget
 exhaustion, so no larger meter rescues it.
 
-CONSEQUENCE, and it is a STRICT IMPROVEMENT.  Everything that routed through the
-axiom is gone: `P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode`,
+CONSEQUENCE, and it is a STRICT IMPROVEMENT.  Everything that routed through it
+is gone: `P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode`,
 `P6_bytecode_of_P6_model`.  Nothing of value went with them — `P1_model` and
 `P6_model` were never proved (they are `Prop` definitions whose links L1.1a/b and
 L1.2-L1.6 are open), so the B3 route never produced a proved statement about the
