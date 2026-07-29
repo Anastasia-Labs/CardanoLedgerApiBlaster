@@ -29,7 +29,7 @@ directory is the *wish*: the same properties over a fully symbolic
 | `WSC/Benchmark/P1Unshaped.lean` | **no, by design** | `#prep_uplc … 4400` over the unshaped inputs function + the P1 obligation |
 | `WSC/Benchmark/P2UnshapedStatement.lean` | **yes** | the same for P2, both conjuncts; 5 `rfl` audits + 3 specialisation theorems + non-vacuity |
 | `WSC/Benchmark/P2Unshaped.lean` | **no, by design** | `#prep_uplc … 3800` + both P2 obligations |
-| `WSC/Benchmark/EqDataTranslationFAILS.lean` | **no, by design** | 12-second reproducer for the SECOND blocker (§6.4) |
+| `WSC/Benchmark/EqDataTranslationFAILS.lean` | **no, by design** | 17-second reproducer (16.85 s measured, §6.4) for the SECOND blocker |
 
 The split exists so that the intractable prep does not take the *statement* down
 with it: a benchmark whose statement nobody can check is worse than no benchmark.
