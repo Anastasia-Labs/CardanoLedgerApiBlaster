@@ -89,6 +89,27 @@
 > | project axioms under `containment_on_contained_class` | 25 | **25 — UNCHANGED** |
 > | project axioms under `containment_on_realizable_class` / `…_seize_class` | 28 / 28 | **28 / 28 — UNCHANGED** |
 > | `axiom` DECLARATIONS under `WSC/` | **47** | **45** |
+> | WSC modules elaborated | 106 | **107** |
+> | audited results (`#print axioms` outputs) | 223 | **221** (−2: the deleted P2 bridges) |
+> | wall clock / peak RSS | 11:39.44 / 4.35 GB | **5:34.33 / 4.34 GB** |
+>
+> ⚠️ **Do not read the wall-clock row as a speedup.** It is
+> `WSC/Prep/Global1600.lean` variance and nothing else: that ONE module elaborated
+> in **594 s** in the before run and **271 s** in the after run on the same box,
+> and it dominates the total. R1 changed no prep. RSS, jobs, verdicts and the axiom
+> sets are the stable measurements; the clock is not.
+>
+> *Counting convention for the four "project axioms" rows, stated so the figures are
+> reproducible: the names printed by `#print axioms` MINUS the six that are not
+> project axioms — `propext`, `sorryAx`, `Classical.choice`, `Lean.ofReduceBool`,
+> `Lean.trustCompiler`, `Quot.sound`. On that convention
+> `containment_on_contained_class` measures **25**, not the **26** printed in
+> `README.md` §3.2 — the enumeration there lists `LR_CTX`, which `#print axioms`
+> does not report for that theorem (`LR_CTX` is one of the three each REALIZABLE
+> side adds). The 28s are right; the 26 should read 25. That discrepancy predates
+> R1, is flagged in `README.md` §3.2, and is NOT a consequence of the retraction —
+> both columns above use the same convention, so the "UNCHANGED" verdicts hold
+> either way.*
 >
 > **Not one solver verdict is lost, so there is no verdict to pin to a source
 > line.** The deleted declarations carried none: `P1_bytecode_of_P1_model`,
