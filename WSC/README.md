@@ -241,16 +241,32 @@ the map is not read.
   P2b is still bounded by, and what `containment_on_seize_class` still inherits, is
   SHAPE S1R's remaining skeleton (one non-ada policy per value, fixed list lengths,
   DEFECT D4, budget 3800) — a real bound, but an ordinary one.
-* **P3** — proved over a fully symbolic context, but at budget 600.
+* **P3** — ~~proved over a fully symbolic context, but at budget 600.~~ **STALE, and
+  corrected twice.** (i) Since wsc-poc PR #112 the unshaped P3 goal no longer closes
+  (`⚠️ Undetermined` at 600 s, 2400 s, at a redeemer-only shape and at a smaller
+  budget — `WSC/Props/P3_Base.lean` §MEASUREMENT), so P3 is a **shaped** property, over
+  SHAPES B1RG / B1RS / B1W. (ii) It ALSO holds, over the UNSHAPED prep and with every
+  list length symbolic, at **literal redeemer indices** — `WSC/Props/P3_BaseIdx.lean`,
+  rungs −1…15 plus a tag-symbolic rung covering both arms. Those two families are
+  **incomparable and jointly stronger**, and neither is "a fully symbolic context":
+  the second trades the `Data`-skeleton residual for a one-dimensional redeemer-index
+  residual. Budget 600 in both cases.
 * **P4** — SHAPE **L2** (the free-registration-index rung of P4-Local) had a class
   **proved empty**, so `P4_local_noEscape_shapedIdx` must not be quoted. It is now
   **superseded**: SHAPE **L2R** (`WSC/Shaped/MintingLocalShapedRIdx.lean`, new at
   `f4486ca`) is the same rung cut over the node-realizable redeemer map, it
   definitionally contains L1R, and **`P4_local_noEscape_RIdx` is the theorem to
-  cite**. Two riders travel with it: the headline is *derived* from a `✅ Valid`
+  cite**. ~~Two riders travel with it: the headline is *derived* from a `✅ Valid`
   negative control because the direct goal is `⚠️ Undetermined` at a 300 s cap (the
   negative control is strictly **stronger**, so nothing is lost), and **C1 at L2R is
-  `⚠️ Undetermined` and is not asserted**. SHAPE **M2R** now meets **4 of 4** bars —
+  `⚠️ Undetermined` and is not asserted**.~~ **BOTH RIDERS RETIRED (task X3):**
+  `L2R_noEscape_direct` and `L2R_C1_direct`
+  (`WSC/Props/Shaped/P4LocalShapedRDirect.lean`) prove both directly, as `theorem`s
+  closed by the `blaster` TACTIC — where an `⚠️ Undetermined` hard-fails the build
+  rather than warning — the only change from `L2RProbe.lean` being
+  `(random-seed: 7)`, and both shipped with vacuity/tightness guards
+  `✅ Expected Falsified` at the same seed. The `halt_not_error` derivation is kept
+  and is still strictly stronger. SHAPE **M2R** now meets **4 of 4** bars —
   its accepting CEK witness landed at `f4486ca` with `K = 784` pinned two-sided.
 * **P5** — exactly as strong as the `DirWF` / `DIRWF_L` assumption. Proving
   `mkDirectoryNodeMP` at UPLC is what would turn that from assumed into proven.

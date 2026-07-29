@@ -64,9 +64,34 @@
 UPLC-level property except P3. Two obligations that previously returned **no
 verdict** are now **`Valid` theorems against the real compiled bytecode**:
 
+> ### ⚠ CORRECTION (task X2) — ROW 1 OF THIS TABLE IS A BADLY CHOSEN EXAMPLE
+>
+> **P4a now has an UNSHAPED proof, and it takes 1.9 s.**
+> `WSC/Props/P4_MintingIdx.lean`'s `P4a_idx_burn0` proves exactly row 1's obligation
+> over the **same unshaped prep** `WSC.appliedMinting900` at the **same budget 900**,
+> and WITHOUT the `validMintingContext` hypothesis the original carries (so it is
+> strictly stronger), by adding ONE hypothesis: the redeemer is the literal
+> `BurnOnly 0`. Every list length stays symbolic. The class contains this library's
+> own certified K = 784 witness (`P4Idx.mctx_in_burn0`, kernel-checked).
+>
+> The headline finding of this file is **unchanged** — shaping does break the Z3 wall,
+> and row 2 (P5, 5,241 s no-verdict vs ≈2 s) is untouched and has no unshaped route.
+> What is wrong is the *example chosen to demonstrate it*. Recorded here rather than
+> repaired by silently swapping in a luckier one.
+>
+> **Shaping is still necessary, and that is now measured** (task X3): against the
+> unshaped P4a and P3 goals, `smt.random-seed` 0–31 / 0–23 (plus 3/7/42/1337 at a
+> **900 s** cap) and **eleven** distinct Z3 configurations gave **0 hits, 11/11
+> timeout**. No seed and no Z3 configuration touches an unshaped goal. The SMT-level
+> reason: the unshaped queries carry **14** quantified `isList`/`isData`
+> well-formedness axioms (one per symbolic recursive `TxInfo` structure) against
+> **3–4** for the shaped ones — term size is not the predictor, every query is
+> 200–310 KB. That check costs ~2 s per goal with `only-smt-lib` + `dump-smt-lib` and
+> should be run on any new goal before spending solver hours on it.
+
 | obligation | before (fully symbolic ctx) | after (shaped ctx) |
 |---|---|---|
-| **P4a** — an accepted mint runs the token's minting-logic script | `Undetermined`; 296 s / 1,748 s / 3,208 s of Z3 all identical (`WSC/Props/P4_Minting.lean`) | **`✅ Valid` in ≈1 s** — `WSC/Props/Shaped/P4Shaped.lean:121` |
+| **P4a** — an accepted mint runs the token's minting-logic script | `Undetermined`; 296 s / 1,748 s / 3,208 s of Z3 all identical (`WSC/Props/P4_Minting.lean`) — **but see the correction above: there is now an UNSHAPED proof at 1.9 s** | **`✅ Valid` in ≈1 s** — `WSC/Props/Shaped/P4Shaped.lean:121` |
 | **P4-burn** — an accepted `BurnOnly` mint is a genuine pure burn | not attempted (weaker P4a already Undetermined) | **`✅ Valid` in ≈1 s** — `WSC/Props/Shaped/P4Shaped.lean:147` |
 | **P5** (escape-critical) — accept + `NonMember` ⟹ an authentic directory node covers `cs` | **killed at 5,241 s ≈ 87 min, NO verdict** (`WSC/Props/P5_NonMember.lean`) | **`✅ Valid` in ≈2 s** — `WSC/Props/Shaped/P5Shaped.lean:209` |
 

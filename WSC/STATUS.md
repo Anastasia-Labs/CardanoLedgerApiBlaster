@@ -375,13 +375,29 @@ strengthens `P4_local_noEscape_R` and **supersedes** the retired
 `P4_local_noEscape_shapedIdx`. **Cite `P4_local_noEscape_RIdx`.** Two riders travel
 with the citation, both stated in-source:
 
-* The headline is **derived** from `P4_local_RIdx_negative_control` (`✅ Valid` at a
+* ~~The headline is **derived** from `P4_local_RIdx_negative_control` (`✅ Valid` at a
   300 s Z3 cap) via `halt_not_error`, because the *direct* goal is
-  `⚠️ Undetermined`. The negative control is strictly **stronger** — `isSuccessful`
-  and `isUnsuccessful` are `True` on disjoint `State` constructors — so nothing is
-  lost, but a reviewer should know which statement the solver saw.
-* **C1 at SHAPE L2R is `⚠️ Undetermined` at the 300 s cap and is NOT asserted as a
-  theorem.** C1 at the concrete-index SHAPE L1R (`P4a_local_R`) is unaffected.
+  `⚠️ Undetermined`.~~ **RETIRED (task X3).** `WSC.L2R_noEscape_direct`
+  (`WSC/Props/Shaped/P4LocalShapedRDirect.lean`) proves the headline DIRECTLY, as a
+  `theorem` closed by the `blaster` TACTIC. The `halt_not_error` derivation stays in
+  the tree and stays strictly **stronger** — `isSuccessful` and `isUnsuccessful` are
+  `True` on disjoint `State` constructors — but the reviewer no longer has to follow
+  the indirection to get the headline statement itself.
+* ~~**C1 at SHAPE L2R is `⚠️ Undetermined` at the 300 s cap and is NOT asserted as a
+  theorem.**~~ **RETIRED (task X3).** `WSC.L2R_C1_direct` (same module) asserts it.
+  C1 at the concrete-index SHAPE L1R (`P4a_local_R`) is unaffected.
+* **How both were closed, and the standing warning.** The ONLY change from
+  `WSC/Shaped/Probe/L2RProbe.lean` is `(random-seed: 7)`, which reaches Z3 via
+  `Blaster/Smt/Env.lean:614`. Note `Blaster/Command/Syntax.lean:101` maps `0 → none`,
+  so `random-seed: 0` is the no-seed control and Z3's own default seed IS 0 — which is
+  in the failing set for both goals. Hit rates over `smt.random-seed` 0–99 driven at the
+  dumped SMT-LIB query: **94/100** for C1, **56/100** for the headline. Both are
+  shipped with `L2R_vacuity_seed7` / `L2R_tightness_seed7`, `✅ Expected Falsified` at
+  the SAME seed — mandatory, since a `Valid` is an `unsat` on a negated goal and an
+  inconsistent encoding would also produce one.
+  **⚠ NEVER SET A SEED GLOBALLY:** seed 17 was measured turning
+  `WSC/Shaped/Probe/L2Probe.lean`'s `L2_noEscape` from `✅ Valid` into
+  `⚠️ Undetermined`.
 
 The loosened index is demonstrably **live**: `L2RWitness.ctxIdx0` at `regIdx = 0` is
 ledger-valid, redeemer-covered, satisfies `noEscape`, and is **rejected** by the real
@@ -543,7 +559,7 @@ strengthens nothing (see F18).
 | **D11 / F17** | was MEDIUM | **CLOSED — LANDED (G1, `f4486ca`)** | `M2RWitness.exec_accepts_at_900` and `K_is_784` **pinned two-sided** are in `P4ShapedRIdx.lean:174-194`. 0 project axioms, no `sorryAx`, 0 new solver verdicts. G3 verified the acceptance and the K-measurement are about the **same run**, by unfolding `mintingPolicyInputs900` and `mintRInputsIdx`. SHAPE M2R meets 4/4. |
 | **F23** | was MEDIUM | **CLOSED (task H1, 2026-07-28)** | SHAPE T8R was the only shape below the four-point bar, and the only one exercising PR #112's `ownerWdrlIdxs`. It now has (c) `exec_accepts_T8R_at_4400` with **K = 2288 pinned two-sided** and two `rfl` same-term audits, and (d) `t8R_class_covered` / `t8R_class_coverage` / `t8R_realizable`. Plus two rejecting siblings (`exec_rejects_T8R_misindexed_owner`, `…_unwitnessed_owner`) that make the index live. 0 project axioms, 0 new solver verdicts. **14/14 shapes now meet the bar.** |
 | **F24** | **MEDIUM** | **RESOLVED (task R1, 2026-07-28) — BY RETRACTION, not by repair** | `WSC.Model.globalModel_faithful` was FALSE of the post-#112 program and **has been DELETED**, together with `P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode` and `P6_bytecode_of_P6_model`. **Two independent refutations, both machine-checked in `WSC/Model/GlobalModelRefuted.lean`:** (1) SEMANTIC — `global_model_and_bytecode_DISAGREE` runs the real compiled `programmableLogicGlobal` on `P1RShapedWitness.ctxSOwnMisindexed` and it reaches `State.Error` at a 20,000-step meter while `Model.globalModel` returns `true`; the accepting sibling needs 2,288 steps (`K_T8R_is_2288`), so that is a refusal and not budget exhaustion, and the model is **unsound**, not conservative, at PR #112's indexed owner check (`ProgrammableLogicBase.hs:386-393`, redeemer field `:1043-1051`; the model still scans, `gateInput` `:224-236`, and binds `_ownerWdrlIdxsUnmodelled` `:668-676`). Controls on both sides. (2) BUDGET, new at R1 and independent of #112 — `golden_shows_budget_gap`: the axiom's right-hand side is `appliedGlobal1600`, a run METERED AT 1600 CEK steps, while the model accepts the `transfer-member-single-policy` golden whose **K = 2,782, pinned two-sided**. Any axiom of that shape is unsatisfiable at a finite prep budget. **Cost of the resolution: zero.** 175 verdicts before and after, 25/28 project axioms unchanged under every composed result, and `WSC/Shaped/Probe/P1Axioms.lean` had already measured the axiom absent from every shaped P1/P5/P6 theorem. **The 'fix' this row used to propose — re-transcribe `:386-393` into `gateInput` — was NOT done and is not recommended:** it would repair one divergence in a model whose bridge is unsatisfiable for a second, structural reason, on a route the UPLC results have made unnecessary. |
-| **F19** | LOW | **CLOSED (G1, `f4486ca`)** | SHAPE **L2R** exists (`WSC/Shaped/MintingLocalShapedRIdx.lean`), is node-realizable, definitionally contains L1R (`localRCtxIdx_at_one`, `rfl`), and carries all four bar items. **Cite `P4_local_noEscape_RIdx`**, not the retired `P4_local_noEscape_shapedIdx`. Two riders: the headline is **derived** from a `✅ Valid` negative control (the direct goal is `⚠️ Undetermined` at a 300 s cap) via `halt_not_error`, which is strictly stronger, not weaker; and **C1 at L2R is `⚠️ Undetermined` and is not asserted**. |
+| **F19** | LOW | **CLOSED (G1, `f4486ca`)** | SHAPE **L2R** exists (`WSC/Shaped/MintingLocalShapedRIdx.lean`), is node-realizable, definitionally contains L1R (`localRCtxIdx_at_one`, `rfl`), and carries all four bar items. **Cite `P4_local_noEscape_RIdx`**, not the retired `P4_local_noEscape_shapedIdx`. ~~Two riders: the headline is **derived** from a `✅ Valid` negative control (the direct goal is `⚠️ Undetermined` at a 300 s cap) via `halt_not_error`, which is strictly stronger, not weaker; and **C1 at L2R is `⚠️ Undetermined` and is not asserted**.~~ **BOTH RIDERS RETIRED at task X3**: `L2R_noEscape_direct` and `L2R_C1_direct` (`WSC/Props/Shaped/P4LocalShapedRDirect.lean`) prove both directly, closed by the `blaster` TACTIC at `(random-seed: 7)`, with vacuity and tightness guards `✅ Expected Falsified` at the same seed. See §6's L2R block for the seed's hit rates and the never-set-a-seed-globally warning. |
 | **F21** | INFO | **NEW (G3)** | The clean-room log carries two lines beginning `Error:` — a `panic!` from CLAB's `Recursor.all` macro at `V3/Contexts.lean`. Benign (definition elaborates, exit 0) and **pre-existing** (present in the C4-era log at the same definition). Recorded because the "zero errors" instrument is a line-anchored, case-sensitive grep and does not see them. |
 | **F22** | INFO | **NEW (G3)** | `bridge_GIdx` / `bridge_GNIdx` (`ShapeBridge.lean:900-948`) are the only results over `appliedGlobalShapedIdx1600` / `appliedGlobalShapedNIdx1600`, and neither term has a vacuity probe, a concrete witness, or a reduction lemma to `globalShapedCtx` — `GlobalShapedIdx.lean` is defs-only. An `↔` between two unsatisfiable statements is true. Not load-bearing (cited only in narrative), so informational; cheap fix is one `rfl` lemma inheriting `bridge_G1`'s witness. |
 | **D12 / F18** | LOW | **RESOLVED (task G2)** | The faithful rule is **not expressible** in `TxInfo` — it needs `isNativeScript`, a predicate on a script BODY, and `TxInfo` carries only hashes (the companion `scriptsProvided` filter is a no-op, guaranteed by `babbageMissingScripts`). So: predicates renamed `…AllPlutus` at every use site; the true rule stated modulo a language oracle with the two directions now THEOREMS (`redeemerCoverageModNative_of_allPlutus` positive; `coveredByNonNative_strictly_weaker` / `noExtra_not_conservative` negative, all at `[propext, Quot.sound]`); every negative use audited one by one (`ShapeRealizability.lean` §2.3) — **6 unaffected** (spending route), **6 downgraded** to an explicit `¬ isNative w` side condition now carried in the TYPE via `RedeemerCoverageAt w`, **1 measurement** whose interpretation only is downgraded. `g6_class_is_empty_nonNative` is the axiom-free true-rule form of the one unconditional negative result. Positive results, leaves and both composed containment theorems are untouched. |

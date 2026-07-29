@@ -50,10 +50,38 @@ import WSC.Props.P3_BaseWdrl
 -- The measured boundary of that cut: withdrawal maps of length 1 and 2 close
 -- with the credentials fully symbolic too; length 3 returns no verdict at 900 s.
 import WSC.Shaped.Probe.P3WdrlLadder
+-- ── task X2: the REDEEMER-INDEX-LITERAL family, a SECOND and INCOMPARABLE ───
+-- ── class family for P3, landed ALONGSIDE (never instead of) the shaped one ─
+-- No prep shape at all: these run against `WSC.appliedBase`, the UNSHAPED prep
+-- the module above measures `⚠️ Undetermined` over, and carry ONE hypothesis —
+-- the redeemer is a literal `Constr t [I i]`.  The withdrawal map's LENGTH, all
+-- five dimensions `family_invariants` freezes, and both script parameters stay
+-- symbolic, so NEITHER family contains the other and they are jointly stronger.
+-- ⚠ This does NOT restore P3 to unshaped: the `Data`-skeleton residual is
+-- TRADED for a one-dimensional, ledger-expressible REDEEMER-INDEX residual
+-- ("the base-spend redeemer names withdrawal index i").  The ladder is measured
+-- to close at i = −1…15 and to be `⚠️ Undetermined` at 20, 25 and 100, and it
+-- provably cannot be collapsed: `0 ≤ i ≤ 2` with `i` symbolic returns no verdict
+-- at 608 s while i = 0, 1, 2 each close in 1.8 s.  Read the module header.
+import WSC.Props.P3_BaseIdx
+-- The top rung, split out because it is the only expensive one (measured 88 s
+-- here, 223 s on a contended box, against 1.6–2.5 s for every rung ≤ 10).
+import WSC.Props.P3_BaseIdx15
 -- P4/P4a (issuance minting policy) at budget 900: statements + the machine-checked
 -- budget characterization and both positive witnesses. See the SOLVER COST stanza
 -- in that file for what is and is not closed.
 import WSC.Props.P4_Minting
+-- ── task X2: P4a, THE HEADLINE `Undetermined`, RETIRED ──────────────────────
+-- `P4a_mint_runs_minting_logic` above is `⚠️ Undetermined` after 296 s, 1,748 s
+-- and 3,208 s of Z3 — the measurement this project's method write-up uses as
+-- its motivating example for prep-shaping.  Over the SAME UNSHAPED PREP, with
+-- the redeemer's burn index pinned to a LITERAL and everything else symbolic
+-- (and WITHOUT the `validMintingContext` hypothesis, so it is strictly
+-- stronger), it closes in ≈ 2 s.  Shaping is still necessary for the heavy
+-- validators — task X3 measured 0 hits over 32 seeds and 11 Z3 configurations
+-- against this same unshaped goal — but the example chosen to sell it has a
+-- better proof.  See `WSC/SHAPING-RESULTS.md` §2.
+import WSC.Props.P4_MintingIdx
 -- Golden→Lean bridge + the three Y4 fidelity results (LR-CTX audit, real-suite
 -- positive witness, redeemer/datum mirror gate). See WSC/LR-CTX-AUDIT.md.
 import WSC.Goldens
@@ -302,6 +330,18 @@ import WSC.Shaped.SeizeShapedR
 import WSC.Props.Shaped.P4ShapedR
 import WSC.Props.Shaped.P4ShapedRIdx
 import WSC.Props.Shaped.P4LocalShapedR
+-- ── task X3: SHAPE L2R's TWO OPEN OBLIGATIONS, closed by a MEASURED Z3 SEED ─
+-- Audit finding F19 carried two riders: the L2R headline was only DERIVED (via
+-- `halt_not_error`) because the direct goal was `⚠️ Undetermined` at a 300 s
+-- cap, and C1 at L2R was `⚠️ Undetermined` and NOT ASSERTED.  Both are proved
+-- directly below.  The only change from `WSC/Shaped/Probe/L2RProbe.lean` is
+-- `(random-seed: 7)`, which reaches Z3 via `Blaster/Smt/Env.lean:614`.
+-- ⚠ NEVER SET A SEED GLOBALLY — seed 17 was measured BREAKING `L2Probe`'s
+-- currently-passing `L2_noEscape`.  Pin per stanza, against a measured value,
+-- and always ship the vacuity/tightness guard at the same seed (§2 of that
+-- module) — it is the only cheap check that the `unsat` is not an
+-- inconsistency artifact.
+import WSC.Props.Shaped.P4LocalShapedRDirect
 import WSC.Props.Shaped.P4DelegateShapedR
 import WSC.Props.Shaped.P2ShapedR
 -- SHAPE S1R2: P2's containment conjunct over MULTI-TOKEN-NAME values. Measures
