@@ -1,5 +1,165 @@
 # WSC containment campaign — FINAL AUDIT (sealed at E5, re-sealed at G3)
 
+> # ⛔ REVISION R1 (2026-07-28) — **THE TWO FAITHFULNESS AXIOMS ARE RETRACTED**
+>
+> **`WSC.Model.globalModel_faithful` and `WSC.SeizeModel.seizeModel_faithful` are
+> FALSE, and both have been DELETED**, together with every declaration that rested
+> on them. A published proof library must not carry an axiom known to be false:
+> everything downstream of one is worthless, and relabelling such a theorem rather
+> than deleting it would be worse than either. Finding **F24 is CLOSED** by this
+> revision; so is the seize half recorded at N5.
+>
+> **THIS IS A STRICT IMPROVEMENT AND MUST BE READ AS ONE.** The UPLC route now
+> covers every property, so the models were the B3 fallback from a wall that no
+> longer exists. Measured, over the whole clean-room build: **neither axiom
+> appeared in the transitive axiom set of ANY composed result**, so `top_claim`,
+> both `containment_on_*_class` theorems and every shaped P1/P2/P3/P4/P5/P6
+> theorem are bit-for-bit unaffected. What the library loses is one UNBOUNDED
+> statement about the seize path that was never sound; what it gains is that no
+> claim it makes rests on a refuted premise.
+>
+> ### R1.1 What was deleted, and where it stood at `12dfa20`
+>
+> | declaration | source line at `12dfa20` | why it went |
+> |---|---|---|
+> | `axiom WSC.Model.globalModel_faithful` | `WSC/Props/P1_Transfer.lean:428` | refuted twice — see R1.2 |
+> | `def WSC.Model.P1_bytecode` | `WSC/Props/P1_Transfer.lean:439` | its only inhabitant used the axiom |
+> | `theorem WSC.Model.P1_bytecode_of_P1_model` | `WSC/Props/P1_Transfer.lean:452` | proof is `globalModel_faithful` and nothing else |
+> | `def WSC.Model.P6_bytecode` | `WSC/Props/P1_Transfer.lean:460` | same |
+> | `theorem WSC.Model.P6_bytecode_of_P6_model` | `WSC/Props/P1_Transfer.lean:470` | same |
+> | `axiom WSC.SeizeModel.seizeModel_faithful` | `WSC/Model/SeizeModel.lean:851` | refuted at N5, verified again at R1 |
+> | `theorem WSC.P2.P2a_bytecode` | `WSC/Props/P2_Seize.lean:535` | `[…, WSC.SeizeModel.seizeModel_faithful]`, measured |
+> | `def WSC.P2.P2b_bytecode` | `WSC/Props/P2_Seize.lean:550` | statement of the retracted route |
+> | `theorem WSC.P2.P2b_model_implies_bytecode` | `WSC/Props/P2_Seize.lean:561` | `[…, WSC.SeizeModel.seizeModel_faithful]`, measured |
+> | 2 × `#print axioms` | `WSC/Props/P2_Seize.lean:581-582` | audited the two deleted bridges |
+>
+> ### R1.2 The refutations, verified at R1 rather than taken on report
+>
+> `WSC/Model/GlobalModelRefuted.lean` is NEW at R1 and refutes
+> `globalModel_faithful` **twice**, both `native_decide`, neither mentioning the
+> axiom (so both survive its deletion):
+>
+> 1. **SEMANTIC — this is finding F24, and it runs in the UNSOUND direction.**
+>    `global_model_and_bytecode_DISAGREE`: on
+>    `WSC.P1RShapedWitness.ctxSOwnMisindexed` the MODEL ACCEPTS while the real
+>    compiled `programmableLogicGlobal` reaches **`State.Error`** at a 20,000-step
+>    meter — against the **2,288** its accepting sibling needs
+>    (`K_T8R_is_2288`), so that is a refusal, not budget exhaustion. Controls on
+>    both sides: `control_ctxSOwn_they_agree` (accepting sibling, both accept) and
+>    `control_ctxSOwnNoWitness_they_agree` (owner in no withdrawal entry, both
+>    reject). Read against the source: PR #112 replaced the withdrawal-map SCAN
+>    with an INDEXED lookup driven by the redeemer's new `plgrOwnerWdrlIdxs`
+>    (`ProgrammableLogicBase.hs:386-393` at `2306678`, field declared `:1043-1051`);
+>    `WSC/Model/GlobalModel.lean` still transcribes the scan (`gateInput`,
+>    `:224-236`) and binds the field as `_ownerWdrlIdxsUnmodelled` (`:668-676`).
+>    R1 re-read both and confirms the divergence by inspection as well as by
+>    computation.
+> 2. **BUDGET — NEW at R1, and it never needed PR #112 at all.** The axiom's
+>    right-hand side is `appliedGlobal1600`, a run METERED AT 1600 CEK STEPS.
+>    `golden_shows_budget_gap`: the model accepts the decoded
+>    `transfer-member-single-policy` golden (`WSC/Model/GlobalGoldens.lean`), whose
+>    bytecode run **does not halt within 1,600 steps** and whose **K = 2,782,
+>    pinned two-sided** (halts at 2782, budget-errors at 2781 — a new measurement
+>    at `2306678`; `K-MEASUREMENTS.md` §3's 3,262 is the pre-#112 figure). So the
+>    left-to-right direction failed at a real off-chain-produced transaction, for
+>    reasons internal to the axiom's own statement. **Any axiom of that shape is
+>    unsatisfiable at a finite prep budget**; that is the transferable lesson.
+>
+> For the seize axiom R1 did **not** take N5's word. `WSC/Model/SeizeModelRefuted.lean`
+> was re-run (`control_ada_equal_they_agree`, `seize_model_and_bytecode_DISAGREE`,
+> both `native_decide` at `12dfa20`) and R1 ADDED **`no_faithful_bridge`**, an
+> ordinary Lean theorem refuting the axiom's *proposition* — so the retraction
+> cannot be undone by accident. The claim is confirmed: PR #112 deleted the
+> hand-rolled sorted lockstep walk `SeizeModel` transcribes and legalised an ada
+> top-up on the continuing output, which the model still forbids.
+>
+> ### R1.3 What the retraction cost — pinned, per verdict
+>
+> **NOTHING.** Two clean-room builds, before and after:
+>
+> | measurement | before (`12dfa20`) | after (R1) |
+> |---|---|---|
+> | exit status / jobs | 0 — **444** | 0 — **445** (+1: `WSC/Model/GlobalModelRefuted.lean`) |
+> | solver verdicts | **175** = 110 `✅ Valid` + 65 `✅ Expected Falsified` | **175** = 110 + 65 — **IDENTICAL** |
+> | `⚠️ Undetermined` / `❌` / `error:` | 0 / 0 / 0 | 0 / 0 / 0 |
+> | `declaration uses 'sorry'` | 20 | 20 |
+> | `unused variable` | 5 | 5 |
+> | results reaching a `*_faithful` axiom | **2** (`P2a_bytecode`, `P2b_model_implies_bytecode`) | **0** — the names do not exist |
+> | project axioms under `top_claim` | 25 | **25 — UNCHANGED** |
+> | project axioms under `containment_on_contained_class` | 25 | **25 — UNCHANGED** |
+> | project axioms under `containment_on_realizable_class` / `…_seize_class` | 28 / 28 | **28 / 28 — UNCHANGED** |
+> | `axiom` DECLARATIONS under `WSC/` | **47** | **45** |
+>
+> **Not one solver verdict is lost, so there is no verdict to pin to a source
+> line.** The deleted declarations carried none: `P1_bytecode_of_P1_model`,
+> `P6_bytecode_of_P6_model` and `P2a_bytecode` are ordinary term proofs and
+> `P1_bytecode` / `P6_bytecode` / `P2b_bytecode` are `Prop` definitions. The two
+> deleted `#print axioms` lines are the only census entries that disappear
+> (223 → 221 audited results).
+>
+> ### R1.4 Correction to a published number: the axiom count is 47, not 51
+>
+> `README.md` §3.2 and its reproduction recipe both quote
+> `grep -rn '^axiom ' --include='*.lean' WSC/ | wc -l` **= 51**. That grep counts
+> four PROSE lines inside docstrings that happen to begin with the word `axiom`
+> (`WSC/Honest.lean:4`, `:1459`, `:1701`, `WSC/Props/P1_Transfer.lean:451`). The
+> true count of axiom DECLARATIONS at `12dfa20` is **47**; after R1 it is **45**.
+> The recipe is corrected in place to `grep -rnE '^axiom [A-Za-z_][A-Za-z_0-9]*'`,
+> which is exact. No claim anywhere depended on the figure — the load-bearing
+> numbers are the 25/28 *reached* by the composed results, and those were measured
+> from `#print axioms`, not from grep.
+>
+> ### R1.5 The fate of `WSC/Model/*` — KEEP, DEMOTED, NO AXIOM, NO BRIDGE
+>
+> Deletion was considered and REJECTED, for a reason that is measurable rather
+> than sentimental: **live UPLC theorems consume definitions from these files.**
+> `WSC/Props/Shaped/P2ShapedR.lean` opens
+> `WSC.SeizeModel (seizedPolicyOf pairedOutputsOf progLogicCredDataOf)` and its
+> projection lemmas simp with `SeizeModel.{seizeFieldsOf, paramsAtRefIdx, dropL,
+> headM, hasCSH, paramsDirCSAndProgCred}`; `WSC/Props/Shaped/P1Shaped.lean` and
+> `P1ShapedR.lean` state their conclusions in `Model.outSum` / `Model.inSum` /
+> `Model.mintSigned` / `Model.mintPosOf` / `Model.coveringNodeExists`;
+> `WSC/Composition.lean` bridges `Model.outSum` to `outAtB`. Deleting the tree
+> would break the route that replaces it.
+>
+> So the models are KEPT and CLEARLY MARKED as pre-#112 artefacts, and **every
+> survivor is placed in exactly one of two categories**, stated at the head of each
+> file and in `WSC.lean`:
+>
+> | category | what is in it | how to read it |
+> |---|---|---|
+> | **TRUE LEAN FACTS ABOUT A STALE MODEL** | `P1.pathC_sound`, `P1.accum_lookup`, `P6_Member.mintWalk_sublist`, `mintWalk_result_sublist`, `mintWalk_member_retains`, `P2.P2a_seizeModel_preserves_structure`, `P2.tokensContain_unsound_*`, `GlobalModel.scriptInvokedEntries_eq_simple`, the `Model/GlobalGoldens.lean` and `Model/SeizeDiff.lean` differential theorems | **still true, and not false in any way** — they are simply not about the deployed script. A true lemma about a stale model is a true lemma. Do not quote any of them as a property of production |
+> | **SPECIFICATION VOCABULARY** | `Model/Ground.lean`'s `outSum`/`inSum`/`outSumLk` and its two `lookupDataOuter ≡ valueOf` theorems; `mintSigned`, `mintPosOf`, `coveringNodeExists`, `paramsPinned`; `P2.sumOutAtBase`/`sumInAtBase`; the seize redeemer projections | LIVE. These are `ScriptContext`-only definitions (ARCHITECTURE.md D3 / Tier 0.1), never model verdicts, and the UPLC theorems are stated in them |
+>
+> `WSC/Model/Ground.lean` is not a model at all and never was; R1 **cut its
+> `import WSC.Model.GlobalModel`** (it needs only `WSC.Spec` and
+> `PlutusCore.Value.Algebra`), so nothing live depends even transitively on the
+> retracted transcription. `WSC/Model/SeizeDiff.lean` is kept as a CASE STUDY and
+> its header now says so: its 13/13 differential test is **still green** against
+> the post-#112 bytecode, because no golden in the suite carries an ada-unequal
+> continuing pair. **A green differential test over a suite that does not cover
+> the delta is not evidence of fidelity** — that is the single most transferable
+> finding of this revision, and it is why `Model/GlobalGoldens.lean`'s "4/4" and
+> `SeizeDiff`'s "13/13" must never again be offered as fidelity evidence.
+>
+> ### R1.6 What is genuinely lost, said plainly
+>
+> One thing: the library no longer has any UNBOUNDED (neither shape- nor
+> budget-limited) statement about the seize path.
+> `P2a_seizeModel_preserves_structure` remains a true theorem about `seizeModel`,
+> but the bridge that made it a statement about production was false. P2 against
+> production is `WSC/Props/Shaped/P2ShapedR.lean` — both conjuncts, budget 3800,
+> SHAPE S1R, no model, no faithfulness axiom. That is bounded twice where the
+> retracted route was bounded not at all, and it is the honest trade: a bounded
+> theorem beats an unbounded one whose bridge is refuted.
+>
+> Nothing analogous is lost for P1 or P6. `P1_model` and `P6_model` were never
+> PROVED — they are `Prop` definitions whose links `L1_1a`, `L1_1b`, `L1_2`…`L1_6`
+> are all open — so `P1_bytecode_of_P1_model` was an implication out of an
+> unproved hypothesis, and the B3 route never produced a proved statement about
+> the bytecode for either property.
+
+
 > # ⚠️ REVISION N6 (2026-07-28) — RE-BASED ON wsc-poc `main` @ **2306678** (PR #112)
 >
 > **EVERYTHING BELOW THIS BANNER WAS WRITTEN AGAINST THE PRE-#112 BYTECODE.**
@@ -1914,7 +2074,7 @@ These are the traps. Each was a plausible delete candidate on question (1) alone
 | `Shaped/Probe/G6Vacuous2500.lean` | the cautionary case §4 opens with: a `✅ Valid` over an accept-UNSAT class, caught only by the mandatory probe. Cited 7×, incl. `README.md:268`, `REPRODUCE.md:184`, `Honest.lean:1191`, `NonVacuity.lean:80/158`, and §4 of this file |
 | `Shaped/Probe/L2RProbe.lean` | the `⚠️ Undetermined` measurement **behind** `P4_local_noEscape_RIdx`'s derivation. Cited by `P4LocalShapedR.lean:522/535/549` and by §1.3/§4.2/§7.6.2 here. Out of the build **on purpose** — that is what keeps the built set at 0 `⚠️` |
 | `Prep/Global.lean` (`:83` `global_vacuity_probe_600`) and `Props/P4_Minting.lean` (`:386` `minting600_is_vacuous`) | the two deliberate **`solve-result: 0`** stanzas. Their `✅ Valid` markers are 2 of the 162 and are *records of vacuity*, not proofs of safety (§1.4) |
-| `Model/*` (5 modules) | ~~`pathC_sound`, which covers a containment dispatch path that has no node-realizable UPLC shape~~ — **superseded at task H2**: SHAPE T3R exists and PATH C is now proved executed and true at UPLC (`T3R_pathC_is_taken`, entry **H2**), so `pathC_sound` is a source-model corroboration rather than the only evidence. **The library's only unbounded result, `P2.P2a_seizeModel_preserves_structure`, is REFUTED at 2306678** — `seizeModel_faithful` is false of the post-#112 bytecode and `Model/SeizeModelRefuted.lean` proves it by computation, so `Model/*` no longer supplies an unbounded seize result |
+| `Model/*` (now 7 modules) | **KEEP, DEMOTED — see entry R1.5 for the full disposition.** Both faithfulness axioms are FALSE and were DELETED at task R1, so `Model/*` supplies NO statement about production at all. It is kept because live UPLC theorems consume its *vocabulary* (`Model/Ground.lean`'s `outSum`/`inSum`, the seize redeemer projections, `mintSigned`/`coveringNodeExists`) and because two of its modules — `Model/GlobalModelRefuted.lean` (new at R1) and `Model/SeizeModelRefuted.lean` — ARE the retraction certificates. `pathC_sound` remains a true lemma about the model; PATH C at UPLC is `T3R_pathC_is_taken` (entry **H2**) |
 | **the K-search and prep-ceiling probes** — `Shaped/Probe/{M1K,G1K,L1K,DSRK,DTDSK,S1K,G1Witness,T1Probe,T4Probe,T6Probe,L1Probe,L2Probe,L2Reg,DTDSProbe,G2Probe,G3Probe,G6Diag,MPrep1700,MPrep2500,GPrep2500,GPrep4000,BasePrepUnshaped,UnshapedCost,B1Accept,AxAudit,Axioms,P1Axioms,V3Axioms,BridgeProbe,BridgeProbe2FAILS,BridgeProbe3..7}.lean` | 0 importers every one of them, **and every one is cited in prose as the provenance of a number that IS quoted** — e.g. `NonVacuity.lean:70/74/77` names `L1K`/`G1K`/`G6Diag` as where K = 1681 / 1541 / 2837 were searched; `P4DelegateShapedR.lean:546` names `DSRK`; `P4LocalShaped.lean:84` names `L2Reg` for the registration `⚠️ Undetermined`; `SHAPING-RESULTS.md` §§ and `SHAPE-BRIDGE.md:516-525` are inventory tables over them. Deleting any of these turns a measured figure into an unsourced one. **Note the grep trap:** several are cited only in brace-expanded form (`Probe/{M1K,G1K}.lean`, `Probe/{MPrep1700,MPrep2500,GPrep2500,GPrep4000}.lean`), so a basename grep reports them as uncited. They are not |
 | `Prep/Minting1300.lean` | declares **no theorem** and its `appliedMinting1300` is used by no theorem (§4.1 says so) — and it is still load-bearing, because the module header *is* the F5 correction to `K-MEASUREMENTS.md` §5.1: the native-vs-interpreted prep table and the "affordable ceiling is 1700, 2000 dead" figure, cited by `P4_Minting.lean:212` and `Prep/Minting800.lean:20`. Its 9.6 s of build cost is itself the measurement |
 | `goldens/prep-probes/*.lean.disabled` (9), `goldens/{KMeasure,KVerify}.lean.disabled` | the reproduction inputs for `K-MEASUREMENTS.md` §§2.1/3/5.1 and `MANIFEST.md:189-194`. §5.1's method is superseded and its figures carry a DO-NOT-USE warning (F5), but the probes are the *provenance* of figures that are still published with that warning; deleting them would leave §5.1's provenance column dangling |

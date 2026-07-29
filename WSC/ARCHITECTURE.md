@@ -144,7 +144,7 @@ Root cause is narrow and confirmed: PlutusCoreBlaster's `builtinTable` has tags 
   - `valueContains_iff : valueContains v₁ v₂ = true ↔ noNeg v₁ ∧ noNeg v₂ ∧ ∀ c t, lookupCoin c t v₂ ≤ lookupCoin c t v₁`
   - `insertCoin_lookup`, `unValueData_lookup`
   Register them so the P1 proof reduces to integer monotonicity over `lookupCoin` results (no symbolic map-merge exposed to Z3).
-- **B3 — P1 fallback (only if B2 stalls, the cip153-unblock HIGH-risk prediction).** Transcribe `mkProgrammableLogicGlobal`'s TransferAct containment into `mkProgrammableLogicGlobalModel` against CLAB `Value`, with the five builtins as the *abstractly specified* operations characterized by the *same* `BuiltinAlgebra` lemmas. Add exactly **one** `axiom mkProgrammableLogicGlobalModel_faithful` (the sole trust delta vs UPLC). Every hypothesis, aux lemma, and postcondition is substrate-independent and reused verbatim; when B2 later succeeds, delete the axiom and swap the applied term back.
+- **B3 — P1 fallback (only if B2 stalls, the cip153-unblock HIGH-risk prediction).** ⛔ **DEAD ROUTE — its `_faithful` axiom is FALSE and was RETRACTED at task R1 (ADDENDUM R1).** Transcribe `mkProgrammableLogicGlobal`'s TransferAct containment into `mkProgrammableLogicGlobalModel` against CLAB `Value`, with the five builtins as the *abstractly specified* operations characterized by the *same* `BuiltinAlgebra` lemmas. Add exactly **one** `axiom mkProgrammableLogicGlobalModel_faithful` (the sole trust delta vs UPLC). Every hypothesis, aux lemma, and postcondition is substrate-independent and reused verbatim; when B2 later succeeds, delete the axiom and swap the applied term back.
 
 **Justification for hybrid over the extremes:** pure contribute-and-UPLC likely ships a red P1 (symbolic containment intractable); pure source-model discards the zero-gap UPLC results already available for P2/P3/P4 and cheaply gettable for P5/P6, and hand-models the whole validator. Hybrid confines hand-modeling to the *single* intractable obligation and still bottoms it out in the *actual* builtin denotations via B2's lemmas.
 
@@ -276,7 +276,7 @@ theorem P1_transfer_conserves :
 ```
 
 - **Precondition:** `validRewardingContext` + `HonestParams` + `IsRegistered` + `isTransferAct`. **RHS is ground-truth** (base-input sum + positive mint), *not* the validator's `expectedValue` (D3).
-- **Strategy:** B2 (algebra-assisted UPLC) → B3 (source-model fallback with one fidelity axiom).
+- **Strategy:** B2 (algebra-assisted UPLC) → B3 (source-model fallback with one fidelity axiom). ⛔ **OUTCOME: B2 WON; B3'S AXIOM WAS FALSE AND IS RETRACTED — see ADDENDUM R1 at the end of this file.**
 - **Aux:** L1.1 `outAtBase_containment_sound` (must cover *all three* dispatch paths — single-asset scan, wholesale byte-equality, builtin `valueContains`; each independently ⟹ aggregate `≥`); L1.2 foldl-distribution; L1.3 `witness_forces_all_base_inputs` (`pvalueFromCred` `perror`s, does not skip, when `payCred = base` and owner witness absent ⟹ counts *every* base input); L1.4 `registered_survives_filter` (= contrapositive of P5); L1.5 `mint_positive_enters_additively` (= P6 specialized); L1.6 `filterPositive_preserves_positive`.
 
 ### P5 — a containment exemption can only be claimed for genuinely-unregistered policies (**Phase B**)
@@ -459,7 +459,7 @@ The skeptic's checklist as concrete gates. **Status** marks what the substrate a
 - **3.3 payment- vs staking-credential scope** — **document the boundary:** P1 proves *aggregate containment at the base payment credential*, NOT per-holder ownership; intra-ledger reshuffling between holders is enforced by per-policy transfer-logic scripts, **outside** this formalization. No summary may overclaim.
 - **3.4 seize both halves** — P2 must conjoin corresponding-output preservation (full address incl. staking, datum, refscript byte-identical) AND remaining-output containment; treat each `pvalueEqualsDeltaCurrencySymbol` branch (`:1795/1801-1817/1827`) as a distinct obligation (historically bug-prone: the `:1738/1740` silently-dropped-token fix).
 
-**TIER 4 — source-model divergence (only if P1 uses B3 fallback):**
+**TIER 4 — source-model divergence (only if P1 uses B3 fallback):** ⛔ **MOOT — B3 is retracted (ADDENDUM R1); P1 is proved at UPLC.**
 - **4.x** — model each of the five builtins from `Value.hs` *including* error conditions (unionValue overflow-error, valueContains negative-error, insertCoin-0-deletes, unValueData ordering-validation); model all three `pvalueFromCred` phases and all three containment paths; replicate the exact cons/reverse accumulator order (the landed "accumulator-order fix"). **Preferred bar: eliminate the model via B2 (UPLC).** If B3 ships, mark P1 **PROVISIONAL** with golden cross-checks (real CEK output ≡ model on sampled ctx) + the single `_faithful` axiom.
 
 **TIER 5 — composition/circularity:**
@@ -489,7 +489,7 @@ Legend: **[A]** Phase A (do first, low risk, gold standard now) · **[B]** Phase
 - **U5 [B] — CIP-153 builtins in PlutusCoreBlaster.** Enum + arity + flat-table + denotations (`BuiltinFunctions/Value.lean`) + cost stubs, matching `Value.hs`. **Deliverable: `programmableLogicGlobal.flat` decodes and `#prep_uplc @9000` succeeds.** *Depends on: nothing (separate repo) — can run fully parallel to all of Phase A. Highest external risk; ~1.5–2 days mechanical. Start it at the same time as U0 so Phase B isn't serialized behind Phase A.*
 - **U6 [B] — P5 + P6 at UPLC.** `props/P5_NonMember.lean`, `props/P6_Member.lean`, L5.1/L6.1/L6.2, `by blaster` @9000. *Depends on: U5 + U0. Low/medium risk (structural walks).* 
 - **U7 [B] — BuiltinAlgebra + P1 (B2 route).** `BuiltinAlgebra.lean` (four lookupCoin-algebra lemmas about the U5 denotations) + `props/P1_Transfer*.lean` L1.1–L1.6, algebra-assisted `by blaster`. *Depends on: U5 + U0 + (reuses P5 via L1.4). Highest Phase-B risk.*
-- **U7′ [B] — P1 source-model fallback.** Trigger only if U7 stalls: `mkProgrammableLogicGlobalModel` + one `_faithful` axiom, bridged through the *same* `BuiltinAlgebra` lemmas; golden cross-checks. *Depends on: U7 attempt outcome. Contingent.*
+- **U7′ [B] — P1 source-model fallback.** ⛔ **WITHDRAWN at task R1 (ADDENDUM R1).** Trigger only if U7 stalls: `mkProgrammableLogicGlobalModel` + one `_faithful` axiom, bridged through the *same* `BuiltinAlgebra` lemmas; golden cross-checks. *Depends on: U7 attempt outcome. Contingent.*
 - **U8 [B] — global fidelity controls.** Global positive/negative witnesses; §6 Tier-3.1 (all three dispatch paths), Tier-4 (if U7′), Tier-2.3 consistency lemma. *Depends on: U6/U7.*
 
 ### Composition + directory (final integration)
@@ -689,3 +689,67 @@ unchanged; base non-vacuous @600, minting/seize vacuous @600).
 > made from this SHALLOW clone would be unusable) and `WSC/REPRODUCE.md` (full
 > third-party build). Audit disposition: `WSC/AUDIT.md` §6.2 — D5 downgraded
 > HIGH/OPEN → MEDIUM/PARTIALLY REPAIRED, not closed.
+
+---
+
+## ADDENDUM R1 (2026-07-28) — **ROUTE B3 IS DEAD. BOTH `_faithful` AXIOMS ARE RETRACTED.**
+
+This document plans a *staged hybrid* (§D1, §B3, §Tier 4, §U7′): try UPLC first,
+fall back to a source model for the intractable obligations, and pay for the
+fallback with **exactly one small, auditable `_faithful` axiom** per model. That
+plan was executed. **This addendum records its outcome, which is that the fallback
+half of it is unsound and has been removed from the library.**
+
+**What happened.** Both halves of the hybrid were built. The UPLC half won
+outright: shaped contexts (task V1/Z6, re-cut at N5/H2) put P1, P2, P3, P4, P5 and
+P6 against the compiled production bytecode, and `WSC/Shaped/Probe/P1Axioms.lean`
+measured the shaped route free of any faithfulness axiom. The B3 half shipped two
+axioms — `WSC.Model.globalModel_faithful` (`WSC/Props/P1_Transfer.lean`) and
+`WSC.SeizeModel.seizeModel_faithful` (`WSC/Model/SeizeModel.lean`). **Both are
+FALSE**, and at task R1 both were DELETED together with `P1_bytecode`,
+`P1_bytecode_of_P1_model`, `P6_bytecode`, `P6_bytecode_of_P6_model`,
+`P2a_bytecode`, `P2b_bytecode` and `P2b_model_implies_bytecode`.
+
+**Four things this document asserted that the outcome refutes, stated so they are
+not repeated:**
+
+1. **§D1: "Net added trust in the fallback = one small, auditable P1-transcription
+   fidelity axiom."** The axiom was neither small nor auditable: it was a
+   WHOLE-VALIDATOR equivalence over ~700 lines of transcription, and its actual
+   audit surface was four goldens. It was false.
+2. **§Tier 4 / §U7′: "mark P1 PROVISIONAL with golden cross-checks (real CEK
+   output ≡ model on sampled ctx) + the single `_faithful` axiom."** Golden
+   cross-checks do not bound transcription risk. `WSC/Model/SeizeDiff.lean`'s
+   13/13 differential test is **still green** against the post-#112 bytecode that
+   refutes its axiom, because no golden in the suite exercises the rule that
+   changed. **A green differential test over a suite that does not cover the delta
+   is not evidence of fidelity.**
+3. **The bridge's SHAPE was wrong, independently of any transcription error.**
+   `globalModel_faithful` equated the model's verdict with
+   `isSuccessful (appliedGlobal1600.prop …)` — a run METERED AT 1600 CEK STEPS.
+   The model accepts transactions costing 2,782 steps. **An axiom bridging an
+   unbounded model to a budget-metered prep term is unsatisfiable by
+   construction**; if such a bridge is ever written again it must quantify the
+   step count (`∃ n`, as `seizeAcceptsUnbounded` does), or not be written.
+4. **"when B2 later succeeds, delete the axiom and swap the applied term back"**
+   (§B3) was the right instinct and was NOT followed in time. B2 succeeded at task
+   V1; the axiom survived until R1 because nothing forced the deletion. The
+   library now carries the two refutations as MODULES IN THE DEFAULT BUILD
+   (`WSC/Model/GlobalModelRefuted.lean`, `WSC/Model/SeizeModelRefuted.lean`) so the
+   retraction is a measurement that re-runs, not a sentence in a changelog.
+
+**What survives of the B3 work, and in which category.** `WSC/Model/*` is KEPT,
+demoted, with no axiom and no bridge. Every survivor is either a TRUE LEAN FACT
+ABOUT A STALE MODEL (`pathC_sound`, `accum_lookup`, the `mintWalk_*` sublist
+lemmas, `P2a_seizeModel_preserves_structure`, the `tokensContain_unsound_*`
+counterexamples — true, and simply not about production) or SPECIFICATION
+VOCABULARY the live UPLC theorems are stated in (`Model/Ground.lean`'s
+`outSum`/`inSum`, `mintSigned`/`mintPosOf`/`coveringNodeExists`/`paramsPinned`,
+`P2.sumOutAtBase`/`sumInAtBase`, the seize redeemer projections).
+`Model/Ground.lean` was never a model and no longer imports one. Full disposition
+and the before/after censuses: `WSC/AUDIT.md` entry **R1**.
+
+**The revised planning rule, for any future property.** UPLC or nothing. If a
+property is unreachable at UPLC, shape it and say so; do not model it and bridge
+it with an unproved equivalence. The only acceptable source-model bridge is a
+PROVED one.

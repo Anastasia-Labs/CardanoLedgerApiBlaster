@@ -1,5 +1,27 @@
 # WSC programmable-token containment — what this formalization establishes
 
+> # ⛔ TASK R1 (2026-07-28) — **THE TWO FAITHFULNESS AXIOMS ARE RETRACTED**
+>
+> `WSC.Model.globalModel_faithful` and `WSC.SeizeModel.seizeModel_faithful` are
+> **FALSE and have been DELETED**, with every declaration that rested on them.
+> Refutations are machine-checked and in the default build
+> (`WSC/Model/GlobalModelRefuted.lean`, `WSC/Model/SeizeModelRefuted.lean`);
+> full disposition in `WSC/AUDIT.md` entry **R1**.
+>
+> **Read this as a STRICT IMPROVEMENT.** Every property is proved at UPLC against
+> the compiled production bytecode; the source models were the fallback route for
+> a wall that shaped contexts removed. Measured, clean-room before/after: **445
+> jobs** (+1 module), **175 verdicts (110 `✅ Valid` + 65 `✅ Expected Falsified`) —
+> identical**, 0 `⚠️`/`❌`, 0 errors, and project axioms under every composed
+> result **unchanged** (25 inert / 28 transfer / 28 seize). Neither axiom was ever
+> reached by any composed result. Axiom DECLARATIONS under `WSC/`: **47 → 45**;
+> the "51" quoted in §3.2 and §5 below was a grep artefact and is corrected there.
+>
+> **What is genuinely lost, and it is reported as a loss:** the library no longer
+> has any UNBOUNDED statement about the seize path. P2 against production is
+> `WSC/Props/Shaped/P2ShapedR.lean` — both conjuncts, budget 3800, SHAPE S1R.
+
+
 > # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
 >
 > This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
@@ -202,7 +224,10 @@ the map is not read.
   enters its builtin accumulation phase). `WSC/Props/Shaped/P1ShapedBC.lean` carries
   the theorems, the probes, the two-sided K and the executable path evidence; quote
   `AUDIT.md` entry **H2** for the exact status, not "all three paths verified".
-* **P2** — the containment conjunct is **false in general on the source model**: two
+* **P2** — the source-model route is **GONE** (task R1): `seizeModel_faithful` is
+  false and was deleted, and with it the library's only unbounded seize statement.
+  What remains is the shaped UPLC proof, and there the containment conjunct is
+  **false in general on the source model**: two
   machine-checked counterexamples show `ptokenPairsContain` is unsound with duplicate
   token names or unsorted maps. It closes at SHAPE S1R *because* S1R gives every value
   exactly one policy and one token name. **This is now load-bearing in a composed
@@ -262,10 +287,21 @@ The **+2** differ by side and are the price of making the bytecode load-bearing:
   side condition is **discharged**, not assumed) and `TS3`;
 * seize: `LR_BUDGET_seize` (at K = 3800) and `nodeStepsSeize`.
 
-**Read 26/28 as a floor.** The library declares **51** axioms; the 21 no top-level
-theorem reaches are what a fuller bytecode discharge would add. And **zero** axioms
-are declared under `WSC/Prep/`, `WSC/Shaped/` or `WSC/Props/Shaped/` — the shaped
-layer adds no assumption, machine-verified.
+**Read 26/28 as a floor.** The library declares **45** axioms (task R1; it was 47
+before the two `*_faithful` retractions — the **51** printed here until R1 was a
+grep artefact, four prose lines beginning with the word "axiom" inside docstrings,
+see `AUDIT.md` R1.4); the ones no top-level theorem reaches are what a fuller
+bytecode discharge would add. **The two `*_faithful` axioms are no longer among
+them: they are deleted, because they are false.** And **zero** axioms are declared
+under `WSC/Prep/`, `WSC/Shaped/` or `WSC/Props/Shaped/` — the shaped layer adds no
+assumption, machine-verified.
+
+*Observed at R1 and NOT changed here, because it is not R1's finding to fix:* the
+"26 shared" enumeration above lists `LR_CTX`, but `#print axioms
+WSC.Composition.containment_on_contained_class` does not contain it — the measured
+shared set is **25**, and `LR_CTX` is one of the three that each realizable side
+adds (transfer: `LR_BUDGET_global`, `LR_CTX`, `TS3`; seize: `LR_BUDGET_seize`,
+`LR_CTX`, `nodeStepsSeize`). The 28s are correct; the 26 should read 25.
 
 ### 3.3 Open
 
@@ -516,8 +552,10 @@ grep -cE '⚠️|❌' build.log ; grep -c 'error:' build.log        # 0 ; 0
 #   Coverage.not_covers_at_T1R_size                   -> 0, no sorryAx
 
 # 4. the shaped layer adds no assumption
-grep -rn '^axiom ' --include='*.lean' WSC/ | wc -l                                  # 51
-grep -rn '^axiom ' --include='*.lean' WSC/Prep WSC/Shaped WSC/Props/Shaped | wc -l  # 0
+# NOTE (task R1): '^axiom ' matches 4 PROSE lines inside docstrings. Use the
+# anchored form, which counts declarations only.
+grep -rnE '^axiom [A-Za-z_][A-Za-z_0-9]*' --include='*.lean' WSC/ | wc -l           # 45
+grep -rn  '^axiom ' --include='*.lean' WSC/Prep WSC/Shaped WSC/Props/Shaped | wc -l # 0
 
 # 5. the re-cut, checked in BOTH directions
 #   RealizableShapes.all_recut_witnesses_redeemersExact     (new shapes pass)

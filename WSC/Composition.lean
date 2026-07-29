@@ -58,12 +58,18 @@ field of `LeafSet` (§6) with the library theorem, in §9.
    non-overlap are the escape-critical ones. `U10` — formalizing
    `mkDirectoryNodeMP` at UPLC and proving per-insert preservation, then lifting
    over history — is what would discharge them.
-4. **FAITHFULNESS AXIOMS.** Where a leaf is discharged by the source-model route
-   the corresponding `<model>_faithful` axiom (`WSC.SeizeModel.seizeModel_faithful`
-   for P2, `WSC.Model.globalModel_faithful` for P1/P6) enters the trust base. Each
-   is a WHOLE-VALIDATOR equivalence between a hand transcription and the compiled
-   bytecode, evidenced by source-line citations and golden differential agreement
-   (13/13 seize, 4/4 global) — not proved.
+4. **FAITHFULNESS AXIOMS — THERE ARE NONE, as of task R1.** There used to be two
+   (`WSC.SeizeModel.seizeModel_faithful` for P2, `WSC.Model.globalModel_faithful`
+   for P1/P6), each a WHOLE-VALIDATOR equivalence between a hand transcription and
+   the compiled bytecode, evidenced by source-line citations and golden
+   differential agreement (13/13 seize, 4/4 global) but never proved. **BOTH ARE
+   FALSE AND BOTH WERE DELETED**, with every declaration that rested on them —
+   machine-checked refutations in `WSC/Model/GlobalModelRefuted.lean` and
+   `WSC/Model/SeizeModelRefuted.lean`. Neither ever appeared in the transitive
+   axiom set of any composed result here (measured), so the trust base of this
+   file is UNCHANGED and the library's claims are strictly stronger. The
+   source-model route is closed; every leaf that is discharged by the bytecode is
+   discharged AT UPLC.
 5. **`OnChain` / `Deployed` are never discharged**: they are the model/chain
    bridge (`WSC/Honest.lean`).
 
@@ -890,9 +896,11 @@ is MEASURED vacuous, which made `WSC.LR_BUDGET_seize` unusable by construction.
 SHAPE S1's K = 3004 witness. So `WSC.LR_BUDGET_seize` is now applicable in
 principle. It is still NOT applied here, and the seize leaf is still triggered by
 `NodeAcceptsSeize`, because `WithinBudget` has no seize clause (see §5) and
-`LeafSet.p2` is open regardless. Discharging `LeafSet.p2` from
-`WSC.P2.P2a_bytecode` /
-`WSC.P2.P2b_bytecode` therefore additionally requires
+`LeafSet.p2` is open regardless. **RETRACTED AT TASK R1:** the route this note was
+written about no longer exists — `WSC.P2.P2a_bytecode` / `P2b_bytecode` were
+deleted with the false axiom `WSC.SeizeModel.seizeModel_faithful`. The note is
+kept because the obligation it names is still the right one for ANY unbounded
+seize route that might replace it:
 
     LR_SEIZE_HALTS : NodeAcceptsSeize pcs ctx → SeizeModel.seizeAcceptsUnbounded pcs ctx
 
@@ -1094,8 +1102,10 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   are withdrawn.
 
   1. It said "DISCHARGED BY: `WSC.Model.P1_bytecode` — MODEL+AXIOM
-     (`WSC.Model.globalModel_faithful`)". That is now only the WEAKER of two
-     routes. P1 is proved AT UPLC against the compiled bytecode, with NO
+     (`WSC.Model.globalModel_faithful`)". That was already only the WEAKER of two
+     routes at U3, and at **task R1 it ceased to be a route at all**: the axiom is
+     FALSE (`WSC/Model/GlobalModelRefuted.lean`) and both it and `P1_bytecode`
+     were DELETED. P1 is proved AT UPLC against the compiled bytecode, with NO
      faithfulness axiom, over four shapes at budget 4400 —
      `WSC.P1_T1`/`P1_T2`/`P1_T6`/`P1_T7`, `#print axioms` = `[propext, sorryAx,
      Classical.choice, Quot.sound]` (`sorryAx` = blaster's `admit`). §10.2's
@@ -1129,17 +1139,23 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   back to the base credential, every other one because the mini-ledger inputs are
   paired with byte-identical continuing base outputs.
 
-  DISCHARGED BY, in two halves and NEITHER complete:
+  DISCHARGED BY: the SHAPED UPLC route only, as of task R1.
+  `WSC/Props/Shaped/P2ShapedR.lean` proves both conjuncts against the compiled
+  `programmableSeize` at budget 3800 over SHAPE S1R, and
+  `WSC/Props/Shaped/RealizableLeavesS1R.lean` instantiates this field from it.
+
+  **The source-model route recorded here is GONE (task R1)** and is kept only so
+  the change is visible: it was
   * seized policy: `WSC.P2.P2b_bytecode` — a `Prop`, STILL-OPEN
     (`P2b_seized_delta_contained` is blocked on the two bridges of that file's
     §5, with machine-checked counterexamples showing `ptokenPairsContain` is not
     pointwise sound without `validTxOutValue` canonicity);
-  * non-seized policies: `WSC.P2.P2a_bytecode` is PROVED (MODEL+AXIOM,
+  * non-seized policies: `WSC.P2.P2a_bytecode`, PROVED (MODEL+AXIOM,
     `WSC.SeizeModel.seizeModel_faithful`, 13/13 golden differential incl. the
     rejecting vector), but "structure preserved ⟹ `Contain` for a non-seized
-    policy" is an UNWRITTEN lemma — `WSC.seizeStructurePreserved` pairs inputs
-    with outputs up to `dropCS seizedCS`, and turning that pairing into the
-    aggregate per-slot inequality is the missing step.
+    policy" was an UNWRITTEN lemma.
+  Both declarations were DELETED with the axiom, which is FALSE of the post-#112
+  bytecode (`WSC/Model/SeizeModelRefuted.lean`).
 
   It also inherits ARCHITECTURE.md's L2.5: P2 does NOT claim the directory node
   the seize redeemer points at is authentic. -/
@@ -1791,11 +1807,13 @@ slot at every UTxO whose payment credential is not `hp.progLogicCred`.
    ones are (i) insert-only, (iii) NFT-name = node-key datum binding and (iv)
    interval non-overlap. `U10` (`mkDirectoryNodeMP` at UPLC + lift over history)
    is what would discharge them.
-5. **FAITHFULNESS AXIOMS.** Discharging `LeafSet.p1`/`LeafSet.p2` by the
-   source-model route imports `WSC.Model.globalModel_faithful` and
-   `WSC.SeizeModel.seizeModel_faithful` — whole-validator hand-transcription
-   equivalences, evidenced (4/4 and 13/13 golden differential agreement, source
-   line citations) but not proved.
+5. **FAITHFULNESS AXIOMS — NONE (task R1).** Discharging `LeafSet.p1`/`LeafSet.p2`
+   by the source-model route used to import `WSC.Model.globalModel_faithful` and
+   `WSC.SeizeModel.seizeModel_faithful`. Both are FALSE and both were RETRACTED;
+   there is no source-model route to a bytecode statement any more. `p1` and `p2`
+   are instantiated from the SHAPED UPLC theorems only
+   (`WSC/Props/Shaped/RealizableLeaves.lean`, `RealizableLeavesS1R.lean`), and
+   `top_claim`'s axiom set is unchanged by the retraction.
 6. **LEDGER AXIOMS.** §4 (`lr_utxo_semantics`, `lr_inputs_in_ledger`,
    `lr_registration_source`, `LR_BALANCE_SLOT`, `ts_minting_identity_L`),
    `ts_genesis`, `NONNEG_L`, `DIRWF_L`, and the `WSC/Honest.lean` set. Of these
@@ -2586,13 +2604,20 @@ BRIDGE (§9.4).
 `DelegateTransfer`/`DelegateSeize` arms at K≈1,300/1,700 would let `p4` be
 instantiated at `Shape :=` that shape's predicate — a one-line change here.
 
-**`LeafSet.p1` — STILL-OPEN (and MODEL+AXIOM even when it lands).** P1 is
-NOT-REACHABLE-AT-UPLC (containment-carrying accepts cost 3,262 / 3,726 CEK steps;
-preps extrapolate to years). `WSC.Model.P1_bytecode` is the intended source, and it
-is `WSC.Model.P1_model` + `WSC.Model.globalModel_faithful`; but `P1_model` is
-itself a `Prop`, unproved — its links `L1_1a_pathA_sound`, `L1_1b_pathB_sound`,
-`L1_2`…`L1_6` are all stated-not-proved. Only Path C
-(`WSC.Model.pathC_sound`) and `accum_lookup` are proved.
+**`LeafSet.p1` — STILL-OPEN (and MODEL+AXIOM even when it lands).**
+⚠️ **THIS PARAGRAPH IS A HISTORICAL RECORD AND IS SUPERSEDED TWICE OVER.** First
+by task V1 (P1 IS reachable at UPLC, over shapes, at budget 4400 — see the
+CORRECTED note in §6 `LeafSet.p1` and §10.2's
+`leafP1_of_shapedGlobalContainment`); then by task R1, which DELETED
+`WSC.Model.P1_bytecode` and `WSC.Model.globalModel_faithful` because that axiom is
+FALSE (`WSC/Model/GlobalModelRefuted.lean`). Read on for what it said, not for
+what is true. — P1 was recorded NOT-REACHABLE-AT-UPLC (containment-carrying accepts
+cost 3,262 / 3,726 CEK steps; preps extrapolate to years). `WSC.Model.P1_bytecode`
+was the intended source, and it was `WSC.Model.P1_model` +
+`WSC.Model.globalModel_faithful`; but `P1_model` is itself a `Prop`, unproved — its
+links `L1_1a_pathA_sound`, `L1_1b_pathB_sound`, `L1_2`…`L1_6` are all
+stated-not-proved. Only Path C (`WSC.Model.pathC_sound`) and `accum_lookup` are
+proved.
 ALSO REQUIRED: the raw↔ground-truth reconciliation of the exemption predicate
 (`coveringNodeExists` vs `coveringIn`), which costs `WSC.TS3` + `WSC.TS5`, exactly
 as `WSC.P5_groundtruth_of_indexed` does it for P5.
@@ -2638,13 +2663,19 @@ glossed:
    `ShapedGlobalContainment` (§10.2).
 
 **`LeafSet.p2` — STILL-OPEN in half, MODEL+AXIOM in the other.**
-Seized policy: `WSC.P2.P2b_bytecode` is a `Prop` — STILL-OPEN (blocked on the two
-bridges of `WSC/Props/P2_Seize.lean` §5, with machine-checked counterexamples
-showing `ptokenPairsContain` is not pointwise sound without `validTxOutValue`).
-Non-seized policies: `WSC.P2.P2a_bytecode` is **PROVED (MODEL+AXIOM,
-`WSC.SeizeModel.seizeModel_faithful`, 13/13 golden differential incl. the rejecting
-vector, and NOT budget-bounded)**, but the step "structure preserved ⟹ `Contain`
-for a non-seized policy" is an UNWRITTEN lemma.
+⚠️ **HISTORICAL RECORD, SUPERSEDED.** Task R1 DELETED `WSC.P2.P2a_bytecode` and
+`WSC.P2.P2b_bytecode` together with the false axiom
+`WSC.SeizeModel.seizeModel_faithful`; task N5 had already proved BOTH conjuncts
+against the compiled `programmableSeize` over SHAPE S1R
+(`WSC/Props/Shaped/P2ShapedR.lean`), which is what
+`RealizableLeavesS1R.lean` instantiates `p2` from. As written: seized policy —
+`WSC.P2.P2b_bytecode` was a `Prop`, STILL-OPEN (blocked on the two bridges of
+`WSC/Props/P2_Seize.lean` §5, with machine-checked counterexamples showing
+`ptokenPairsContain` is not pointwise sound without `validTxOutValue`);
+non-seized policies — `WSC.P2.P2a_bytecode` was PROVED (MODEL+AXIOM, 13/13 golden
+differential incl. the rejecting vector, and NOT budget-bounded), but the step
+"structure preserved ⟹ `Contain` for a non-seized policy" is an UNWRITTEN
+lemma.
 ALSO REQUIRED: `LR_SEIZE_HALTS` (§4's note).
 
 **`LeafSet.nopre` — STILL-OPEN.** ARCHITECTURE.md §5.1's `L-mint-needs-reg`. The

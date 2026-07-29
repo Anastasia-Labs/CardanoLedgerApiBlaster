@@ -716,15 +716,18 @@ end WSC
 
 /-! ## §Axiom census (task N5)
 
-`WSC.SeizeModel.seizeModel_faithful` is REFUTED at wsc-poc `2306678`
-(`WSC/Model/SeizeModelRefuted.lean`). This module imports `WSC/Props/P2_Seize.lean`,
-which USES that axiom, so it is worth demonstrating rather than asserting that
-NONE of the results above travels through it. The shaped route talks to the
-bytecode directly and cites no model.
+`WSC.SeizeModel.seizeModel_faithful` was REFUTED at wsc-poc `2306678`
+(`WSC/Model/SeizeModelRefuted.lean`) and **DELETED at task R1**, together with
+`WSC.P2.P2a_bytecode` / `P2b_bytecode` / `P2b_model_implies_bytecode`. This
+module imports `WSC/Props/P2_Seize.lean`, which USED that axiom, so the census
+below was written to demonstrate rather than assert that none of the results
+above travels through it; post-R1 it is also the record that the axiom is gone
+from the environment entirely. The shaped route talks to the bytecode directly
+and cites no model.
 
 `blaster` closes its goals with `admit`, so `sorryAx` is expected on every
-theorem it proves and is not a defect; what matters is that
-`WSC.SeizeModel.seizeModel_faithful` does NOT appear. -/
+theorem it proves and is not a defect; what matters is that no `*_faithful` name
+appears. -/
 
 #print axioms WSC.P2a_R_structure
 #print axioms WSC.P2a_R_ada_only_tops_up

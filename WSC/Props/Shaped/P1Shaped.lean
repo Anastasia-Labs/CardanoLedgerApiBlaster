@@ -49,13 +49,16 @@ WHAT CHANGED
 1,600 already, and the extrapolation to 3,300 was **7 to 182 YEARS**
 (`WSC/goldens/K-MEASUREMENTS.md` §5.2). P1 was therefore proved only on a
 hand-transcribed SOURCE MODEL, bridged by the whole-validator faithfulness axiom
-`WSC.Model.globalModel_faithful`.
+`WSC.Model.globalModel_faithful` — **an axiom that was later shown FALSE and
+RETRACTED at task R1** (`WSC/Model/GlobalModelRefuted.lean`). The theorems below
+are the reason nothing was lost when it went.
 
 Shaped prep is budget-independent (WSC/SHAPING-RESULTS.md §2.5). Measured in this
 task: **0.97 s at budget 2700 and 1.00 s at budget 4400**. The prep barrier is
 gone, and the theorems below are the first statements of P1 that hold **against
 the production bytecode with NO faithfulness axiom** — `#print axioms` in
-WSC/Shaped/Probe/P1Axioms.lean confirms `globalModel_faithful` is absent.
+WSC/Shaped/Probe/P1Axioms.lean confirmed `globalModel_faithful` was absent from
+them even before task R1 deleted it outright.
 
 ════════════════════════════════════════════════════════════════════════════
 SCOPE — EVERY FIXED DIMENSION, NAMED
@@ -742,11 +745,16 @@ theorem exec_accepts_exempt_escape :
 
 `WSC/Model/GlobalModel.lean` is the hand transcription P1 was previously proved
 against. It agrees with the real bytecode on all four witnesses — three accepts
-and one reject — which is four more differential-test vectors for
-`globalModel_faithful` on top of the four goldens
+and one reject — which was four more differential-test vectors for the
+(since-RETRACTED, and false) `globalModel_faithful` on top of the four goldens
 (`WSC/Model/GlobalGoldens.lean`), and the first ones that exercise the
 mini-ledger INPUT-side aggregation and the containment scan with a genuine escape
-route. -/
+route.
+
+⚠️ **AND IT IS THE CAUTIONARY CASE.** Eight agreeing differential vectors were
+not enough: `WSC/Model/GlobalModelRefuted.lean` exhibits a NINTH context on which
+the model and the bytecode disagree, in the unsound direction. Read this theorem
+as a measurement of the model, never as evidence of fidelity. -/
 theorem model_agrees_on_witnesses :
     Model.globalModel ppCS ctxOk = true
     ∧ Model.globalModel ppCS ctxEscape = false

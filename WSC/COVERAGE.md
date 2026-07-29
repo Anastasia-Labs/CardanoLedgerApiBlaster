@@ -476,11 +476,42 @@ already paid — but Route B also lost its demonstration (P3 regressed to shaped
 #112), so its remaining cost is less certain than this section claimed.
 
 **Recommendation: do not start a coverage programme. Invest in unshaped
-prep/solve cost, and in minimal LEDGER-level cuts of the B1W kind.** If Route B stalls, the correct fallback is not Route A but
-Route C of `SHAPE-BRIDGE.md` §10 — the source-model route (`WSC/Model/*`, which
-already quantify over arbitrary contexts) with an explicit per-model faithfulness
-axiom. That trade is *stated* rather than hidden, which is more than a coverage
-programme could offer at any affordable bound.
+prep/solve cost, and in minimal LEDGER-level cuts of the B1W kind.**
+
+⛔ **CORRECTED AT TASK R1 (2026-07-28) — ROUTE C IS CLOSED.** This paragraph used
+to end: *"If Route B stalls, the correct fallback is not Route A but Route C of
+`SHAPE-BRIDGE.md` §10 — the source-model route (`WSC/Model/*`, which already
+quantify over arbitrary contexts) with an explicit per-model faithfulness axiom.
+That trade is stated rather than hidden, which is more than a coverage programme
+could offer at any affordable bound."*
+
+**That recommendation was wrong, and the campaign has the receipts.** Both
+faithfulness axioms it depended on turned out to be FALSE and were RETRACTED:
+
+* `WSC.SeizeModel.seizeModel_faithful` — refuted by ONE context on which the real
+  `programmableSeize` halts and `seizeModel` rejects
+  (`WSC/Model/SeizeModelRefuted.lean`); PR #112 legalised an ada top-up the model
+  still forbids, and the 13/13 golden differential test **stayed green** because
+  no golden covers the change.
+* `WSC.Model.globalModel_faithful` — refuted twice
+  (`WSC/Model/GlobalModelRefuted.lean`): semantically, by a context the model
+  accepts and the bytecode `Error`s on (finding F24); and structurally, because
+  its right-hand side was a run metered at a finite prep budget (1600) while its
+  left-hand side was not, so the model accepts goldens that need K = 2,782. **An
+  axiom of that shape is unsatisfiable by construction.**
+
+Two lessons, both transferable and both paid for:
+1. *"The trade is stated rather than hidden"* is not a safety property. A stated
+   trade whose bridge is false is exactly as unsound as a hidden one; the only
+   difference is that it is easier to retract, which is what happened.
+2. A whole-validator faithfulness axiom must never be bridged to a
+   BUDGET-METERED prep term. Quantify the step count (`∃ n`) or do not write the
+   axiom.
+
+**The standing recommendation is therefore: Route B (shaped/unshaped UPLC) or
+nothing.** There is no third route in this library any more, and `WSC/Model/*`
+survives only as documentation plus the specification vocabulary the UPLC
+theorems are stated in — see `AUDIT.md` R1.5.
 
 ### 6.1 The cheap partial repairs, for completeness
 
@@ -526,7 +557,8 @@ And `AUDIT.md` §9 gains one entry:
 # the module (≈1.7 s cold once its imports are built)
 lake build WSC.Coverage
 
-# the whole library with it: expect 431 jobs, 162 ✅ markers
+# the whole library with it: expect 445 jobs, 175 ✅ markers (task R1; 431/162 was
+# the pre-#112 figure)
 # (103 Valid + 59 Expected Falsified — this module still runs no solver),
 # 0 errors, 20 `sorry` warnings, 5 unused-variable warnings
 #

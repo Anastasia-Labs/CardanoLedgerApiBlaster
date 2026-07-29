@@ -1,13 +1,18 @@
--- ⚠️ PRE-#112: this module is about wsc-poc bytecode SUPERSEDED by PR #112 (main @ 2306678). Do NOT quote its results as statements about production. See WSC/IMPACT-PR112.md.
+-- ⚠️ PRE-#112 SHAPES (T1/T2/T6/T7): superseded as RESULTS by the re-cut T1R/T2R/T6R/T7R. The censuses below are still the record that the shaped route never carried `globalModel_faithful` — which task R1 later deleted as FALSE. See WSC/IMPACT-PR112.md and WSC/Model/GlobalModelRefuted.lean.
 /-
 WSC/Shaped/Probe/P1Axioms.lean — AXIOM AUDIT of every shaped P1 theorem (task V1).
 
-The point of the audit: `WSC/Props/P1_Transfer.lean` proves P1 only on a
-hand-transcribed SOURCE MODEL and bridges it to the bytecode with the
+The point of the audit: `WSC/Props/P1_Transfer.lean` proved P1 only on a
+hand-transcribed SOURCE MODEL and bridged it to the bytecode with the
 whole-validator faithfulness axiom `WSC.Model.globalModel_faithful`, whose own
-docstring calls that "the ONLY unverified step" and flags the risk. The shaped
+docstring called that "the ONLY unverified step" and flagged the risk. The shaped
 theorems are stated against the REAL prepped bytecode, so that axiom must NOT
 appear below — and neither may any `WSC/Honest.lean` axiom.
+
+**POSTSCRIPT (task R1).** The risk this audit was hedging against was real: the
+axiom is FALSE (`WSC/Model/GlobalModelRefuted.lean`) and was DELETED. Because
+this census had already measured it absent, the deletion cost the shaped route
+nothing — which is exactly what an audit like this is for.
 
 EXPECTED (and measured) reading:
 * `P1_T1`, `P1_T2`, `P1_T6`, `P1_T7`, `P1_T1_negative_control` →

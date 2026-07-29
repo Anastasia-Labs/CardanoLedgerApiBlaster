@@ -1,5 +1,42 @@
 # WSC containment campaign — AUTHORITATIVE STATUS
 
+> # ⛔ TASK R1 (2026-07-28) — **BOTH FAITHFULNESS AXIOMS ARE RETRACTED**
+>
+> `WSC.Model.globalModel_faithful` and `WSC.SeizeModel.seizeModel_faithful` are
+> FALSE and have been **DELETED**, with every declaration that rested on them
+> (`P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode`,
+> `P6_bytecode_of_P6_model`, `P2a_bytecode`, `P2b_bytecode`,
+> `P2b_model_implies_bytecode`). **Findings F24 and the N5 seize half are CLOSED.**
+> Machine-checked refutations: `WSC/Model/GlobalModelRefuted.lean` (new) and
+> `WSC/Model/SeizeModelRefuted.lean`. Full disposition: `WSC/AUDIT.md` entry **R1**.
+>
+> **Measured cost: ZERO.** Clean-room before/after — **445 jobs** (was 444, +1
+> module), **175 verdicts (110 `✅ Valid` + 65 `✅ Expected Falsified`) — identical**,
+> 0 `⚠️`/`❌`, 0 errors, 20 `sorry`, 5 unused-variable; project axioms under
+> `top_claim` **25 → 25**, under both `containment_on_*_class` **28 → 28**.
+> Neither axiom ever appeared in the transitive axiom set of any composed result;
+> the only two audited results that reached one (`P2a_bytecode`,
+> `P2b_model_implies_bytecode`) are themselves deleted. Axiom DECLARATIONS under
+> `WSC/`: **47 → 45** (and see AUDIT R1.4 — the published "51" was a grep artefact).
+>
+> **This is a STRICT improvement.** Every property is proved at UPLC against the
+> compiled bytecode; the models were the B3 fallback from a wall that shaped
+> contexts removed. **One thing is genuinely lost and is reported as a loss:** the
+> library no longer has any UNBOUNDED statement about the seize path. P2 against
+> production is `WSC/Props/Shaped/P2ShapedR.lean`, bounded by budget 3800 and
+> SHAPE S1R.
+>
+> `WSC/Model/*` is KEPT, demoted, with **no axiom and no bridge**, in two clearly
+> marked categories: TRUE LEAN FACTS ABOUT A STALE MODEL (`pathC_sound`,
+> `accum_lookup`, the `mintWalk_*` sublist lemmas,
+> `P2a_seizeModel_preserves_structure`, the `tokensContain_unsound_*`
+> counterexamples — all still true, none about production) and SPECIFICATION
+> VOCABULARY consumed by the live UPLC theorems (`Model/Ground.lean`'s
+> `outSum`/`inSum`, `mintSigned`/`mintPosOf`/`coveringNodeExists`/`paramsPinned`,
+> `P2.sumOutAtBase`/`sumInAtBase`, the seize redeemer projections).
+> `Model/Ground.lean` no longer imports the transcription at all.
+
+
 > # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
 >
 > This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112
@@ -88,7 +125,11 @@ history is part of the record.**
    differing in one lovelace leaf), which costs the library its only **UNBOUNDED**
    seize result; and `WSC/Props/Shaped/P2Shaped.lean` (P2 over the pre-re-cut
    SHAPE S1) was DELETED because its structure conjunct is `❌ Falsified` against
-   the ada top-up #112 legalised.
+   the ada top-up #112 legalised. **UPDATE (task R1): the axiom is not merely
+   flagged, it is DELETED**, together with `P2a_bytecode`, `P2b_bytecode` and
+   `P2b_model_implies_bytecode`; and `WSC.Model.globalModel_faithful` went with
+   it, for two independent reasons (F24, plus a budget defect that predates
+   #112). See the R1 banner at the top of this file.
 7. **The reproducibility caveat got WORSE.** Two of the four production
    validators — `programmableLogicGlobal` **and now `programmableSeize`** — do
    not DECODE at all without the unpublished `cip153-value-builtins`
@@ -310,7 +351,9 @@ and the only one that reaches the line PR #112 was written to add
 
 ⚠ **And a NEGATIVE result found while closing it — see `F24` below.** The
 misindexed context is also the first executable proof that
-`WSC.Model.globalModel_faithful` is **FALSE** of the post-#112 program.
+`WSC.Model.globalModel_faithful` is **FALSE** of the post-#112 program. **At task
+R1 that axiom was RETRACTED** and this context became half of the retraction
+certificate.
 
 **M2R (F17) — LANDED at `f4486ca`, and G3 verified the landing.** The real compiled
 `programmableTokenMinting` bytecode **accepts** `M2RWitness.ctx` through
@@ -468,10 +511,15 @@ so and no theorem asserts it.
 shaped layer. See `WSC/README.md` §3.2 for the enumerated 26 + 2, and `WSC/AUDIT.md`
 §3 for the per-theorem table.
 
-The 21 that no top-level theorem reaches — `LR1`–`LR7`, `LR_BUDGET_minting`, `DIRWF`,
-`TS1`–`TS5` (less `TS3`), `TS_MINTING_IDENTITY`, `LR_REDEEMER_COVERAGE`, and the two
-`*_faithful` axioms — are what a *fuller* bytecode discharge of the leaves would add.
-**Read 26/28 as a floor, not a ceiling.**
+The ones no top-level theorem reaches — `LR1`–`LR7`, `LR_BUDGET_minting`, `DIRWF`,
+`TS1`–`TS5` (less `TS3`), `TS_MINTING_IDENTITY`, `LR_REDEEMER_COVERAGE` — are what a
+*fuller* bytecode discharge of the leaves would add. **Read 26/28 as a floor, not a
+ceiling.** ⚠️ **CORRECTED at task R1:** this sentence used to say "21 … and the two
+`*_faithful` axioms". Those two axioms are FALSE and have been DELETED, so they are
+not on any list of things a fuller discharge would add — a fuller discharge would
+never have been allowed to add them. The count also moved because the underlying
+`grep -rn '^axiom '` census overcounted by 4 prose lines (AUDIT R1.4): the true
+declaration count is 45 after R1, 47 before.
 
 `LR_REDEEMER_COVERAGE` (`WSC/Honest.lean`, LR-CTX audit row S) is reached only by the
 emptiness proofs of the **retired** shapes, so it weakens negative results and
@@ -493,7 +541,7 @@ strengthens nothing (see F18).
 | **F20** | MEDIUM | **PROCESS FIX ADOPTED** | One stage-11 unit (E2) delivered **nothing**; a second (E3) produced correct work but left it uncommitted in scratch. No instrument could see either, because every instrument measures what EXISTS. E5 landed E3's work. **G3 adopted the fix as a procedure** (`AUDIT.md` F20): existence check before measurement; deltas reconciled to source **lines**, not totals; definitions the claim depends on are unfolded and read. At G3 both G-stage units passed the existence check outright. |
 | **D11 / F17** | was MEDIUM | **CLOSED — LANDED (G1, `f4486ca`)** | `M2RWitness.exec_accepts_at_900` and `K_is_784` **pinned two-sided** are in `P4ShapedRIdx.lean:174-194`. 0 project axioms, no `sorryAx`, 0 new solver verdicts. G3 verified the acceptance and the K-measurement are about the **same run**, by unfolding `mintingPolicyInputs900` and `mintRInputsIdx`. SHAPE M2R meets 4/4. |
 | **F23** | was MEDIUM | **CLOSED (task H1, 2026-07-28)** | SHAPE T8R was the only shape below the four-point bar, and the only one exercising PR #112's `ownerWdrlIdxs`. It now has (c) `exec_accepts_T8R_at_4400` with **K = 2288 pinned two-sided** and two `rfl` same-term audits, and (d) `t8R_class_covered` / `t8R_class_coverage` / `t8R_realizable`. Plus two rejecting siblings (`exec_rejects_T8R_misindexed_owner`, `…_unwitnessed_owner`) that make the index live. 0 project axioms, 0 new solver verdicts. **14/14 shapes now meet the bar.** |
-| **F24** | **MEDIUM** | **NEW (task H1) — OPEN** | `WSC.Model.globalModel_faithful` (`WSC/Props/P1_Transfer.lean:428`) is **FALSE of the post-#112 program, and now has an executable counterexample**: `P1RShapedWitness.model_is_stale_at_ownerWdrlIdxs` (`P1ShapedR.lean:1110`) shows `globalModel` ACCEPTS `ctxSOwnMisindexed` while the real bytecode REJECTS it, so the source model is **unsound**, not merely conservative, at the indexed owner check. `WSC/Model/GlobalModel.lean:668-676` already documented the staleness in a comment (`_ownerWdrlIdxsUnmodelled`, the `gateInput` scan at `:231-233`); what is new is that it is now measured, and that the direction of the error is known. **Scope:** the SHAPED P1/P5/P6 results are unaffected — they are proved against the bytecode and `WSC/Shaped/Probe/P1Axioms.lean` is the census showing `globalModel_faithful` is absent from them. What IS affected is any result routed through `P1_model` + `globalModel_faithful`. **Fix:** transcribe `:386-393` into `gateInput` (it needs the redeemer's `ownerWdrlIdxs` threaded through `valueFromCred`), then re-run `WSC/Model/GlobalGoldens.lean`. |
+| **F24** | **MEDIUM** | **RESOLVED (task R1, 2026-07-28) — BY RETRACTION, not by repair** | `WSC.Model.globalModel_faithful` was FALSE of the post-#112 program and **has been DELETED**, together with `P1_bytecode`, `P1_bytecode_of_P1_model`, `P6_bytecode` and `P6_bytecode_of_P6_model`. **Two independent refutations, both machine-checked in `WSC/Model/GlobalModelRefuted.lean`:** (1) SEMANTIC — `global_model_and_bytecode_DISAGREE` runs the real compiled `programmableLogicGlobal` on `P1RShapedWitness.ctxSOwnMisindexed` and it reaches `State.Error` at a 20,000-step meter while `Model.globalModel` returns `true`; the accepting sibling needs 2,288 steps (`K_T8R_is_2288`), so that is a refusal and not budget exhaustion, and the model is **unsound**, not conservative, at PR #112's indexed owner check (`ProgrammableLogicBase.hs:386-393`, redeemer field `:1043-1051`; the model still scans, `gateInput` `:224-236`, and binds `_ownerWdrlIdxsUnmodelled` `:668-676`). Controls on both sides. (2) BUDGET, new at R1 and independent of #112 — `golden_shows_budget_gap`: the axiom's right-hand side is `appliedGlobal1600`, a run METERED AT 1600 CEK steps, while the model accepts the `transfer-member-single-policy` golden whose **K = 2,782, pinned two-sided**. Any axiom of that shape is unsatisfiable at a finite prep budget. **Cost of the resolution: zero.** 175 verdicts before and after, 25/28 project axioms unchanged under every composed result, and `WSC/Shaped/Probe/P1Axioms.lean` had already measured the axiom absent from every shaped P1/P5/P6 theorem. **The 'fix' this row used to propose — re-transcribe `:386-393` into `gateInput` — was NOT done and is not recommended:** it would repair one divergence in a model whose bridge is unsatisfiable for a second, structural reason, on a route the UPLC results have made unnecessary. |
 | **F19** | LOW | **CLOSED (G1, `f4486ca`)** | SHAPE **L2R** exists (`WSC/Shaped/MintingLocalShapedRIdx.lean`), is node-realizable, definitionally contains L1R (`localRCtxIdx_at_one`, `rfl`), and carries all four bar items. **Cite `P4_local_noEscape_RIdx`**, not the retired `P4_local_noEscape_shapedIdx`. Two riders: the headline is **derived** from a `✅ Valid` negative control (the direct goal is `⚠️ Undetermined` at a 300 s cap) via `halt_not_error`, which is strictly stronger, not weaker; and **C1 at L2R is `⚠️ Undetermined` and is not asserted**. |
 | **F21** | INFO | **NEW (G3)** | The clean-room log carries two lines beginning `Error:` — a `panic!` from CLAB's `Recursor.all` macro at `V3/Contexts.lean`. Benign (definition elaborates, exit 0) and **pre-existing** (present in the C4-era log at the same definition). Recorded because the "zero errors" instrument is a line-anchored, case-sensitive grep and does not see them. |
 | **F22** | INFO | **NEW (G3)** | `bridge_GIdx` / `bridge_GNIdx` (`ShapeBridge.lean:900-948`) are the only results over `appliedGlobalShapedIdx1600` / `appliedGlobalShapedNIdx1600`, and neither term has a vacuity probe, a concrete witness, or a reduction lemma to `globalShapedCtx` — `GlobalShapedIdx.lean` is defs-only. An `↔` between two unsatisfiable statements is true. Not load-bearing (cited only in narrative), so informational; cheap fix is one `rfl` lemma inheriting `bridge_G1`'s witness. |
@@ -536,9 +584,14 @@ conclusion is to stop trying to close it by enumeration.
    delete `PropExecFaithful` (F8) campaign-wide. Real risk: one may come back `Valid`,
    i.e. vacuous, as happened to P6 at 2500.
 7. **A shape-coverage programme — DO NOT START ONE.** `COVERAGE.md` recommends against
-   it on the campaign's own arithmetic. The fallback if (1) stalls is the source-model
-   route with an explicit faithfulness axiom — a *stated* trade, which is more than any
-   affordable coverage programme offers.
+   it on the campaign's own arithmetic. ⚠️ **CORRECTED at task R1:** the named fallback
+   used to be "the source-model route with an explicit faithfulness axiom — a *stated*
+   trade". **That fallback is CLOSED.** Both faithfulness axioms the campaign wrote
+   turned out to be FALSE, and one of them (`globalModel_faithful`) was
+   *unsatisfiable by construction*, because its right-hand side was a run metered at a
+   finite prep budget while its left-hand side was not. Stating a trade does not make
+   it a safe one; a source-model route is only worth attempting with a bridge that is
+   PROVED, not asserted.
 
 **Removed from this list at G3, because they are DONE:** "land M2R's CEK witness
 (F17)" and "re-cut SHAPE L2 (F19)". Both landed at `f4486ca` and were verified at G3

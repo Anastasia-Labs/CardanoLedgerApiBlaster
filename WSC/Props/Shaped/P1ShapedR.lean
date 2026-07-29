@@ -832,8 +832,10 @@ theorem mintPos_form_REFUTED :
         ctxBurn.scriptContextTxInfo.txInfoMint = 0 := by native_decide
 
 /-- Source-model cross-check on the four re-cut witnesses (four more
-differential-test vectors for `globalModel_faithful`, and evidence that the
-source model is insensitive to the redeemer map exactly as the bytecode is). -/
+differential-test vectors for the since-RETRACTED `globalModel_faithful`, and
+evidence that the source model is insensitive to the redeemer map exactly as the
+bytecode is). See `model_is_stale_at_ownerWdrlIdxs` below for the vector that
+breaks it. -/
 theorem model_agrees_on_witnesses :
     Model.globalModel ppCS ctxOk = true
     ∧ Model.globalModel ppCS ctxEscape = false
@@ -1101,12 +1103,14 @@ executable witness that the comment is a real divergence and not a conservative
 one: on `ctxSOwnMisindexed` the MODEL ACCEPTS and the BYTECODE REJECTS, so the
 model is UNSOUND (not merely incomplete) at this context.
 
-Consequence, stated plainly: `WSC.Model.globalModel_faithful`
-(`WSC/Props/P1_Transfer.lean:428`) is FALSE of the post-#112 program, and this
-context is a counterexample to it. Every result that routes through that axiom
-inherits the defect; the shaped results here do not (they are proved against the
-bytecode directly — `WSC/Shaped/Probe/P1Axioms.lean` is the census that shows
-`globalModel_faithful` is absent from them).
+Consequence, stated plainly: `WSC.Model.globalModel_faithful` was FALSE of the
+post-#112 program, and this context is a counterexample to it. **At task R1 that
+axiom and everything resting on it were DELETED**; this theorem is half of the
+retraction certificate, and `WSC/Model/GlobalModelRefuted.lean` completes it by
+running the real bytecode on the same context. The shaped results here are
+untouched — they are proved against the bytecode directly, and
+`WSC/Shaped/Probe/P1Axioms.lean` was already the census showing the axiom absent
+from them.
 
 The `ctxSOwnNoWitness` conjunct is the control: on the failure mode the pre-#112
 scan also rejected, model and bytecode still agree. -/
