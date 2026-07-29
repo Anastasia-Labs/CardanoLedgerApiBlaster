@@ -47,6 +47,7 @@ worse than leaving it undone and saying so.
 import WSC.Shaped.SeizeShapedR
 import WSC.Model.SeizeModel
 import WSC.Prep.Seize
+import WSC.Realizability
 
 set_option warn.sorry false
 set_option maxRecDepth 1000000
@@ -119,6 +120,74 @@ theorem seize_model_and_bytecode_DISAGREE :
     bytecodeAccepts ctxAdaToppedUp = true
     ∧ SeizeModel.seizeModel ppCS ctxAdaToppedUp = false := by native_decide
 
+/-! ### The witness above is LEDGER-IMPOSSIBLE — and the repair
+
+`ctxAdaToppedUp` was produced from `ctxAdaEqual` by raising output 0's lovelace
+from 300 to 400 and changing NOTHING ELSE, so the transaction no longer balances
+and **`validRewardingContext ctxAdaToppedUp = false`** (`isBalanced`, a conjunct
+of `validTxInfo`, CardanoLedgerApi/V3/Contexts.lean:1821-1836).  That is checked,
+not asserted, by `ada_topped_up_witness_is_NOT_ledger_legal` below.
+
+Nothing above is wrong: the refuted proposition
+(`no_faithful_bridge`) quantifies over ALL `ScriptContext`s and carries no
+ledger-validity hypothesis, so a ledger-impossible context does refute it.  But a
+reader is entitled to ask whether the disagreement is an artefact of a malformed
+context, and the CONTROL alone does not answer that.  The stanza below answers
+it: the same ada top-up, REBALANCED by funding the extra 100 lovelace from the
+wallet input, is `validRewardingContext`, is redeemer-covered, is accepted by the
+real compiled bytecode, and is still rejected by `seizeModel`.  So the
+unfaithfulness is a property of transactions a node would actually accept, and
+the retraction rests on a realizable witness. -/
+
+/-- **MEASURED: the original refutation witness is not a transaction any ledger
+can build**, while its control is. -/
+theorem ada_topped_up_witness_is_NOT_ledger_legal :
+    CardanoLedgerApi.V3.validRewardingContext ctxAdaEqual = true
+    ∧ CardanoLedgerApi.V3.validRewardingContext ctxAdaToppedUp = false := by native_decide
+
+/-- SHAPE S1R at a leaf assignment with the WALLET input's lovelace free as well,
+so an ada top-up on the continuing output can be funded and the transaction can
+still balance. -/
+def mkAdaBal (i0Ada o0Ada i1Ada : Integer) (i0Qty o0Qty : Integer) : ScriptContext :=
+  seizeRCtx
+    (ByteString.mk "PROGLOGIC") (ByteString.mk "USERSTK") i0Ada
+      (ByteString.mk "MMM") (ByteString.mk "TOK") i0Qty (ByteString.mk "DTM")
+    (ByteString.mk "WALLET") i1Ada (ByteString.mk "ZZZP") (ByteString.mk "WT") 1
+    (ByteString.mk "USERSTK") o0Ada o0Qty (ByteString.mk "DTM")
+    (ByteString.mk "CHANGE") 50 (ByteString.mk "ZZZP") (ByteString.mk "WT") 1
+    (ByteString.mk "MMM") (ByteString.mk "TOK") 2
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+      (ByteString.mk "SEIZELOGIC")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+    (ByteString.mk "MMM") (ByteString.mk "ZZZ") (ByteString.mk "TLS")
+      (ByteString.mk "ZZILS") (ByteString.mk "GS")
+    (ByteString.mk "AASEIZE") (ByteString.mk "ZZILS") 0 0
+    (ByteString.mk "SPRED") (ByteString.mk "MTRED") (ByteString.mk "ILRED")
+    50
+
+/-- The REPAIRED witness: output 0 carries 400 lovelace where input 0 carried
+300, and the wallet input carries 200 rather than 100, so the ada column
+balances (300+200 = 400+50+50). -/
+def ctxAdaToppedUpBalanced : ScriptContext := mkAdaBal 300 400 200 10 12
+
+/-- Its control, with the pair's lovelace equal. -/
+def ctxAdaEqualBalanced : ScriptContext := mkAdaBal 300 300 100 10 12
+
+/-- **THE REFUTATION, ON A LEDGER-LEGAL AND REDEEMER-COVERED TRANSACTION.**
+`ctxAdaToppedUpBalanced` satisfies `validRewardingContext` and
+`Realizability.redeemerCovered`; the real compiled `programmableSeize` ACCEPTS it
+at 20,000 steps; `seizeModel` REJECTS it.  Its control, differing only in the two
+lovelace leaves, is accepted by both. -/
+theorem seize_model_and_bytecode_DISAGREE_on_a_realizable_tx :
+    CardanoLedgerApi.V3.validRewardingContext ctxAdaToppedUpBalanced = true
+    ∧ Realizability.redeemerCovered ctxAdaToppedUpBalanced = true
+    ∧ bytecodeAccepts ctxAdaToppedUpBalanced = true
+    ∧ SeizeModel.seizeModel ppCS ctxAdaToppedUpBalanced = false
+    ∧ CardanoLedgerApi.V3.validRewardingContext ctxAdaEqualBalanced = true
+    ∧ bytecodeAccepts ctxAdaEqualBalanced = true
+    ∧ SeizeModel.seizeModel ppCS ctxAdaEqualBalanced = true := by native_decide
+
 /-! ## The retraction certificate (task R1)
 
 `seizeModel_faithful` was DELETED at task R1, so the two theorems above no
@@ -131,7 +200,12 @@ be reinstated by accident. -/
 assert is refutable: `ctxAdaToppedUp` is accepted by the real compiled
 `programmableSeize` (at 20,000 steps, against the ~2.3k this shape needs) and
 rejected by `seizeModel`.  A `↔` cannot hold at that context, so no axiom of that
-shape may be re-added. -/
+shape may be re-added.
+
+The same conclusion follows from `ctxAdaToppedUpBalanced`, which is additionally
+`validRewardingContext` and redeemer-covered, so the refutation does not depend on
+a ledger-impossible context — see
+`seize_model_and_bytecode_DISAGREE_on_a_realizable_tx`. -/
 theorem no_faithful_bridge :
     ¬ (∀ (pcs : CurrencySymbol) (ctx : ScriptContext),
         SeizeModel.seizeModel pcs ctx = true ↔ SeizeModel.seizeAcceptsUnbounded pcs ctx) := by
