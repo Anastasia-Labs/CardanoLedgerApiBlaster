@@ -23,24 +23,33 @@ rather than by inspection: SHAPE S1R reuses `seizeShapedIn0`, `seizeShapedIn1`,
 ════════════════════════════════════════════════════════════════════════════
 WHICH STRUCTURAL FACTS THE PROOF CONSUMES — task C2 asks this explicitly
 ════════════════════════════════════════════════════════════════════════════
-P2b (containment of the seized delta) is **FALSE in general on the source model**:
-`WSC/Props/P2_Seize.lean` §5 records two machine-checked counterexamples to
-obligation B1, one with DUPLICATE token names in a `Value`'s token map and one
-with an UNSORTED token map. It closes at SHAPE S1 — and at SHAPE S1R — because of
-exactly two canonicity facts, both properties of the SHAPE and not of the ledger
-predicate:
+⚠️ **THE ANSWER THAT STOOD HERE WAS WRONG, AND IT UNDERSTATED THE RESULT.** It
+said P2b is "FALSE in general on the source model", cited the two `tokensContain`
+counterexamples in `WSC/Props/P2_Seize.lean`, and attributed P2b's success to two
+properties OF THE SHAPE: one token name per value, and one token name in the mint
+field. Both halves have since been checked and both are wrong.
 
-1. **Every `Value` in the shape is `Shape.adaPlusOne`**, i.e. `[(B "", Map [(B "",
-   I n)]), (B cs, Map [(B tn, I q)])]`. A one-entry token map is trivially
-   duplicate-free and trivially sorted, so NEITHER counterexample can be
-   instantiated inside the class. This is the fact P2b consumes.
-2. **The mint field is `Shape.mintOne`**, one policy and one token name, so the
-   `tokensForCS key txInfoMint` walk (ProgrammableLogicBase.hs:1318-1319) sees a
-   list of length ≤ 1 and `WSC.mintOf` is a single lookup.
+1. The two counterexample witnesses are values **no ledger can produce**. Each
+   carries a NEGATIVE quantity, and one of them additionally repeats a token name
+   and one has an unsorted required list — all three forbidden by CLAB's own
+   `[LEDGER-RULE]` `validTxOutValue` (CardanoLedgerApi/V1/Contexts.lean:787-802),
+   which is a conjunct of the `validRewardingContext` hypothesis every theorem in
+   this file already carries. `WSC.P2.counterexample_witnesses_are_not_canonical`
+   checks that by computation, and `WSC.P2.tokensContain_sound` proves in the
+   Lean kernel that `tokensContain` IS sound once the ledger rule holds — using
+   only its NON-NEGATIVITY conjunct, not sortedness and not duplicate-freeness.
+2. The one-token-name restriction was never needed. `WSC/Props/Shaped/
+   P2ShapedR2.lean` re-proves the containment conjunct over SHAPE S1R2, which is
+   this shape with TWO token names under the non-ada policy of every value the
+   conjunct reads and TWO token names in the mint field: `✅ Valid` at the same
+   budget 3800, with its own vacuity probe `✅ Expected Falsified`, its own
+   two-sided CEK witness (K = 2739) and its own realizability certificate.
 
-The re-cut changes NEITHER — the values and the mint field are the same terms —
-so P2b's ground is the same at S1R as at S1. Anyone quoting P2b must quote both
-facts: the theorem is about one-policy-one-token-name canonical values.
+WHAT REMAINS TRUE. This module's theorems are still bounded by SHAPE S1R — one
+non-ada policy per value, one minted policy, fixed list lengths, DEFECT-D4
+sharing, budget 3800 — and quoting them requires quoting that. What must NOT be
+quoted any more is "one token name", and what must not be quoted at all is
+"P2b is false in general".
 
 P2a (structure preservation) consumes, in addition, the three by-construction
 equalities DEFECT D4 forces on SHAPE S1 (`WSC/Shaped/SeizeShaped.lean`'s header):
@@ -267,9 +276,11 @@ on the mini-ledger base credential is at least the total holding at inputs spent
 from it, plus the (signed) net mint of that asset.*
 
 Read the module header's "WHICH STRUCTURAL FACTS THE PROOF CONSUMES" before
-quoting this: it closes because SHAPE S1R's values are one-policy /
-one-token-name canonical, which is what makes the two machine-checked
-counterexamples to the general statement uninstantiable inside the class. -/
+quoting this. In particular it does NOT close "because the values carry one token
+name": `WSC/Props/Shaped/P2ShapedR2.lean` proves the same conjunct over
+two-token-name values. What it consumes is the ledger canonicity that
+`validRewardingContext` supplies, plus SHAPE S1R's remaining bounds (one non-ada
+policy per value, fixed list lengths, budget 3800). -/
 theorem P2b_R_containment :
   ∀ (ppCS : CurrencySymbol)
     (mlH inStk : ByteString) (i0Ada : Integer) (mlCS mlTn : ByteString) (i0Qty : Integer)

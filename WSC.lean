@@ -304,6 +304,10 @@ import WSC.Props.Shaped.P4ShapedRIdx
 import WSC.Props.Shaped.P4LocalShapedR
 import WSC.Props.Shaped.P4DelegateShapedR
 import WSC.Props.Shaped.P2ShapedR
+-- SHAPE S1R2: P2's containment conjunct over MULTI-TOKEN-NAME values. Measures
+-- that P2b never needed the one-token-name restriction, only ledger canonicity.
+import WSC.Shaped.SeizeShapedR2
+import WSC.Props.Shaped.P2ShapedR2
 import WSC.Props.Shaped.RealizableShapes
 
 -- ═══════════════════════════════════════════════════════════════════════════
