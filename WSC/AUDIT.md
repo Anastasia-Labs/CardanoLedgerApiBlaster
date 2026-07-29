@@ -1246,6 +1246,56 @@ F22 already records the two bridges with no non-vacuity witness at all.
 ### 5.7 THE THREE TRACTABILITY EXPERIMENTS (tasks X1/X2/X3) — what was landed, what was
 ### refused, and the measured negatives
 
+#### 5.7.0 What landing them cost — pinned, per verdict
+
+Two clean-room `lake build WSC WSC.ShapeBridge` runs in the same working copy, same box,
+same substrate pins, `rm -rf .lake/build/lib/lean/WSC*` between them.
+
+| measurement | BEFORE (`dc9f902` + the uncommitted R3 sweep) | AFTER (this work) |
+|---|---|---|
+| exit status / jobs | 0 — **447** | 0 — **451** (+4 modules) |
+| solver verdicts | **177** = 111 `✅ Valid` + 66 `✅ Expected Falsified` | **201** = **126** + **75** (+15 / +9) |
+| `⚠️ Undetermined` | **0** | **0** |
+| `❌ Falsified` / `❌ Unexpected Valid` / `error:` | 0 / 0 / 0 | 0 / 0 / 0 |
+| `declaration uses 'sorry'` | 20 | **20 — UNCHANGED** |
+| `unused variable` | 5 | **5 — UNCHANGED** |
+| wall clock | 8:04.71 | 7:43.53 |
+| peak RSS | 4,346,660 KB | 4,347,536 KB |
+
+**Zero verdicts were lost.** The differential is keyed on `file:line:col`, not on totals:
+`comm` over the two sorted verdict sets returns an EMPTY "lost" side and exactly the 24
+lines below on the "gained" side.
+
+| new verdict | source line | what it is |
+|---|---|---|
+| `✅ Valid` ×9 | `WSC/Props/P3_BaseIdx.lean` 154, 165, 176, 185, 194, 203, 212, 221, 230 | `P3_idx_T0`, `_s0`, `_gm1`, `_g0`, `_g1`, `_g2`, `_g3`, `_g5`, `_g10` |
+| `✅ Expected Falsified` ×5 | `WSC/Props/P3_BaseIdx.lean` 244, 251, 259, 266, 273 | `vac_T0`, `vac_g0`, `vac_g1`, `vac_gm1`, `vac_s0` |
+| `✅ Valid` ×1 | `WSC/Props/P3_BaseIdx15.lean` 33 | `P3_idx_g15` — the top rung |
+| `✅ Valid` ×3 | `WSC/Props/P4_MintingIdx.lean` 110, 120, 131 | `P4a_idx_burn0`, `_burn1`, `_burn10` |
+| `✅ Expected Falsified` ×2 | `WSC/Props/P4_MintingIdx.lean` 144, 154 | `vac_burn0`, `vac_burn1` |
+| `✅ Valid` ×2 | `WSC/Props/Shaped/P4LocalShapedRDirect.lean` 119, 145 | `L2R_noEscape_direct`, `L2R_C1_direct` |
+| `✅ Expected Falsified` ×2 | `WSC/Props/Shaped/P4LocalShapedRDirect.lean` 182, 211 | `L2R_vacuity_seed7`, `L2R_tightness_seed7` |
+
+⚠️ **Do not read the wall-clock row as a speedup**, exactly as at R1.3: it is
+`WSC/Prep/Global1600.lean` variance and nothing else. No prep changed here — all four
+new modules run against preps that were already in the build, which is why 24 new solver
+verdicts cost no measurable time.
+
+⚠️ **The published CI gate MOVED and must move with it.** `EXPECT_VALID` /
+`EXPECT_EXPECTED_FALSIFIED` in the mirror's `.github/workflows/ci.yml` were **110 / 65**
+against 446 jobs; they are now **126 / 75** against 451. The gate is an EXACT
+expectation in both directions by design, so shipping the modules without bumping it
+fails CI, and bumping it without the per-line differential above would be a fudge.
+
+#### The seed's control, re-measured in this working copy
+
+`L2R_noEscape_direct` and `L2R_C1_direct` were restated verbatim WITHOUT
+`(random-seed: 7)` as `#blaster` commands (so a no-verdict is recorded rather than
+fatal): **both `⚠️ Undetermined` at the 300 s cap, module wall 303 s.** So the seed is
+what closes them on this substrate, not a stale lake trace or an unrelated change. The
+control module was deleted rather than landed — `WSC/Shaped/Probe/L2RProbe.lean` already
+records the same baseline and is the citable one.
+
 Three techniques were tried against the campaign's `⚠️ Undetermined` register. Two paid,
 one did not. **All three produced measured negatives, and the negatives are the part
 most likely to save someone else's weeks**, so they are recorded here with numbers
