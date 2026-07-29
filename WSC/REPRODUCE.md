@@ -6,7 +6,13 @@
 > (`main` @ **2306678**) changed three of the four validators SEMANTICALLY; the
 > minting policy is byte-identical. Tasks N1–N6 re-based everything.
 >
-> **The current measurements are (task H2, 2026-07-28): 444 jobs, 0 errors,
+> **⛔ SUPERSEDED BY TASK R1 (2026-07-28): the current figures are `445` jobs**
+> (+1, `WSC/Model/GlobalModelRefuted.lean`) **and `175` verdicts —
+> `110 ✅ Valid` + `65 ✅ Expected Falsified`, IDENTICAL — with 0 errors, 0 `⚠️`/`❌`,
+> 20 `sorry`, 5 unused-variable.** R1 deleted the two refuted faithfulness axioms;
+> it cost zero verdicts. See `WSC/AUDIT.md` entry **R1**.
+>
+> The H2 measurements were (task H2, 2026-07-28): 444 jobs, 0 errors,
 > `175` solver verdicts (`110 ✅ Valid` + `65 ✅ Expected Falsified`),
 > 0 `⚠️`/`❌`, 20 `sorry`, 5 unused-variable, 106 WSC modules, two clean-room
 > runs, wall 10:25 / 10:35, peak RSS ≈ 4.35 GB.**

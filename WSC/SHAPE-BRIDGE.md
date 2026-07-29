@@ -513,6 +513,14 @@ A coverage argument would require **one** of:
 3. **Dropping to the source model** (`WSC/Model/*`, which quantify over arbitrary
    contexts) with a separately argued compilation-fidelity bridge — one faithfulness
    axiom per model, which is exactly the trade the UPLC route was chosen to avoid.
+   ⛔ **CLOSED AT TASK R1 (2026-07-28).** Both faithfulness axioms the campaign
+   actually wrote turned out to be FALSE and were RETRACTED
+   (`WSC/Model/GlobalModelRefuted.lean`, `WSC/Model/SeizeModelRefuted.lean`;
+   disposition in `WSC/AUDIT.md` R1). One of them was refuted semantically (F24)
+   and the other structurally — it bridged an unbounded model to a run METERED at
+   1600 CEK steps, which is unsatisfiable by construction. Option 3 is not a
+   trade; it is a route with a known failure mode, and this list should be read as
+   having two entries.
 
 **No such argument is offered — BY THIS MODULE.** `WSC/ShapeBridge.lean` writes the
 obligation down as `M1Covers : Prop` — unproved, **not** an axiom, and noted there as

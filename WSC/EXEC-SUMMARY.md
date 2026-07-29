@@ -50,6 +50,14 @@ reader should know:
   model of the seizure program used for one unbounded conclusion — was likewise
   shown to disagree with the real code, and **that unbounded conclusion is
   withdrawn**. It is a real loss and it is reported as one.
+  **UPDATE (task R1, 2026-07-28): the two "assumed-equivalent" bridges between
+  the hand-written models and the real programs have now been DELETED outright,
+  not merely flagged.** Both were shown false by running the real programs — the
+  transfer one in two independent ways — so every conclusion that went through
+  them has been removed rather than relabelled. Nothing else changed: the same
+  175 machine-checked results, the same assumptions under the top-level claims.
+  A library that keeps an assumption it knows to be false is worth nothing;
+  removing them makes the remaining claims strictly stronger.
 * **The keystone result got harder to prove and had to be narrowed.** The rule
   that ties the scheme together — *spending from the mini-ledger forces the
   transfer or seizure program to run* — used to hold for every conceivable
