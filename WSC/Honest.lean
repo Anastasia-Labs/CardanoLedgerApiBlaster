@@ -1230,8 +1230,12 @@ measured answer.
 * STILL NOT CONSUMED: `WSC/Composition.lean` has no seize clause in
   `WithinBudget` and calls `LR_BUDGET_seize` nowhere; P2's leaf (`LeafSet.p2`) is
   untouched (audit F1). Publishing this constant does not close that gap, and the
-  shape bound on P2 is the essential one (audit F2 / §5.2 of the audit: P2b is
-  FALSE-in-general on the source model and closes at SHAPE S1 only). -/
+  shape bound on P2 is the essential one (audit F2 / §5.2 of the audit). The
+  parenthetical here used to add "P2b is FALSE-in-general on the source model and
+  closes at SHAPE S1 only"; **that was wrong and is retracted** — see AUDIT.md
+  §5.2. `WSC.P2.tokensContain_sound` proves the obligation that claim rested on,
+  and `WSC/Props/Shaped/P2ShapedR2.lean` closes P2b over a strictly larger shape.
+  The shape bound is real; "false in general" was not. -/
 def K_seize : Nat := 3800
 
 /-- Non-vacuity of the base validator at budget `K`: some ledger-normalized

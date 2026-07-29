@@ -174,6 +174,7 @@ proved empty and **must not be quoted**.)
 |---|---|---|---|
 | **P1** | A transfer cannot move more programmable value out of the base credential than it brings in plus what it mints (signed) | 4400 / T1R, T2R, T6R, T7R, **T8R**, **T3R**, **T4R** | 2343 / 2567 / 2777 / 2567 / **2288** / **1936 + 2228** / **2696** (T8R landed at H1, F23 closed; T3R/T4R at H2 (2026-07-28) — the first shapes off containment dispatch PATH A and the first with builtin input accumulation) |
 | **P2** | Seizure preserves structure **modulo an ada top-up #112 legalised**, and cannot reduce the base-credential total below inputs plus mint | 3800 / S1R | 2301 (accept), 2412 |
+| **P2b, generalized (R3)** | The same containment conjunct over values and a mint field carrying **two token names** — removes the "one token name" caveat | 3800 / **S1R2** | 2739 (accept), 2738 |
 | **P3** | Spending at the base credential requires the global **or** the seize validator to run — the keystone | 600 / **B1RG, B1RS, B1W** (no longer unshaped) | 194 |
 | **P4** | Any accepted mint runs the minting-logic script; the four redeemer arms are exhaustive and each is constrained | 900 / M1R, M2R; 2500 / L1R, **L2R**, DT1R, DS1R | 784 / **784** / 1681 / **1681** / 1257 / 1466 |
 | **P5** | A non-member transfer cannot register a new policy in the directory | 1600 / G1R | 1402 |
@@ -226,13 +227,20 @@ the map is not read.
   `AUDIT.md` entry **H2** for the exact status, not "all three paths verified".
 * **P2** — the source-model route is **GONE** (task R1): `seizeModel_faithful` is
   false and was deleted, and with it the library's only unbounded seize statement.
-  What remains is the shaped UPLC proof, and there the containment conjunct is
-  **false in general on the source model**: two
-  machine-checked counterexamples show `ptokenPairsContain` is unsound with duplicate
-  token names or unsorted maps. It closes at SHAPE S1R *because* S1R gives every value
-  exactly one policy and one token name. **This is now load-bearing in a composed
-  result**, so the shape-dependence is inherited by
-  `containment_on_seize_class`. This is the sharpest doubt in the library.
+  What remains is the shaped UPLC proof. **CORRECTION (task R3).** This entry used
+  to say the containment conjunct is "false in general on the source model", that
+  it closed only because SHAPE S1R gives every value one policy and one token name,
+  and that this was "the sharpest doubt in the library". All three claims were
+  wrong. The two `ptokenPairsContain` counterexamples use values `validTxOutValue`
+  forbids — negative quantities, a duplicate token name, an unsorted map — and
+  `validTxOutValue` is a conjunct of the `validRewardingContext` hypothesis every
+  P2 theorem carries; under it `tokensContain` is SOUND, proved in the Lean kernel
+  (`WSC.P2.tokensContain_sound`). And the one-token-name restriction was never
+  needed: `WSC/Props/Shaped/P2ShapedR2.lean` proves the same conjunct over values
+  carrying TWO token names, at the same budget, to the same four-point bar. What
+  P2b is still bounded by, and what `containment_on_seize_class` still inherits, is
+  SHAPE S1R's remaining skeleton (one non-ada policy per value, fixed list lengths,
+  DEFECT D4, budget 3800) — a real bound, but an ordinary one.
 * **P3** — proved over a fully symbolic context, but at budget 600.
 * **P4** — SHAPE **L2** (the free-registration-index rung of P4-Local) had a class
   **proved empty**, so `P4_local_noEscape_shapedIdx` must not be quoted. It is now

@@ -73,6 +73,30 @@
 > hand-rolled sorted lockstep walk `SeizeModel` transcribes and legalised an ada
 > top-up on the continuing output, which the model still forbids.
 >
+> > **⚠️ WEAKNESS IN THAT CERTIFICATE, FOUND AND REPAIRED AT TASK R3.** N5's
+> > witness `ctxAdaToppedUp` was built by raising output 0's lovelace from 300 to
+> > 400 and changing NOTHING ELSE, so the transaction stopped balancing and
+> > **`validRewardingContext ctxAdaToppedUp = false`** — now checked, not assumed,
+> > by `ada_topped_up_witness_is_NOT_ledger_legal`. This does not invalidate
+> > `no_faithful_bridge`: the retracted proposition quantifies over ALL
+> > `ScriptContext`s and carries no ledger-validity hypothesis, so a
+> > ledger-impossible context does refute it. But it is weak evidence for the
+> > *claim* R1 makes above — that the model is unfaithful on transactions a node
+> > would accept. R3 adds
+> > **`seize_model_and_bytecode_DISAGREE_on_a_realizable_tx`**: the same ada
+> > top-up, rebalanced by funding the extra 100 lovelace from the wallet input, is
+> > `validRewardingContext`, is `redeemerCovered`, is ACCEPTED by the real compiled
+> > `programmableSeize` at 20,000 steps, and is REJECTED by `seizeModel`; its
+> > control, differing only in the two lovelace leaves, is accepted by both. The
+> > global-model refutation never had this weakness — `ctxSOwnMisindexed_valid`
+> > already proved its witness ledger-legal.
+> >
+> > This is the same error class as the P2b canonicity error R3 fixed: a
+> > counterexample built from a context that a CLAB `[LEDGER-RULE]` predicate
+> > already excludes. Both instances were found by asking, of every
+> > `native_decide` refutation in the library, "is the witness a transaction the
+> > ledger can build?" — a question with a mechanical answer.
+>
 > ### R1.3 What the retraction cost — pinned, per verdict
 >
 > **NOTHING.** Two clean-room builds, before and after:
@@ -1077,15 +1101,41 @@ Postcondition is `P2.sumOutAtBase … ≥ P2.sumInAtBase … + WSC.mintOf …`, 
 quantified over `tn`, in independent recursions; nothing from the seize validator's
 `valueDelta` / `ptokenPairsContain` machinery appears.
 
-**Doubt, recorded, and it is now MORE important than it was, because this theorem is
-load-bearing in a composed result for the first time.** This conjunct is
+**⚠️ THE DOUBT RECORDED HERE WAS AN ERROR, AND IT UNDERSTATED THE RESULT
+(corrected at task R3).** This entry used to read: "This conjunct is
 FALSE-in-general on the source model — obligation B1 has two machine-checked
-counterexamples (`ptokenPairsContain` is unsound with duplicate token names or
-unsorted maps) — and it closes here *because* SHAPE S1R gives every value exactly one
-policy and one token name. **`containment_on_seize_class` therefore inherits that
-shape-dependence directly.** The re-cut removed the realizability defect; it did NOT
-remove the shape-dependence, and stage 11 did not either. This is the sharpest doubt
-in the library and it is why §8 F2-coverage remains CRITICAL.
+counterexamples — and it closes here *because* SHAPE S1R gives every value exactly
+one policy and one token name … This is the sharpest doubt in the library."
+
+Both halves are false, and both were checkable against predicates already in this
+repository.
+
+* **Obligation B1 is a THEOREM, not a gap.** The two counterexample witnesses are
+  token lists no ledger can produce: `[("x",100),("x",-100)]` repeats a token name
+  AND carries a negative quantity; `[("x",-5),("z",10)]` carries a negative
+  quantity; `[("z",10),("x",-3)]` is unsorted AND negative. CLAB's own
+  `[LEDGER-RULE]` `validTxOutValue` (CardanoLedgerApi/V1/Contexts.lean:787-802)
+  forbids all three, and it is a conjunct of `validRewardingContext` via
+  `validScriptContext` → `validTxInfo` → `validInputs` / `validOutputs`, which
+  every shaped P2 theorem already assumes. `WSC.P2.tokensContain_sound`
+  (`WSC/Props/P2_Seize.lean` §4b) proves B1 in the Lean kernel — ordinary
+  induction, no `blaster`, no `native_decide`, no axiom — and needs only ONE
+  conjunct of canonicity, non-negativity of the actual list;
+  `WSC.P2.tokensForCS_nonneg` proves the ledger rule delivers it, and
+  `WSC.P2.counterexample_witnesses_are_not_canonical` checks the witnesses fail it.
+* **The one-token-name restriction was never load-bearing.**
+  `WSC/Props/Shaped/P2ShapedR2.lean` re-proves the containment conjunct over SHAPE
+  S1R2 — S1R with TWO token names under the non-ada policy of every value the
+  conjunct reads and TWO token names in the mint field — `✅ Valid` at the same
+  budget 3800, with vacuity probe `✅ Expected Falsified`, two-sided CEK witness
+  `K = 2739`, and a realizability certificate.
+
+**WHAT `containment_on_seize_class` ACTUALLY INHERITS** is SHAPE S1R's remaining
+skeleton — one non-ada policy per value, one minted policy, fixed input / output /
+reference-input list lengths, the DEFECT-D4 sharing, and budget 3800. That is a
+genuine bound and must still be quoted; it is not "the sharpest doubt in the
+library", and §8 F2-coverage is CRITICAL for the ordinary shape-coverage reason,
+not for this one.
 
 ### 5.3 P4-Local no-escape — `WSC.P4_local_noEscape_R`
 

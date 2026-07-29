@@ -658,10 +658,15 @@ JSONs, which N2 could never check.
 | **P2b — containment of the seized delta** | ✅ Valid | ✅ **Valid, UNCHANGED** | same shape S1R, same budget 3800, same postcondition |
 | **P2a — structure preservation** | ✅ Valid | ❌ **FALSIFIED as previously stated**; ✅ Valid after restatement | the postcondition had to change because the code did |
 
-**P2b needed no change at all.** Its postcondition, its shape, its budget and
-the two canonicity facts it consumes (one-policy/one-token-name `adaPlusOne`
-values, `mintOne` mint field) are all as they were. That the CIP-153 rewrite did
-not disturb the containment conjunct is itself a result worth stating.
+**P2b needed no change at all.** Its postcondition, its shape and its budget are
+all as they were. That the CIP-153 rewrite did not disturb the containment
+conjunct is itself a result worth stating.
+
+> **CORRECTION (task R3).** This paragraph used to add "and the two canonicity
+> facts it consumes (one-policy/one-token-name `adaPlusOne` values, `mintOne`
+> mint field)". P2b does not consume those. It consumes LEDGER canonicity, which
+> `validRewardingContext` supplies; `WSC/Props/Shaped/P2ShapedR2.lean` proves the
+> same conjunct over two-token-name values and a two-token-name mint field.
 
 **P2a is genuinely different.** #112 legalised an **ADA TOP-UP** on the
 continuing output. `WSC.seizeStructurePreserved`, whose per-pair rule demands
