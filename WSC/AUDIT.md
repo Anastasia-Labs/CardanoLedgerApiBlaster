@@ -1182,6 +1182,67 @@ three counterexamples each change **exactly one** `Data`-skeleton feature of `ct
 tag), leaving every leaf scalar untouched. **None is repairable by adding a shape
 parameter — two are list lengths and one is a constructor tag.**
 
+### 5.6 THE COUNTEREXAMPLE-WITNESS SWEEP (task R3) — is the §5.2 error repeated anywhere?
+
+The P2b error has a shape worth naming, because it is cheap to repeat:
+
+> **a `native_decide` "counterexample" whose witness is a value or a context that a
+> CLAB `[LEDGER-RULE]` predicate already excludes, cited as evidence about a
+> property whose scope assumes that predicate.**
+
+The library was swept for it. Method: extract every `theorem`/`example` in
+`WSC/**/*.lean` closed by `native_decide` whose statement carries a negative claim
+(`= false`, `≠`, `¬`, `= some false`) or whose name says one (`*_REFUTED`,
+`*_DISAGREE`, `not_*`, `*_rejects*`) — **103 declarations** — then classify each by
+what its witness is and by what its citation claims.
+
+| class | count | verdict |
+|---|---|---|
+| K-measurements and accept/reject demonstrations whose witness carries an explicit legality companion (`ctx*_valid`, `*_realizable`, `RealizableRewarding`) | 84 | **clear** — legality is proved next to the witness |
+| golden-driven (witness is off-chain builder output, decoded, hash-pinned in `WSC/flats/PROVENANCE.md`) | 12 | **clear** — the ledger built them |
+| encoding / discriminator facts about `Data` payloads (`RedeemerGate`, the `Redeemer` mirror) — no ledger predicate applies | 4 | **clear** |
+| deliberately hypothesis-free by construction | 1 | **clear, see below** |
+| **instances of the error class** | **2** | **both found and fixed at R3** |
+
+**The two real instances.**
+
+1. `tokensContain_needs_canonicity_dup` / `_unsorted` (`WSC/Props/P2_Seize.lean`) —
+   §5.2. Fixed: retitled and re-commented, `counterexample_witnesses_are_not_canonical`
+   added, and B1 proved (`tokensContain_sound`).
+2. `ctxAdaToppedUp` (`WSC/Model/SeizeModelRefuted.lean`) — the seize model/bytecode
+   disagreement was demonstrated on a context built from `ctxAdaEqual` by raising one
+   output's lovelace and changing nothing else, so the transaction stopped balancing
+   and `validRewardingContext` is **false** on it. The RETRACTION it supports is
+   unaffected — `no_faithful_bridge` quantifies over all contexts with no ledger
+   hypothesis, so a ledger-impossible one does refute it — but the CLAIM that the
+   model is unfaithful *on transactions a node would accept* needed a legal witness.
+   Fixed: `ada_topped_up_witness_is_NOT_ledger_legal` records the defect of the old
+   witness, and `seize_model_and_bytecode_DISAGREE_on_a_realizable_tx` re-demonstrates
+   the same disagreement on a rebalanced context that IS `validRewardingContext`, IS
+   redeemer-covered, IS accepted by the real `programmableSeize` at 20,000 steps and
+   IS rejected by `seizeModel`.
+
+**The one deliberate exception.** `Composition.merge_not_additive_without_canonicity`
+uses a value with unsorted currency symbols — ledger-impossible on purpose. It is not
+an instance of the error: its name, its docstring and its only citation all say
+"without canonicity", and its job is to show the `CanonV` hypotheses of `ValueAlgebra`
+are load-bearing rather than defensive. A ledger-legal witness would refute nothing
+there.
+
+**One witness family was upgraded from "should be legal" to "is legal".**
+`P3Witness.old_redeemer_now_rejects`, `out_of_range_index_rejects` and
+`wrong_arm_rejects` vary `ctx` in its redeemer only, and no ledger rule constrains a
+redeemer payload — so their legality followed from `ctx_valid` by an argument rather
+than by a computation. `P3Witness.attack_witnesses_are_ledger_legal`
+(`WSC/Props/P3_Base.lean`) now computes `validSpendingContext = true` for all three,
+because "so it should" is the reasoning that produced §5.2.
+
+**Residual.** The sweep covers `native_decide` counterexamples. It does not cover
+`#blaster … (solve-result: 1)` vacuity probes, whose falsifying model is found by the
+solver and is not inspected here; such a model being ledger-impossible would not
+affect what those probes claim (non-vacuity of the SHAPE), but nothing checks it, and
+F22 already records the two bridges with no non-vacuity witness at all.
+
 ---
 
 ## 6. PROVENANCE AND REPRODUCIBILITY

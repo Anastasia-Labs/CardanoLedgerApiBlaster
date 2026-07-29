@@ -317,6 +317,23 @@ theorem wrong_arm_rejects :
         (mkCtx (Data.Constr 1 [Data.I 0]) [(globalCred, 0)])) 6000) = false := by
   native_decide
 
+/-- **THE THREE ATTACK WITNESSES ARE LEDGER-LEGAL — checked, not assumed**
+(task R3, the counterexample-witness sweep).
+
+A rejection demonstration is only evidence about an ATTACK if the context it
+rejects is one a node would actually build; a rejection of a transaction the
+ledger would refuse anyway shows nothing about the validator.  The three
+theorems above vary `ctx` in its REDEEMER only, and no `[LEDGER-RULE]` predicate
+constrains a redeemer's payload, so all three inherit `ctx_valid`'s legality —
+but "so it should" is exactly the reasoning that produced the P2b canonicity
+error (`WSC/Props/P2_Seize.lean` §4b, `WSC/AUDIT.md` §5.2, §5.6), so it is
+computed here instead. -/
+theorem attack_witnesses_are_ledger_legal :
+    validSpendingContext (mkCtx (Data.I 0) [(globalCred, 0)]) = true
+  ∧ validSpendingContext (mkCtx (Data.Constr 0 [Data.I 1]) [(globalCred, 0)]) = true
+  ∧ validSpendingContext (mkCtx (Data.Constr 1 [Data.I 0]) [(globalCred, 0)]) = true := by
+  native_decide
+
 end P3Witness
 
 /-! ## AXIOM AUDIT
