@@ -108,6 +108,23 @@ The one positive datum is SHAPE **B1W**: cutting a single LEDGER-level dimension
 (the withdrawal map's length) closes P3 in ≈5 s with everything else symbolic —
 see §7.
 
+**UPDATE (task X2) — a SECOND positive datum, and it does not restore the route.**
+`WSC/Props/P3_BaseIdx.lean` and `WSC/Props/P4_MintingIdx.lean` prove P3 and P4a
+over the UNSHAPED preps `WSC.appliedBase` @ 600 and `WSC.appliedMinting900` @ 900,
+with **every list length symbolic** and all five dimensions `family_invariants`
+freezes left free, under one hypothesis pinning the redeemer's index to a
+LITERAL. P4a's 3,208-second `⚠️ Undetermined` closes in 1.9 s that way.
+**This is NOT "proved unshaped", and the sentence above stands unchanged.** The
+`Data`-skeleton residual is *traded* for a REDEEMER-INDEX residual: the theorems
+hold at i = −1…15 (base) and `BurnOnly` 0/1/10 (issuance) and return no verdict at
+i = 20 / 25 / 100 and `BurnOnly 25`. The index residual is genuinely smaller and
+better — ONE dimension, stated in ledger vocabulary ("the base-spend redeemer
+names withdrawal index `i`") against 5-plus dimensions and 9.27 × 10⁹ skeletons —
+but it is a residual, and the union of the rungs is not all transactions. It is
+also provably not collapsible with the current stack: `0 ≤ i ≤ 2` with `i`
+symbolic is `⚠️ Undetermined` at 608 s while i = 0, 1, 2 each close in 1.8 s, so
+the win is the Lean-level optimizer folding a literal, not the class being small.
+
 **What this is NOT.** It is not "the shapes are wrong", not "a property fails",
 and not "coverage is impossible in principle". The validator *accepts* all three
 missed transactions; the library simply says nothing about them. A coverage gap
@@ -539,9 +556,17 @@ third is a constructor tag; **no parameterisation reaches any of them.**
 > witnesses the production bytecode accepts in exactly 2,603 steps, the shape's
 > own step count. The enumeration route is priced at 9.27 × 10⁹ skeletons
 > (≈971 CPU-years, one property) at the smallest bound admitting a real transfer.
-> P3 is unaffected: it is proved over a fully symbolic context and needs no
+> ~~P3 is unaffected: it is proved over a fully symbolic context and needs no
 > coverage argument (`Coverage.unshaped_covers`,
-> `Coverage.p3_lives_over_a_covering_class`).
+> `Coverage.p3_lives_over_a_covering_class`).~~ **STALE — do not quote.** Since
+> wsc-poc PR #112 P3 does NOT close unshaped (task N3), and
+> `p3_lives_over_a_covering_class` was **deleted**, not corrected — it is replaced
+> by `p3_lives_over_the_wdrlPair_class` over `WSC.WdrlPair`. (`unshaped_covers`
+> survives unchanged but is a trivially true statement about the one-element
+> family `[unshapedClass]` with no property to carry.) P3 now lives over TWO
+> incomparable families: the shaped cut B1W, and the redeemer-index-literal family
+> `WSC/Props/P3_BaseIdx.lean`, which is unshaped in the PREP but carries a
+> per-index residual instead. See the UPDATE in §3.
 
 And `AUDIT.md` §9 gains one entry:
 

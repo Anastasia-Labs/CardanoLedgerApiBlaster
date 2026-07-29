@@ -1243,6 +1243,82 @@ solver and is not inspected here; such a model being ledger-impossible would not
 affect what those probes claim (non-vacuity of the SHAPE), but nothing checks it, and
 F22 already records the two bridges with no non-vacuity witness at all.
 
+### 5.7 THE THREE TRACTABILITY EXPERIMENTS (tasks X1/X2/X3) — what was landed, what was
+### refused, and the measured negatives
+
+Three techniques were tried against the campaign's `⚠️ Undetermined` register. Two paid,
+one did not. **All three produced measured negatives, and the negatives are the part
+most likely to save someone else's weeks**, so they are recorded here with numbers
+rather than summarised as "did not work".
+
+#### LANDED — the redeemer-index-literal family (X2)
+
+`WSC/Props/P3_BaseIdx.lean`, `P3_BaseIdx15.lean`, `P4_MintingIdx.lean`. P3 and P4a over
+the **UNSHAPED** preps, with one hypothesis pinning the redeemer's index to a literal.
+**`P4a_idx_burn0` retires the 3,208-second `⚠️ Undetermined`** that
+`WSC/SHAPING-RESULTS.md` §2 uses as its motivating example for shaping; that document now
+says so. Landed ALONGSIDE the shaped results, never instead — the two families are
+incomparable (see `WSC/COVERAGE.md` §3 UPDATE). **The proposed technique this came out of
+FAILED**: hypothesis-shaping as a *replacement* for prep-shaping is dead, measured on the
+same class — 4.6 s prep-shaped vs `⚠️ Undetermined` at 608 s hypothesis-shaped.
+
+#### LANDED — a measured Z3 random seed, per stanza (X3)
+
+`WSC/Props/Shaped/P4LocalShapedRDirect.lean`. Retires **both** of audit finding **F19**'s
+riders. Shipped with guards `✅ Expected Falsified` at the same seed, because a `Valid` is
+an `unsat` on a negated goal and an inconsistent encoding produces one too. **Never
+global**: seed 17 was measured turning a currently-passing proof into `⚠️ Undetermined`.
+
+#### REFUSED — closed-term extraction (X1), and why
+
+X1 extracted `poutputsContainExpectedValueAtCred` to its own closed UPLC term
+(provenance-gated: the same exporter re-emits `programmableLogicGlobal.flat` at
+sha256 `eed62d59…`, byte-identical to the published flat) and proved **E5/E6/E7**, which
+are real non-vacuous theorems, each with a `conclusion := False` control returning
+`❌ Falsified`. They are **NOT landed**, for two reasons, and the second is the decisive
+one:
+
+1. **They do not strengthen ARCHITECTURE Tier 3.1.** Its status is unchanged by this
+   work and remains exactly as entry **H2** states it: *path A PROVED* (SHAPES
+   T1R/T2R/T6R/T7R/T8R), *path C PROVED EXECUTED AND TRUE* (`T3R_pathC_is_taken`),
+   *path B REACHED, NOT ISOLABLE BY SEMANTICS* — on ledger-valid contexts `B ⟹ C`, so
+   no accept/reject test can distinguish them. **X1's E6 does not separate B from C
+   either** (it is `outsWF`-gated, so the same subsumption holds); it proves a
+   B-or-C-arm statement, which SHAPE T3R already proves **at the whole validator**.
+   A helper-level copy of a result the library already has at validator level is
+   strictly weaker, not "3 of 3".
+2. **Composition back to the validator is infeasible, and that is measured.** The
+   largest subterm of the 603-node extracted term occurring **verbatim** in the
+   2,785-node production validator is **20 nodes — 3.3 %** (211 nodes / 35 % under
+   index-blind equality). Plutarch hoists and inlines the helper differently in
+   context, so no syntactic substitution lemma exists; a semantic bridge would require
+   symbolically executing the whole validator to the call site, i.e. exactly the
+   unshaped whole-validator prep that costs 2,143 s at budget 1600. So these can only
+   ever be STANDALONE lemmas about a term that is provably not a subterm of the
+   deployed script.
+
+Landing them would also have added ≈300 s of prep to the build (`X1Prep800` 152 s +
+`X1Prep900` 145 s) and a new bytecode artifact with its own provenance obligations,
+for results subsumed by ones already in the tree. **The measurement is kept; the
+theorems are not.**
+
+#### The measured negatives, in one table
+
+| technique | the number | status |
+|---|---|---|
+| hypothesis-shaping as a replacement for prep-shaping | same class (2-entry withdrawal map): **4.6 s** `✅ Valid` prep-shaped vs **608 s** `⚠️ Undetermined` hypothesis-shaped. The predicate IS reaching the solver — its vacuity probe is `✅ Expected Falsified` in 0.99 s | **DEAD as a replacement.** A hypothesis helps only when it is an equation to a closed term the Lean optimizer can substitute |
+| collapsing the index ladder | `0 ≤ i ≤ 2`, `i` symbolic: `⚠️ Undetermined` at **608 s**; i = 0, 1, 2 each `✅ Valid` at **1.8 s** | **DEAD with the current stack.** Minimal reproducer for the one Blaster change that would generalise the family: Lean-level case splitting of a bounded symbolic index |
+| closed-term extraction as a tractability win | at budget 800 the **4.5× smaller** term cost **152 s vs 2.40 s — a 63× prep REGRESSION**, because the helper's arguments ARE the list it walks, so symbolic branching starts at step ~0 | **DEAD.** Extraction front-loads branching rather than removing it |
+| `unfold-depth` | `grep -rn unfoldDepth` over the pinned Blaster returns exactly **two** hits — the field (`Command/Options.lean:29`) and the parser (`Command/Syntax.lean:50`). Written and **read nowhere**. Recursive functions are emitted as `define-fun-rec` (`Smt/EmitCommand.lean:296-307`), so unfolding is **Z3's recfun engine**, whose budget Blaster does not expose. Empirically: `unfold-depth: 0` on a goal needing recursion is still `✅ Valid`; 0 / 100 / 5000 give 0.611 / 0.601 / 0.593 s | **DEAD KNOB. Do not sweep it again.** |
+| `max-depth` | read only by `StateMachine/StateMachine.lean:71,74`, consumed only by `StateMachine/{BMC,KInduction}.lean`, reachable only from `#bmc` / `#kind`. `#blaster` never enters that module | **DEAD KNOB on this code path** |
+| any solver knob on an UNSHAPED goal | unshaped P4a and unshaped P3: `smt.random-seed` 0–31 / 0–23 (plus 3/7/42/1337 at a **900 s** cap) and **eleven** Z3 configurations → **0 hits, 11/11 timeout** | **Prep-shaping is not made redundant by any solver knob.** This is the measurement that keeps §2 of `SHAPING-RESULTS.md` standing after its example was retired |
+
+Two implemented-but-unreachable Z3 knobs are recorded for whoever wants them:
+`setCaseSplit` (`Blaster/Smt/Env.lean:624`) and `setQiEagerThreshold` (`:628`) are defined
+and never called, with no `solveOption` syntax. `produce-proofs true`,
+`pull-nested-quantifiers true`, `mbqi true`, `auto_config false` and `macro_finder true`
+are hardcoded at `Env.lean:660-669` with no override.
+
 ---
 
 ## 6. PROVENANCE AND REPRODUCIBILITY
