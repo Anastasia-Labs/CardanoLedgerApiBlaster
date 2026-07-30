@@ -298,7 +298,7 @@ reached by editing the single budget literal on the `#prep_uplc` line:
 
 | rung | budget | coverage | meaning |
 |---|---:|---:|---|
-| floor | 4,400 / 3,800 | 1.7% / 1.3% | smallest NON-VACUOUS rung (the shaped theorems' own budget). Prep already does not terminate here. **Do not go below.** |
+| floor | 4,400 / 3,800 | 1.7% / 1.5% | smallest NON-VACUOUS rung (the shaped theorems' own budget). Prep already does not terminate here. **Do not go below.** |
 | 2 | 26,000 | 10% | intermediate progress marker |
 | 3 | 65,000 | 25% | |
 | 4 | 130,000 | 50% | |

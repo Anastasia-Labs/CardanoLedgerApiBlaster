@@ -80,7 +80,7 @@ what rules out vacuity, and the raise does not touch it.
 THE RUNGS, EXPRESSED AS COVERAGE OF THE CEILING (edit the one literal on the
 `#prep_uplc` line):
 
-    budget   3,800  =  1.3% of ceiling — smallest NON-VACUOUS rung; the budget
+    budget   3,800  =  1.5% of ceiling — smallest NON-VACUOUS rung; the budget
                        the shaped P2 theorems use. Prep already does not
                        terminate here.
     budget  26,000  =   10% of ceiling
