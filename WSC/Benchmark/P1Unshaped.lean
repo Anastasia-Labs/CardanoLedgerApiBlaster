@@ -14,7 +14,8 @@
 ║  still inside elaboration when the 15-minute cap fired — **894.6 s, killed,   ║
 ║  no output, no error**, RSS climbing monotonically to 8.88 GB at 12.5 min     ║
 ║  with no plateau. The `blaster` call under it is never reached.               ║
-║  Budget 2600 also fails (>894 s), so the wall is BELOW this budget.           ║
+║  Budget 2600 also fails (>894 s), so the wall is BELOW even the smallest      ║
+║  non-vacuous rung, let alone the mainnet-ceiling budget this module asks for. ║
 ║                                                                              ║
 ║  ⚠️ NOTHING IN THIS FILE IS CLAIMED AS A RESULT. `P1_unshaped` is an OPEN     ║
 ║  obligation. P1 against production bytecode is PROVED, over SHAPED contexts,  ║
@@ -41,7 +42,7 @@ a shape. Two purposes, in this order:
    600 → **2.42 s**, 1600 → **217 s**, and 2600 / 3300 / 4400 all **killed at a
    15-minute cap**. (An earlier run of the 1600 module took 37.8 s and another
    594 s — the variance on that one module is 16×; see WSC/BENCHMARK-PREP.md §5.4
-   before quoting any single figure.) This module asks for 4400. It is a REAL
+   before quoting any single figure.) This module asks for 300000 — the mainnet ex-unit ceiling (derivation below), i.e. the budget at which a verdict covers EVERY mainnet-payable transfer. It is a REAL
    production workload — the compiled `programmableLogicGlobal` from wsc-poc
    `main` @ 2306678, 3444 term nodes, 282 builtin occurrences including 46
    CIP-153 `Value` builtins — with a REAL proof obligation on top of it, not a
@@ -52,33 +53,59 @@ a shape. Two purposes, in this order:
 Corroborates upstream `input-output-hk/Lean-blaster#138`.
 
 ════════════════════════════════════════════════════════════════════════════
-WHY THE BUDGET IS 4400 AND MUST NOT BE LOWERED TO MAKE IT BUILD
+WHY THE BUDGET IS 300000: IT IS THE MAINNET EX-UNIT CEILING
 ════════════════════════════════════════════════════════════════════════════
-Below the minimal accepting step count the `isSuccessful` hypothesis is
-UNSATISFIABLE and the statement is VACUOUS — true and worthless. Two unshaped
-preps of this same flat already exist and DO terminate (`WSC.appliedGlobal` at
-600, measured 2.42 s; `WSC.appliedGlobal1600` at 1600, measured 217 s), and a P1
-statement over either would be vacuous:
+The budget is not a tuning knob — it is the point of the artifact. A verdict at
+budget N proves the property for every accepting run that fits in N CEK steps.
+For the benchmark to mean "P1 holds for EVERY transfer mainnet can carry", N must
+be at least the largest step count a mainnet transaction can pay for.
 
-* budget 600 is proved vacuous outright — `WSC.global_vacuity_probe_600`
-  (`WSC/Prep/Global.lean`) returns `✅ Valid`, i.e. NO accepting context exists
-  inside 600 steps;
-* budget 1600 does not reach any measured accepting registered transfer. The
-  cheapest is 2288 (`WSC.P1RShapedWitness.K_T8R_is_2288`); P1's own four shapes
-  cost 2343 / 2567 / 2777 / 2567 (`K_T1R_is_2343`, `K_T2R_is_2567`,
-  `K_T6R_is_2777`, `K_T7R_is_2567`), each pinned TWO-SIDED (`Halt` at K,
-  budget-`Error` at K−1); and a real off-chain golden costs 2782 and provably
-  does not halt at 1600 (`WSC.GlobalModelRefuted.golden_shows_budget_gap`).
+DERIVATION (from `maxTxExecutionUnits` and the measured per-step rates in
+`WSC/goldens/K-MEASUREMENTS.md` §2 — nine accepting goldens, all four
+validators, PCB's metered CEK reproducing the ledger's ExBudget TO THE UNIT):
 
-4400 is the budget the four shaped P1 theorems already use, so the benchmark and
-the proved results are at the SAME budget and the only difference is the shape.
+    CPU  ceiling:  10,000,000,000 / 18,132 CPU-per-step ≈ 551,500 steps
+    MEM  ceiling:      14,000,000 /   54.1 mem-per-step ≈ 258,780 steps  ← BINDS
+
+So the MEMORY budget, not the CPU budget, is the binding constraint, and no
+accepting run of this validator inside mainnet limits exceeds ≈259k CEK steps.
+**300000** is that ceiling rounded up with ≈16% margin, so that a step mix
+cheaper than any measured golden is still covered.
+
+Caveat, stated because it bounds the claim: 54.1 is the CHEAPEST memory-per-step
+observed on THIS validator family (the band is 54.1–56.3, tight across all nine
+goldens). A hypothetical accepting run built from cheaper steps than any measured
+one would raise the step ceiling; the margin absorbs a 16% drop and no more.
+Re-derive if `maxTxExecutionUnits` or the cost model changes.
+
+NON-VACUITY IS PRESERVED, A FORTIORI. Raising the budget only ADMITS more
+accepting runs, so every witness that certified the old rung still certifies this
+one: the cheapest measured accepting registered transfer is 2288
+(`WSC.P1RShapedWitness.K_T8R_is_2288`), P1's own four shapes cost 2343 / 2567 /
+2777 / 2567, each pinned TWO-SIDED (`Halt` at K, budget-`Error` at K−1), and a
+real off-chain golden costs 2782. All are ≤ 300000.
 `WSC.Benchmark.P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600`
-(`WSC/Benchmark/P1UnshapedStatement.lean` §4) certifies both halves of that
-executably, on the same program-and-inputs pair prepped here.
+(`WSC/Benchmark/P1UnshapedStatement.lean` §4) certifies executably that an
+accepting context exists at 4400 and that NONE exists at 1600 — the lower pin is
+what rules out a vacuous statement, and it is unaffected by the raise.
 
-**So: do not lower the budget. A vacuous benchmark is worse than none.** If you
-want a cheap smoke test of the pipeline, `WSC/BENCHMARK-PREP.md` gives the exact
-one-line edit and labels the result PROVABLY VACUOUS.
+THE RUNGS, ALL EXPRESSED AS COVERAGE OF THE CEILING (edit the one literal on the
+`#prep_uplc` line; each is a real proof obligation, not a smoke test):
+
+    budget   4,400  =  1.7% of ceiling — smallest NON-VACUOUS rung; the budget
+                       the four shaped P1 theorems use. Prep already does not
+                       terminate here.
+    budget  26,000  =   10% of ceiling — intermediate progress marker.
+    budget  65,000  =   25% of ceiling
+    budget 130,000  =   50% of ceiling
+    budget 300,000  =  100% + margin — THIS MODULE. A verdict here IS P1 for
+                       every transfer a mainnet transaction can carry: no shape
+                       family, no residual, no budget caveat.
+
+Below 4,400 the statement is still true but the SMALLEST rung is where vacuity
+starts to bite: at 1600 no accepting context exists at all
+(`WSC.global_vacuity_probe_600` proves the same for 600, `✅ Valid`), so a
+verdict there proves nothing. Do not go below 4,400.
 
 ════════════════════════════════════════════════════════════════════════════
 WHERE TO READ THE STATEMENT — IT IS NOT IN THIS FILE
@@ -111,7 +138,7 @@ namespace Benchmark
 open CardanoLedgerApi.V3 (CurrencySymbol ScriptContext)
 open PlutusCore.UPLC.Utils (isSuccessful)
 
-/-! ## The unshaped prep at the shaped theorems' own budget
+/-! ## The unshaped prep at the mainnet ex-unit ceiling
 
 `programmableLogicGlobal1600` is the DECODED production flat
 (`WSC/Prep/GlobalImport.lean`; sha256 in `WSC/flats/PROVENANCE.md`) and
@@ -123,11 +150,11 @@ baseline; contrast `WSC/Shaped/GlobalShapedP1RPrep.lean`, which preps the same
 flat at the same budget over a shape and completes in **1.51 s** (measured).
 
 The `1600` in the name is the module the DECODE lives in, not a budget. -/
-#prep_uplc appliedGlobalU4400 programmableLogicGlobal1600 globalInputs1600 4400
+#prep_uplc appliedGlobalUCeiling programmableLogicGlobal1600 globalInputs1600 300000
 
 /-! ## The obligation -/
 
-/-- **P1, UNSHAPED, at budget 4400 — THE BENCHMARK OBLIGATION.**
+/-- **P1, UNSHAPED, AT THE MAINNET EX-UNIT CEILING — THE BENCHMARK OBLIGATION.**
 
 `P1UnshapedForm` (`WSC/Benchmark/P1UnshapedStatement.lean` §2) with the accept
 predicate instantiated to the real bytecode's prepped residual. Spelled out, this
@@ -137,7 +164,7 @@ is:
       validRewardingContext ctx →
       paramsPublishedBy ctx = some (dirCS, toData (ScriptCredential plc)) →
       Model.coveringNodeExists dirCS cs ctx.…txInfoReferenceInputs = false →
-      isSuccessful (appliedGlobalU4400.prop ppCS ctx) →
+      isSuccessful (appliedGlobalUCeiling.prop ppCS ctx) →
         Model.outSum (.ScriptCredential plc) cs tn ctx.…txInfoOutputs
           ≥ Model.inSum (.ScriptCredential plc) cs tn ctx.…txInfoInputs
             + Model.mintSigned cs tn ctx.…txInfoMint
@@ -146,7 +173,7 @@ The mint is SIGNED. The `max(mint, 0)` variant is machine-refuted on a burn
 (`WSC.P1RShapedWitness.mintPos_form_REFUTED`); do not "repair" it. -/
 def P1_unshaped_stmt : Prop :=
   P1UnshapedForm (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
-    isSuccessful (appliedGlobalU4400.prop ppCS ctx))
+    isSuccessful (appliedGlobalUCeiling.prop ppCS ctx))
 
 /-- **OPEN.** Not reached: the `#prep_uplc` above does not terminate, so this
 declaration is never elaborated. Kept as a `theorem` and not a comment so that

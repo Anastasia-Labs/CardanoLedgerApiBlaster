@@ -26,9 +26,9 @@ directory is the *wish*: the same properties over a fully symbolic
 | file | builds? | what it is |
 |---|---|---|
 | `WSC/Benchmark/P1UnshapedStatement.lean` | **yes** | the P1 statement, parametric in the accept predicate; 4 kernel-checked specialisation theorems; the executable non-vacuity certificate |
-| `WSC/Benchmark/P1Unshaped.lean` | **no, by design** | `#prep_uplc … 4400` over the unshaped inputs function + the P1 obligation |
+| `WSC/Benchmark/P1Unshaped.lean` | **no, by design** | `#prep_uplc … 300000` (mainnet ex-unit ceiling, §4.0) over the unshaped inputs function + the P1 obligation |
 | `WSC/Benchmark/P2UnshapedStatement.lean` | **yes** | the same for P2, both conjuncts; 5 `rfl` audits + 3 specialisation theorems + non-vacuity |
-| `WSC/Benchmark/P2Unshaped.lean` | **no, by design** | `#prep_uplc … 3800` + both P2 obligations |
+| `WSC/Benchmark/P2Unshaped.lean` | **no, by design** | `#prep_uplc … 300000` (same ceiling) + both P2 obligations |
 | `WSC/Benchmark/EqDataTranslationFAILS.lean` | **no, by design** | 17-second reproducer (16.85 s measured, §6.4) for the SECOND blocker |
 
 The split exists so that the intractable prep does not take the *statement* down
@@ -138,6 +138,13 @@ compare `WSC.shapeR_progLogicCred`, which needs one, and
 
 ### 3.0 The statements are NOT new — they are the published model-level ones
 
+Note on P2's conjunct 2: the model-level reduction carries an open obligation
+(`WSC/Props/P2_Seize.lean:671-690`, its §5 "B2": canonicity propagated through
+the validator's own combinators into `checkBalanceInvariant`). The unshaped
+statement here is over the BYTECODE, so it does not inherit that obligation as a
+hypothesis — a `✅ Valid` verdict on `P2b_unshaped` would discharge it by
+symbolic execution, exactly as the shaped classes already do.
+
 Before reading §3.1, note that this repository already publishes unshaped,
 fully-symbolic versions of both properties, and the benchmark statements are those,
 re-pointed at the bytecode:
@@ -170,8 +177,12 @@ The differences, in full:
 * the params hypothesis uses the validator's own INDEXED read
   (`paramsPublishedBy` / `progLogicCredPublishedBySeize`) rather than
   `P1_model`'s ∀-scan `paramsPinned` or `P2_Seize`'s authenticated
-  `progLogicCredDataOf`. Both substitutions REPLACE A HYPOTHESIS BY A WEAKER ONE,
-  so the benchmark statements are strictly stronger; and both keep §3.1's
+  `progLogicCredDataOf`. The scan and the indexed read are INCOMPARABLE in
+  general (the scan is vacuously true when no reference input carries the params
+  NFT; the indexed read can name a pair another authenticated input contradicts)
+  — but UNDER `accept` they coincide, because the validator authenticates
+  exactly the input at the redeemer's index. The indexed read is used because
+  it mirrors the bytecode's own access pattern, and it keeps §3.1's
   specialisations free of a side condition (`paramsPinned` would need
   `nCS ≠ ppCS` at every P1 shape, `progLogicCredDataOf` would need `pCS = ppCS`).
 
@@ -210,7 +221,7 @@ the shaped family needs four theorems where the unshaped statement needs one.
 
 **The one gap, stated plainly.** §3 abstracts the accept predicate, so it does
 not derive the shaped THEOREMS from a hypothetical unshaped theorem. The two
-accept predicates are `isSuccessful (appliedGlobalU4400.prop ppCS ctx)` and
+accept predicates are `isSuccessful (appliedGlobalUCeiling.prop ppCS ctx)` and
 `isSuccessful (appliedGlobalShapedT1R.prop ppCS <leaves>)`: the same program at
 the same budget on the same context, but two different `Optimize.main` outputs,
 and this repository has measured that prep residuals are not definitionally
@@ -249,83 +260,63 @@ So the honest reading of a future run is:
 
 ---
 
-## 4. Non-vacuity, and why the budgets are 4400 and 3800
+## 4. The budget: the mainnet ex-unit ceiling, and the non-vacuity floor
 
-Below the minimal accepting step count the `isSuccessful` hypothesis is
-unsatisfiable and the statement is VACUOUS — true and worthless. This repository
-has been bitten: task V3 stated P6 at budget 2500, got `✅ Valid`, and the
-mandatory vacuity probe then showed the accept class was UNSAT
-(`WSC/Shaped/Probe/G6Vacuous2500.lean`).
 
-**Minimal accepting K, measured on the UNSHAPED term** — i.e. on
-`cekExecuteProgram <flat>.script (<unshaped inputs fn> ppCS ctx) K`, exactly the
-program-and-inputs pair the benchmark modules prep, with only the meter changed.
-Every value is pinned TWO-SIDED (`Halt` at K, budget-`Error` at K−1) by a
-`native_decide` theorem:
+### 4.0 THE RUNGS — set at the mainnet ex-unit ceiling
 
-| property | witness | K | pin |
-|---|---|---|---|
-| P1, SHAPE T8R | `P1RShapedWitness.ctxSOwn` | **2288** | `K_T8R_is_2288` |
-| P1, SHAPE T1R | `P1RShapedWitness.ctxOk` | **2343** | `K_T1R_is_2343` |
-| P1, SHAPE T2R (burn) | `ctxBurn` | **2567** | `K_T2R_is_2567` |
-| P1, SHAPE T7R (burn) | `ctxOutBurn` | **2567** | `K_T7R_is_2567` |
-| P1, SHAPE T6R | `ctxOut` | **2777** | `K_T6R_is_2777` |
-| P2, SHAPE S1R (accept) | `P2RWitness.ctxAccept` | **2301** | `K_is_2301_and_2412` |
-| P2, SHAPE S1R (residual) | `P2RWitness.ctxResidual` | **2412** | `K_is_2301_and_2412` |
-| P2, SHAPE S1R2 (2 token names) | `P2R2Witness.ctxResidual2` | **2739** | `K_R2_is_2739` |
+The benchmark's budget is not a tuning knob: a verdict at budget N proves the
+property for exactly those accepting runs that fit in N CEK steps. So the rung
+that makes the artifact mean *"P1/P2 hold for every transaction mainnet can
+carry"* is the mainnet ex-unit ceiling, and that is what both modules are set to.
 
-Real off-chain goldens, for calibration — every one of these is a transaction the
-production off-chain code built and the Haskell ledger evaluator accepted, and
-PCB's metered CEK reproduces its `ExBudget` to the unit
-(`WSC/goldens/K-MEASUREMENTS.md` §2):
+**Derivation.** From `maxTxExecutionUnits` and the per-step rates measured over
+all nine accepting goldens and all four validators (§5.1a and
+`WSC/goldens/K-MEASUREMENTS.md` §2, where PCB's metered CEK reproduces the
+ledger's own ExBudget **to the unit** — CPU/step 18,132–21,759, mem/step
+54.1–56.3):
 
-| accepting golden | K |
-|---|---|
-| `programmableLogicGlobal.transfer-nonmember-covering-node` | 1,453 |
-| `programmableLogicGlobal.transfer-member-single-policy` | 2,782 |
-| `programmableLogicGlobal.transfer-mixed-many-policies` | 3,441 |
-| `programmableSeize.seize-1-input` | 2,305 |
-| `programmableSeize.seize-2-inputs-partial-with-noise` | 2,905 |
+| limit | budget | ÷ cheapest measured per-step | max CEK steps |
+|---|---:|---:|---:|
+| CPU | 10,000,000,000 | 18,132 | ≈ 551,500 |
+| **memory** | **14,000,000** | **54.1** | **≈ 258,780  ← BINDS FIRST** |
 
-Note that 4400 clears ALL THREE accepting global goldens and 3800 clears BOTH
-accepting seize goldens, so the chosen budgets are not merely above the shaped
-witnesses — they are above every real transaction in the suite.
+**The memory budget, not the CPU budget, is the binding constraint** — a fact
+worth stating on its own, since ex-unit discussions default to CPU. No accepting
+run of these validators inside mainnet limits exceeds ≈259k CEK steps.
 
-> ⚠️ **The figures 2603 / 3150 / 3572 for P1 and 3004 / 3328 for P2 are
-> PRE-#112** and are superseded. PR #112's scan-to-index rewrite made the runs
-> 23–28 % cheaper. The table above is the current, post-#112, re-cut-shape set.
-> The chosen budgets clear both sets, so the budget did not have to move.
+**Both modules are set to 300,000** = that ceiling plus ≈16% margin, so a step
+mix cheaper than any measured golden is still covered. The bound is honest about
+its own basis: 54.1 is the *cheapest observed* memory-per-step on this validator
+family (band 54.1–56.3, tight across nine goldens, and the two seize goldens are
+the two cheapest). A run built from cheaper steps than any measured one would
+raise the ceiling; the margin absorbs a 16% drop and no more. Re-derive if
+`maxTxExecutionUnits` or the cost model changes.
 
-So: **P1 at 4400** (headroom 1623 over the most expensive P1 witness) and
-**P2 at 3800** (headroom 1061 over S1R2). Both are the budgets the corresponding
-shaped theorems already use, so the benchmark and the proved results differ only
-in the shape.
+**The rungs, as coverage of that ceiling.** Each is a real proof obligation
+reached by editing the single budget literal on the `#prep_uplc` line:
 
-Executable certificates, in the two statement modules:
+| rung | budget | coverage | meaning |
+|---|---:|---:|---|
+| floor | 4,400 / 3,800 | 1.7% / 1.3% | smallest NON-VACUOUS rung (the shaped theorems' own budget). Prep already does not terminate here. **Do not go below.** |
+| 2 | 26,000 | 10% | intermediate progress marker |
+| 3 | 65,000 | 25% | |
+| 4 | 130,000 | 50% | |
+| **GOAL** | **300,000** | **100% + margin** | **what both modules are set to: a verdict here IS the property for every transaction mainnet can carry — no shape family, no residual, no budget caveat** |
 
-* `P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600` — `ctxOk` satisfies every
-  hypothesis of `P1UnshapedForm` except `accept`; the real bytecode HALTS on it at
-  4400 and does NOT halt at 1600.
-* `P2_unshaped_nonvacuous_at_3800_and_vacuous_at_600` — `ctxAccept` satisfies
-  every hypothesis of `P2aUnshapedForm`/`P2bUnshapedForm` except `accept`; the
-  bytecode HALTS at 3800 and does NOT halt at 2300 (one below the pin) or at 600.
+**Non-vacuity is preserved a fortiori.** Raising the budget only admits more
+accepting runs, so every two-sided witness pin in §4 still applies: cheapest
+accepting registered transfer 2288, P1's shapes 2343/2567/2777/2567, seize
+2301/2412/2739, real goldens 1,453–3,441 and 2,305/2,905 — all ≤ 300,000. The
+executable certificates in the two `…Statement.lean` modules certify an accepting
+context AT the floor rung and NONE below it; that lower pin is what rules out
+vacuity and the raise does not touch it.
 
-**Do NOT lower the budget to make something build.** Two unshaped preps of the
-global validator already exist (600 and 1600) and both are vacuous
-for P1: budget 600 is proved vacuous outright by `WSC.global_vacuity_probe_600`,
-and *we re-measured this for the benchmark's own statement* — at budget 600
-`P1UnshapedForm` is discharged **by the optimizer alone in 0.246 s**, before any
-SMT translation, which is precisely the signature of a vacuous goal. The only
-unshaped seize prep is at 600 and the E2 spike proved no accepting context exists
-inside it.
-
-If you want a pipeline smoke test rather than a benchmark, the one-line edit is:
-change `4400` to `1600` in `WSC/Benchmark/P1Unshaped.lean` and import
-`WSC.Prep.Global1600`, using `appliedGlobal1600` instead of `appliedGlobalU4400`.
-**Label the result PROVABLY VACUOUS.** It is not a P1 result and must never be
-quoted as one.
-
----
+**Scale of the ask.** Unshaped prep dies today at ≈3,300 (§5). The goal rung is
+300,000. The required improvement is therefore roughly **two orders of
+magnitude**, not a constant-factor tune — which is the single most useful number
+in this document for deciding whether `prep_uplc` needs an optimization or an
+algorithm.
 
 ## 5. The measured cost curve
 
@@ -353,7 +344,7 @@ error when the cap hit.
 | 1600 | `WSC.Prep.Global1600` | **217.23 s** | completed, 4.35 GB peak RSS |
 | 2600 | `WSC.Benchmark.CostG2600` (temporary) | **> 894 s** | **KILLED at the 15-min cap**, 7.18 GB and still climbing |
 | 3300 | `WSC.Benchmark.CostG3300` (temporary) | **> 893 s** | **KILLED at the 15-min cap** |
-| **4400** | **`WSC.Benchmark.P1Unshaped`** | **> 894 s** | **KILLED at the 15-min cap**, 8.88 GB and still climbing |
+| **4400** | **`WSC.Benchmark.P1Unshaped`** at its floor rung (module now asks 300000) | **> 894 s** | **KILLED at the 15-min cap**, 8.88 GB and still climbing |
 
 ### 5.2 `programmableSeize` (clawback), UNSHAPED — `WSC.seizeInputs`
 
@@ -361,7 +352,7 @@ error when the cap hit.
 |---|---|---|---|
 | 600 | `WSC.Prep.Seize` | **1.75 s** | completed, 1.21 GB peak RSS |
 | 2000 | `WSC.Benchmark.CostS2000` (temporary) | **> 892 s** | **KILLED at the 15-min cap** |
-| **3800** | **`WSC.Benchmark.P2Unshaped`** | **> 887 s** | **KILLED at the 15-min cap** |
+| **3800** | **`WSC.Benchmark.P2Unshaped`** at its floor rung (module now asks 300000) | **> 887 s** | **KILLED at the 15-min cap** |
 
 ### 5.3 The SHAPED control — same flats, same budgets, same postconditions
 
@@ -395,9 +386,9 @@ the shape being small.
   timeouts on the strength of one green run. Treat 217 s as a sample, not a
   constant, and treat the killed rows as "not reachable in 15 minutes", which is
   the only claim they support.
-* **The binding number for the benchmark is 2600, not 4400.** Budget 2600 already
+* **The nearest wall is at ≈2600 — two orders of magnitude below the goal rung.** Budget 2600 already
   fails, and 2600 is *below* the 2777 needed to cover every P1 witness — though
-  above the 2288 minimum. So the interesting target is not "make 4400 work", it is
+  above the 2288 minimum. So the first target is not "make the goal rung work", it is
   "make anything at or above 2288 work at all".
 
 ### 5.5 Peak memory
@@ -438,8 +429,8 @@ SMT-LIB translation; `verbose: 1` prints per-phase wall times. Timed with
 | `P1UnshapedForm` at `appliedGlobal1600.prop`, `only-smt-lib: 1` + `dump-smt-lib: 1` | 1600 | yes | **12.346 s** | **FAILS** | no SMT-LIB emitted |
 | same, NORMAL path, `(timeout: 240)` | 1600 | yes | **11.006 s** / **13.219 s** | **FAILS** | build error, no verdict |
 | same, params hypothesis DELETED (control) | 1600 | yes | **10.453 s** / **12.762 s** | **FAILS** | identical error |
-| `P1UnshapedForm` at `appliedGlobalU4400.prop` | 4400 | **no** | not reached | not reached | prep killed at the 15-min cap |
-| `P2a/bUnshapedForm` at `appliedSeizeU3800.prop` | 3800 | **no** | not reached | not reached | prep killed at the 15-min cap |
+| `P1UnshapedForm` at `appliedGlobalUCeiling.prop` | 300000 (ceiling) | **no** | not reached | not reached | prep killed at the 15-min cap |
+| `P2a/bUnshapedForm` at `appliedSeizeUCeiling.prop` | 300000 (ceiling) | **no** | not reached | not reached | prep killed at the 15-min cap |
 
 Rows 2–3 double as a TYPE CHECK: `P2aUnshapedForm` and `P2bUnshapedForm` are
 instantiated at a prep that exists, so the benchmark module's two `def`s are known
@@ -505,10 +496,10 @@ survives.
 **Consequence for the benchmark, and it is good news.** There are TWO independent
 blockers:
 
-* **(B1)** the `#prep_uplc` cost wall — §5, the headline;
-* **(B2)** this translation gap.
+* **(BLOCKER-PREP)** the `#prep_uplc` cost wall — §5, the headline;
+* **(BLOCKER-TRANSLATE)** this translation gap.
 
-**(B2) can be worked on today, at a 17-second turnaround, with no progress on (B1)
+**(BLOCKER-TRANSLATE) can be worked on today, at a 17-second turnaround, with no progress on (BLOCKER-PREP)
 at all.** `WSC/Benchmark/EqDataTranslationFAILS.lean` is exactly that reproducer:
 both stanzas, the control, the full mechanism in its header, and a banner warning
 that budget 1600 is provably vacuous so neither stanza is ever a P1 result.
@@ -517,7 +508,7 @@ that budget 1600 is provably vacuous so neither stanza is ever a P1 result.
 lake build WSC.Benchmark.EqDataTranslationFAILS     # 16.85 s wall, exit 1
 ```
 
-A benchmark that only exhibited (B1) would have been misleading: it would have
+A benchmark that only exhibited (BLOCKER-PREP) would have been misleading: it would have
 suggested that a faster unroller is sufficient. It is necessary, not sufficient.
 
 ---

@@ -41,21 +41,29 @@ validators, and it is the validator on which the unshaped unroller has failed by
 the widest margin.
 
 ════════════════════════════════════════════════════════════════════════════
-WHY THE BUDGET IS 3800 AND MUST NOT BE LOWERED TO MAKE IT BUILD
+WHY THE BUDGET IS 300000: IT IS THE MAINNET EX-UNIT CEILING
 ════════════════════════════════════════════════════════════════════════════
-Below the minimal accepting step count the `isSuccessful` hypothesis is
-UNSATISFIABLE and both statements are VACUOUS — true and worthless. The ONLY
-unshaped seize prep that exists is `WSC.appliedSeize` at budget 600
-(`WSC/Prep/Seize.lean`, measured **1.75 s**), and the E2 spike PROVED there is no
-accepting context inside 600 steps, which is why that module's own header forbids
-stating any P-theorem against it. Re-measured for THESE statements: both
-`P2a_unshaped_stmt` and `P2b_unshaped_stmt` instantiated at `appliedSeize.prop`
-come back `✅ Valid` **inside the optimization phase, in 0.245 s / 0.243 s**,
-before any SMT translation — the signature of a refuted accept hypothesis, i.e.
-VACUOUS.
+A verdict at budget N proves the property for every accepting run that fits in N
+CEK steps. For the benchmark to mean "P2 holds for EVERY seizure mainnet can
+carry", N must be at least the largest step count a mainnet transaction can pay
+for.
 
-Measured minimal accepting K on this bytecode, each pinned TWO-SIDED (`Halt` at K,
-budget-`Error` at K−1) and measured on the SAME unshaped
+DERIVATION (identical to `WSC/Benchmark/P1Unshaped.lean`; from
+`maxTxExecutionUnits` and the per-step rates measured over nine accepting goldens
+in `WSC/goldens/K-MEASUREMENTS.md` §2, where PCB's metered CEK reproduces the
+ledger's ExBudget to the unit):
+
+    CPU  ceiling:  10,000,000,000 / 18,132 CPU-per-step ≈ 551,500 steps
+    MEM  ceiling:      14,000,000 /   54.1 mem-per-step ≈ 258,780 steps  ← BINDS
+
+The MEMORY budget binds first. **300000** is that ≈259k ceiling plus ≈16% margin.
+The two seize goldens sit at the cheap end of the measured band (54.6 and 54.1
+mem/step, the lowest of all nine), so the seize validator is exactly the case the
+margin is sized for; one ceiling serves both validators.
+
+NON-VACUITY IS PRESERVED, A FORTIORI — raising the budget only admits MORE
+accepting runs. Minimal accepting K on this bytecode, each pinned TWO-SIDED
+(`Halt` at K, budget-`Error` at K−1) on the SAME unshaped
 `programmableSeize.script` + `WSC.seizeInputs` pair this module preps:
 
 * **2301** and **2412** — `WSC.P2RWitness.K_is_2301_and_2412` (SHAPE S1R's
@@ -63,14 +71,28 @@ budget-`Error` at K−1) and measured on the SAME unshaped
 * **2739** — `WSC.P2R2Witness.K_R2_is_2739` (SHAPE S1R2, two token names).
 
 Real off-chain accepting seize goldens cost 2,305 and 2,905 steps
-(`WSC/goldens/K-MEASUREMENTS.md` §3, re-measured at task N5). 3800 is the budget
-the four shaped P2 theorems already use, so the benchmark and the proved results
-are at the SAME budget and the only difference is the shape.
+(`WSC/goldens/K-MEASUREMENTS.md` §3). All are ≤ 300000.
 `WSC.Benchmark.P2_unshaped_nonvacuous_at_3800_and_vacuous_at_600`
-(`WSC/Benchmark/P2UnshapedStatement.lean` §5) certifies non-vacuity at 3800 and
-vacuity at 600 executably.
+(`WSC/Benchmark/P2UnshapedStatement.lean` §5) certifies executably that an
+accepting context exists at 3800 and that NONE exists at 600 — the lower pin is
+what rules out vacuity, and the raise does not touch it.
 
-**So: do not lower the budget. A vacuous benchmark is worse than none.**
+THE RUNGS, EXPRESSED AS COVERAGE OF THE CEILING (edit the one literal on the
+`#prep_uplc` line):
+
+    budget   3,800  =  1.3% of ceiling — smallest NON-VACUOUS rung; the budget
+                       the shaped P2 theorems use. Prep already does not
+                       terminate here.
+    budget  26,000  =   10% of ceiling
+    budget  65,000  =   25% of ceiling
+    budget 130,000  =   50% of ceiling
+    budget 300,000  =  100% + margin — THIS MODULE. A verdict here IS P2 for
+                       every seizure a mainnet transaction can carry.
+
+Below 3,800 vacuity bites: at 600 there is provably no accepting context (the E2
+spike, and both statements instantiated at `appliedSeize.prop` return `✅ Valid`
+inside the optimization phase in 0.245 s / 0.243 s — the signature of a refuted
+accept hypothesis). **Do not go below 3,800.**
 
 ════════════════════════════════════════════════════════════════════════════
 WHERE TO READ THE STATEMENTS — THEY ARE NOT IN THIS FILE
@@ -100,7 +122,7 @@ namespace Benchmark
 open CardanoLedgerApi.V3 (CurrencySymbol ScriptContext)
 open PlutusCore.UPLC.Utils (isSuccessful)
 
-/-! ## The unshaped prep at the shaped theorems' own budget
+/-! ## The unshaped prep at the mainnet ex-unit ceiling
 
 `programmableSeize` is the DECODED production flat (`WSC/Prep/Seize.lean`; sha256
 in `WSC/flats/PROVENANCE.md`; it decodes only against the CIP-153-capable
@@ -116,11 +138,11 @@ definitions included); `WSC/Shaped/SeizeShapedR2.lean` — the two-token-name sh
 the most expensive shaped prep in the library — takes **84.11 s**. So shaped preps
 are not uniformly ≈1 s; the cheapness comes from the CLOSED `Data` SKELETON, not
 from the shape being small. -/
-#prep_uplc appliedSeizeU3800 programmableSeize seizeInputs 3800
+#prep_uplc appliedSeizeUCeiling programmableSeize seizeInputs 300000
 
 /-! ## The obligations — both conjuncts -/
 
-/-- **P2 (a), UNSHAPED, at budget 3800 — BENCHMARK OBLIGATION.**
+/-- **P2 (a), UNSHAPED, AT THE MAINNET EX-UNIT CEILING — BENCHMARK OBLIGATION.**
 
 `P2aUnshapedForm` with `accept` instantiated to the real bytecode's prepped
 residual. Spelled out:
@@ -130,7 +152,7 @@ residual. Spelled out:
       SeizeModel.seizedPolicyOf ctx = some key →
       progLogicCredPublishedBySeize ctx = some (toData (ScriptCredential plc)) →
       SeizeModel.pairedOutputsOf ctx = some pairedOuts →
-      isSuccessful (appliedSeizeU3800.prop ppCS ctx) →
+      isSuccessful (appliedSeizeUCeiling.prop ppCS ctx) →
         WSC.seizeStructurePreservedAdaTopUp (ScriptCredential plc) key
           ctx.…txInfoInputs pairedOuts = true
 
@@ -141,15 +163,15 @@ seizure drain the victim's lovelace, which the bytecode also refuses
 (`WSC.P2a_R_negative_control`). Do not touch it. -/
 def P2a_unshaped_stmt : Prop :=
   P2aUnshapedForm (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
-    isSuccessful (appliedSeizeU3800.prop ppCS ctx))
+    isSuccessful (appliedSeizeUCeiling.prop ppCS ctx))
 
-/-- **P2 (b), UNSHAPED, at budget 3800 — BENCHMARK OBLIGATION.**
+/-- **P2 (b), UNSHAPED, AT THE MAINNET EX-UNIT CEILING — BENCHMARK OBLIGATION.**
 
     ∀ ppCS ctx key plc tn,
       validRewardingContext ctx →
       SeizeModel.seizedPolicyOf ctx = some key →
       progLogicCredPublishedBySeize ctx = some (toData (ScriptCredential plc)) →
-      isSuccessful (appliedSeizeU3800.prop ppCS ctx) →
+      isSuccessful (appliedSeizeUCeiling.prop ppCS ctx) →
         WSC.P2.sumOutAtBase (ScriptCredential plc) key tn ctx.…txInfoOutputs
           ≥ WSC.P2.sumInAtBase (ScriptCredential plc) key tn ctx.…txInfoInputs
             + WSC.mintOf key tn ctx.…txInfoMint
@@ -158,7 +180,7 @@ The mint is SIGNED (`WSC.mintOf = valueOf`): a legitimate burn of the seized
 policy lowers the requirement. -/
 def P2b_unshaped_stmt : Prop :=
   P2bUnshapedForm (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
-    isSuccessful (appliedSeizeU3800.prop ppCS ctx))
+    isSuccessful (appliedSeizeUCeiling.prop ppCS ctx))
 
 /-- **OPEN.** Not reached — the `#prep_uplc` above does not terminate. Kept as a
 `theorem` so the artifact is a real proof obligation the moment the prep

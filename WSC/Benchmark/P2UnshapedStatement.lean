@@ -114,7 +114,7 @@ WHAT THIS MODULE DOES NOT ESTABLISH
 1. It does NOT prove P2 unshaped. No prep is mentioned; the obligations are in
    the companion module and are OPEN.
 2. §3 abstracts the accept predicate, so it does not derive the shaped THEOREMS
-   from a hypothetical unshaped one — `appliedSeizeU3800.prop` and
+   from a hypothetical unshaped one — `appliedSeizeUCeiling.prop` and
    `appliedSeizeRShaped3800.prop` are two different `Optimize.main` outputs and
    this library has measured that prep residuals are not definitionally
    interchangeable (audit F8, docs/LIMITATIONS.md §5).

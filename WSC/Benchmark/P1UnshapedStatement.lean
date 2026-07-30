@@ -108,9 +108,14 @@ reference input that `hasCSH ppCS` accepts must publish exactly `(dirCS, base)`.
 names, which is what the validator does (`pparamsAtRefIdx`, :824-838). Two
 consequences, both in the statement's favour:
 
-* `paramsPinned` is the STRONGER hypothesis (it constrains reference inputs the
-  validator never looks at), so a statement carrying it is WEAKER. Using the
-  index-based read gives the stronger theorem.
+* The two hypotheses are INCOMPARABLE in general: `paramsPinned` is vacuously
+  true when no reference input carries `ppCS`, while `paramsPublishedBy` can
+  hold in a context where a differently-indexed `ppCS`-authenticated input
+  publishes a different pair. What makes the choice safe is that UNDER `accept`
+  they coincide — the validator authenticates exactly the input at the
+  redeemer's index (`pparamsAtRefIdx`), so both pin `(dirCS, base)` to the same
+  datum at the point of use. The index-based read is preferred because it
+  mirrors what the bytecode actually does, not because it is weaker.
 * At every P1 shape, `paramsPinned` would need the side condition `nCS ≠ ppCS` —
   the DIRECTORY NODE must not also carry the params NFT, or the scan reaches the
   node's 5-field `DirectorySetNode` datum and fails. `nCS` and `ppCS` are distinct
@@ -146,7 +151,7 @@ WHAT THIS MODULE DOES NOT ESTABLISH
    is in the companion module and is OPEN.
 2. §3 abstracts the accept predicate, so it does NOT derive `P1R_T1` (the shaped
    THEOREM) from a hypothetical unshaped theorem. Those two accept predicates are
-   `isSuccessful (appliedGlobalU4400.prop ppCS ctx)` and
+   `isSuccessful (appliedGlobalUCeiling.prop ppCS ctx)` and
    `isSuccessful (appliedGlobalShapedT1R.prop ppCS <leaves>)`: the same program at
    the same budget on the same context, but two DIFFERENT `Optimize.main` outputs,
    and this library has measured that `#prep_uplc` residuals are not
@@ -254,7 +259,7 @@ compiled `programmableLogicGlobal` bytecode accepts, then the amount of
 `base` plus the SIGNED net mint of `(cs, tn)`.*
 
 `accept` is abstract so that §3 can be proved in the kernel. The benchmark
-instantiates it to `fun ppCS ctx => isSuccessful (appliedGlobalU4400.prop ppCS ctx)`
+instantiates it to `fun ppCS ctx => isSuccessful (appliedGlobalUCeiling.prop ppCS ctx)`
 in `WSC/Benchmark/P1Unshaped.lean`. -/
 def P1UnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
   ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)

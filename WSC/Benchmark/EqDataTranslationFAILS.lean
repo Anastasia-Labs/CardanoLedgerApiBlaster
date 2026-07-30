@@ -28,16 +28,16 @@
 WHY THIS EXISTS — TWO INDEPENDENT BLOCKERS, AND THIS IS THE AFFORDABLE ONE
 ════════════════════════════════════════════════════════════════════════════
 `WSC/Benchmark/P1Unshaped.lean` asks for an UNSHAPED `#prep_uplc` at budget 4400
-and does not terminate; that is blocker **(B1)**, the prep-cost wall, and it is
+and does not terminate; that is blocker **(BLOCKER-PREP)**, the prep-cost wall, and it is
 the headline benchmark (`WSC/BENCHMARK-PREP.md`).
 
-But suppose (B1) were fixed tomorrow. The goal would still not close, because of
-blocker **(B2)**: over a fully symbolic `ScriptContext` the residual retains
+But suppose (BLOCKER-PREP) were fixed tomorrow. The goal would still not close, because of
+blocker **(BLOCKER-TRANSLATE)**: over a fully symbolic `ScriptContext` the residual retains
 applications of `PlutusCore.Data.eqData`, and Blaster cannot translate them.
 
-(B2) is reproducible at budget **1600**, where the unshaped prep DOES terminate,
+(BLOCKER-TRANSLATE) is reproducible at budget **1600**, where the unshaped prep DOES terminate,
 in about 17 seconds for the whole module (≈13 s per stanza). That is what this
-module does. **Fixing (B2) needs no progress on (B1) at all**, which is the only
+module does. **Fixing (BLOCKER-TRANSLATE) needs no progress on (BLOCKER-PREP) at all**, which is the only
 reason this file is worth shipping.
 
 ════════════════════════════════════════════════════════════════════════════
@@ -132,7 +132,7 @@ This is what rules out the benchmark's own added clause as the source of the
 unconstrained, so a positive mint at a pubkey address refutes it (see
 `WSC/Benchmark/P1UnshapedStatement.lean`'s header). It never gets far enough to be
 falsified, and it must never be quoted as anything but a translator reproducer. -/
-def P1_form_at_1600_no_params_hyp : Prop :=
+def FALSE_control_params_hyp_deleted : Prop :=
   ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
     (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName),
     validRewardingContext ctx →
@@ -143,7 +143,7 @@ def P1_form_at_1600_no_params_hyp : Prop :=
         ≥ Model.inSum base cs tn ctx.scriptContextTxInfo.txInfoInputs
           + Model.mintSigned cs tn ctx.scriptContextTxInfo.txInfoMint
 
-#blaster (timeout: 240) (verbose: 1) (gen-cex: 0) [P1_form_at_1600_no_params_hyp]
+#blaster (timeout: 240) (verbose: 1) (gen-cex: 0) [FALSE_control_params_hyp_deleted]
 
 end Benchmark
 end WSC
