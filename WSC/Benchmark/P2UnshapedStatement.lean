@@ -204,7 +204,15 @@ def P2aUnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop 
 /-- **P2 (b) — CONTAINMENT OF THE SEIZED DELTA, UNSHAPED, parametric in `accept`.**
 The mint is SIGNED (`WSC.mintOf = valueOf`): a legitimate burn of the seized
 policy lowers the requirement, and the `max(mint,0)` form is refuted at the
-transfer side by `WSC.P1RShapedWitness.mintPos_form_REFUTED`. -/
+transfer side by `WSC.P1RShapedWitness.mintPos_form_REFUTED`.
+
+**NO `seizedCS ≠ adaSymbol` GUARD, AND THAT IS A CHECKED DECISION, NOT AN
+OVERSIGHT.** `WSC/Benchmark/P1UnshapedStatement.lean` was FALSE for want of the
+analogous guard, and `seizedCS` here is the directory node key, which a head
+sentinel makes empty. §6 settles the question by CONSTRUCTION: it builds the ada
+seizure that violates this conclusion and MEASURES that the real compiled
+`programmableSeize` rejects it, while accepting the ada seizure that satisfies it.
+Read §6's "HONEST LIMITS" before citing that as more than it is. -/
 def P2bUnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
   ∀ (ppCS : CurrencySymbol) (base : Credential) (ctx : ScriptContext)
     (seizedCS : CurrencySymbol) (tn : TokenName),
@@ -594,11 +602,207 @@ theorem P2_unshaped_accept_is_satisfiable :
    P2RWitness.isHaltB_sound _
      P2_unshaped_nonvacuous_at_3800_and_vacuous_at_600.2.2.2.1⟩
 
-/-! ## §6 — AXIOM AUDIT
+/-! ## §6 — ADA AUDIT: **IS `P2bUnshapedForm` FALSE AT `seizedCS = adaSymbol`?**
+**ANSWER: NO — MEASURED, NOT ASSUMED.**
+
+════════════════════════════════════════════════════════════════════════════
+WHY THE QUESTION HAD TO BE ASKED
+════════════════════════════════════════════════════════════════════════════
+`WSC/Benchmark/P1UnshapedStatement.lean` carried exactly this hole and was FALSE
+because of it: its statement dropped `P1_model`'s `cs ≠ ByteString.mk ""` guard,
+and the transfer validator never constrains ada, so an accepted transfer that pays
+its fee out of a mini-ledger UTxO refutes containment at the ada slot
+(`WSC/Benchmark/AdaRefutation.lean`). `P2bUnshapedForm` quantifies `seizedCS`
+with no such guard either, and `seizedCS` is the DIRECTORY NODE KEY — and such
+designs conventionally carry a HEAD SENTINEL whose key is the empty `ByteString`,
+so `seizedCS = adaSymbol` is a reachable configuration, not an exotic one.
+
+This library has ALREADY been bitten at the ada slot on the seize side:
+`WSC.pairPreservedAdaTopUp` (`WSC/Spec.lean:427-434`) carries an explicit
+`seizedCS == adaSymbol` disjunct, and `WSC/Spec.lean:419-426` records that the
+disjunct "was forced by a second measured counterexample (task N5)". "Probably
+fine" is precisely the standard that produced the P1 defect, so the question is
+settled BY CONSTRUCTION below.
+
+════════════════════════════════════════════════════════════════════════════
+THE CONSTRUCTION, AND WHAT IT SHOWS
+════════════════════════════════════════════════════════════════════════════
+`mkAdaKey` is SHAPE S1R with the directory node's `key` set to `ByteString.mk ""`,
+so `SeizeModel.seizedPolicyOf` returns the ada symbol and THE SEIZED POLICY IS
+ADA. Two instances differ in ONE leaf — where the 50 lovelace that leaves the
+continuing output lands:
+
+* `ctxAdaDrain` — output 1 sits at `"CHANGE"`, OUTSIDE the mini-ledger. This is
+  the P2 analogue of the transaction that refutes P1: ledger-valid, both naming
+  hypotheses satisfied, and `sumOutAtBase = 250 < 300 = sumInAtBase` with
+  `mintOf = 0`, i.e. **it violates `P2bUnshapedForm`'s conclusion.**
+* `ctxAdaResidual` — output 1 sits at `"PROGLOGIC"`, i.e. INSIDE the mini-ledger.
+  `sumOutAtBase = 350 ≥ 300`, so the conclusion holds.
+
+MEASURED ON THE REAL COMPILED `programmableSeize`, at 20000 steps so neither
+verdict is budget exhaustion (`ada_seize_measured`):
+
+* the DRAIN is **REJECTED**;
+* the RESIDUAL is **ACCEPTED**.
+
+So the accept class at `seizedCS = adaSymbol` is NON-EMPTY — the audit is not
+vacuous — and the one instance in it that this shape can express satisfies the
+conclusion, while the instance that violates the conclusion is refused.
+
+════════════════════════════════════════════════════════════════════════════
+WHY, STRUCTURALLY — THE DIFFERENCE FROM P1 IN ONE SENTENCE
+════════════════════════════════════════════════════════════════════════════
+**P1's containment SKIPS the ada slot; P2's containment is NAME-INDEXED on the
+seized policy, so when the seized policy IS ada, ada is exactly what gets
+checked.** Concretely, on the seize path every step that touches the seized
+policy takes it by name:
+
+* `ptokensForCurrencySymbol` (ProgrammableLogicBase.hs:1345-1364,
+  `WSC/Model/SeizeModel.lean:170-180`) selects the seized policy's token map out
+  of the mint — an ABSENT policy yields `pnil`, not an error, and ada is always
+  absent from a V3 mint because `validMintValue` starts its fold at `adaSymbol`
+  and demands `prev_cs < cs` (`CardanoLedgerApi/V3/Contexts.lean:836-848`; the
+  same citation `WSC/Shaped/SeizeShapedR.lean:30-34` already relies on). So
+  `WSC.mintOf adaSymbol tn` is 0 on every ledger-valid context and the mint term
+  cannot open a gap;
+* `pvalueEqualsDeltaCurrencySymbol` (:1683-1830, `SeizeModel.lean:337-397`)
+  accumulates `input − output` ON THE SEIZED SLOT and requires every OTHER policy
+  to be equal. At `seizedCS = adaSymbol` the leading value entry IS the seized
+  entry, so the ada difference is accumulated rather than waived — this is the
+  same dispatch `WSC/Spec.lean:419-426` documents;
+* `checkBalanceInvariant`'s residual side (:1510-1521, `SeizeModel.lean:423-433`)
+  sums the seized policy over the residual outputs **that sit at the base
+  credential** (:1516 tests the payment credential, :1518 skips otherwise), and
+  requires it to cover the accumulated delta plus the mint.
+
+Every base input is paired with an output of the SAME ADDRESS (:1460-1461), hence
+also at base, and the residual outputs are disjoint from the paired ones, so
+`sumOutAtBase ≥ Σ paired + residual ≥ Σ paired + delta = sumInAtBase`. Outputs
+before the redeemer's `outputsStartIdx` are never visited and can only ADD to the
+left-hand side. That is the argument; the construction below is what keeps it
+from being an assertion.
+
+════════════════════════════════════════════════════════════════════════════
+HONEST LIMITS OF THIS AUDIT — READ BEFORE CITING IT
+════════════════════════════════════════════════════════════════════════════
+1. `ada_seize_measured` is TWO transactions, not a class. It refutes the natural
+   refutation and exhibits a non-empty accept class; it does not prove that no
+   ada-seizing context anywhere violates the conclusion. Only the unshaped P2b
+   obligation itself would do that, and it is OPEN — which is the point of the
+   benchmark.
+2. The structural argument above reads `WSC/Model/SeizeModel.lean`, the
+   TRANSCRIPTION whose fidelity axiom was RETRACTED at task R1. It is therefore
+   an argument from the source, corroborated by the two measurements, and not a
+   machine-checked implication. Stated plainly because the P1 defect is exactly
+   what happens when a source-level argument is recorded as if it were a proof.
+3. Consequently **NO GUARD IS ADDED TO `P2bUnshapedForm`.** Adding
+   `seizedCS ≠ ByteString.mk ""` would be free of risk to soundness but would
+   WEAKEN the benchmark, and — unlike P1, where `P1_model` itself carries the
+   guard — neither `WSC.P2.P2b_seized_delta_contained` (`WSC/Props/P2_Seize.lean:300`)
+   nor `WSC.P2a_seizeModel_preserves_structure` (:254) carries one. The library's
+   published P2 is unguarded on purpose, and this section is the record of the
+   check that says it may stay that way.
+4. `P2aUnshapedForm` needs no guard for a different and stronger reason: the ada
+   asymmetry is already INSIDE its postcondition. `pairPreservedAdaTopUp` carries
+   the `seizedCS == adaSymbol` disjunct, so at ada the top-up clause is discharged
+   by the predicate itself. `ada_seize_p2a_holds` checks that the postcondition
+   really does hold on the ACCEPTED ada seizure. -/
+
+/-- SHAPE S1R with the directory node's `key` set to the ADA SYMBOL, so the
+seized policy is ada. `o0Qty` is fixed equal to `i0Qty = 10` because at
+`seizedCS = adaSymbol` the pair rule requires the whole NON-ada part of the pair
+to be equal; the mint (`"MMM"`/`"TOK"`, +2) is absorbed by output 1, which keeps
+the transaction balanced (`isBalanced` is a conjunct of `validTxInfo`). -/
+def mkAdaKey (i0Ada o0Ada o1Ada : Integer) (escH : ByteString) : ScriptContext :=
+  seizeRCtx
+    (ByteString.mk "PROGLOGIC") (ByteString.mk "USERSTK") i0Ada
+      (ByteString.mk "MMM") (ByteString.mk "TOK") 10 (ByteString.mk "DTM")
+    (ByteString.mk "WALLET") 100 (ByteString.mk "MMM") (ByteString.mk "TOK") 1
+    (ByteString.mk "USERSTK") o0Ada 10 (ByteString.mk "DTM")
+    escH o1Ada (ByteString.mk "MMM") (ByteString.mk "TOK") 3
+    (ByteString.mk "MMM") (ByteString.mk "TOK") 2
+    (ByteString.mk "PANCHOR") (ByteString.mk "PARAMS") (ByteString.mk "PTOK") 100 1
+    (ByteString.mk "DIRCS") (ByteString.mk "PROGLOGIC") (ByteString.mk "GLOBAL")
+      (ByteString.mk "SEIZELOGIC")
+    (ByteString.mk "DIRNODE") (ByteString.mk "DIRCS") (ByteString.mk "NODETOK") 100 1
+    (ByteString.mk "") (ByteString.mk "ZZZ") (ByteString.mk "TLS")
+      (ByteString.mk "ZZILS") (ByteString.mk "GS")
+    (ByteString.mk "AASEIZE") (ByteString.mk "ZZILS") 0 0
+    (ByteString.mk "SPRED") (ByteString.mk "MTRED") (ByteString.mk "ILRED")
+    50
+
+/-- **THE REFUTATION CANDIDATE**: 50 lovelace leaves the mini-ledger for
+`"CHANGE"`. This is the P2 analogue of the context that refutes P1 at ada. -/
+def ctxAdaDrain : ScriptContext := mkAdaKey 300 250 100 (ByteString.mk "CHANGE")
+
+/-- The same seizure with the 50 lovelace landing in a RESIDUAL output that is
+still AT THE BASE credential — the shape every real seize golden has. -/
+def ctxAdaResidual : ScriptContext := mkAdaKey 300 250 100 (ByteString.mk "PROGLOGIC")
+
+/-- The mini-ledger base credential of both instances. -/
+def adaAuditBase : Credential := .ScriptCredential (ByteString.mk "PROGLOGIC")
+
+/-- The ada symbol, spelled as `WSC.Model.P1_model` spells it. -/
+def adaAuditCS : CurrencySymbol := ByteString.mk ""
+
+/-- **BOTH INSTANCES SATISFY EVERY HYPOTHESIS OF `P2bUnshapedForm` EXCEPT
+`accept`**, and both really do have ada as the seized policy. -/
+theorem ada_seize_hypotheses :
+    validRewardingContext ctxAdaDrain = true
+    ∧ SeizeModel.seizedPolicyOf ctxAdaDrain = some adaAuditCS
+    ∧ progLogicCredPublishedBySeize ctxAdaDrain
+        = some (IsData.toData adaAuditBase)
+    ∧ validRewardingContext ctxAdaResidual = true
+    ∧ SeizeModel.seizedPolicyOf ctxAdaResidual = some adaAuditCS
+    ∧ progLogicCredPublishedBySeize ctxAdaResidual
+        = some (IsData.toData adaAuditBase) := by native_decide
+
+/-- **THE DRAIN VIOLATES THE CONCLUSION; THE RESIDUAL SATISFIES IT.** So the
+question is not academic: if the bytecode accepted `ctxAdaDrain`,
+`P2bUnshapedForm` would be FALSE at `seizedCS = adaSymbol` exactly as
+`P1UnshapedForm` was. -/
+theorem ada_seize_quantities :
+    WSC.P2.sumOutAtBase adaAuditBase adaAuditCS adaAuditCS
+        ctxAdaDrain.scriptContextTxInfo.txInfoOutputs = 250
+    ∧ WSC.P2.sumInAtBase adaAuditBase adaAuditCS adaAuditCS
+        ctxAdaDrain.scriptContextTxInfo.txInfoInputs = 300
+    ∧ WSC.mintOf adaAuditCS adaAuditCS ctxAdaDrain.scriptContextTxInfo.txInfoMint = 0
+    ∧ WSC.P2.sumOutAtBase adaAuditBase adaAuditCS adaAuditCS
+        ctxAdaResidual.scriptContextTxInfo.txInfoOutputs = 350
+    ∧ WSC.P2.sumInAtBase adaAuditBase adaAuditCS adaAuditCS
+        ctxAdaResidual.scriptContextTxInfo.txInfoInputs = 300
+    ∧ WSC.mintOf adaAuditCS adaAuditCS ctxAdaResidual.scriptContextTxInfo.txInfoMint = 0 := by
+  native_decide
+
+/-- **THE MEASUREMENT — the answer to the audit question.** The real compiled
+`programmableSeize` REJECTS the drain and ACCEPTS the residual, both at 20000
+steps, so neither verdict is budget exhaustion. `P2bUnshapedForm` is therefore NOT
+refuted at `seizedCS = adaSymbol` by the construction that refutes `P1` there, and
+the ada accept class is non-empty. -/
+theorem ada_seize_measured :
+    P2RWitness.isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
+      programmableSeize.script (WSC.seizeInputs P2RWitness.ppCS ctxAdaDrain) 20000) = false
+    ∧ P2RWitness.isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
+      programmableSeize.script (WSC.seizeInputs P2RWitness.ppCS ctxAdaResidual) 20000)
+        = true := by native_decide
+
+/-- **AND P2(a)'s POSTCONDITION HOLDS ON THE ACCEPTED ADA SEIZURE.** This is what
+makes `P2aUnshapedForm`'s lack of an ada guard safe by construction as well: the
+`seizedCS == adaSymbol` disjunct that `WSC/Spec.lean:427-434` was forced to add at
+task N5 is what carries this instance, and the paired-output cursor is the whole
+output list, so no output escapes the walk. -/
+theorem ada_seize_p2a_holds :
+    WSC.seizeStructurePreservedAdaTopUp adaAuditBase adaAuditCS
+        ctxAdaResidual.scriptContextTxInfo.txInfoInputs
+        ctxAdaResidual.scriptContextTxInfo.txInfoOutputs = true
+    ∧ SeizeModel.pairedOutputsOf ctxAdaResidual
+        = some ctxAdaResidual.scriptContextTxInfo.txInfoOutputs := by native_decide
+
+/-! ## §7 — AXIOM AUDIT
 
 Expected: §3's five `rfl`s carry NO axioms; §4's three carry only the Lean
-standard set; §5's two carry the two `native_decide` compiler-trust axioms. NO
-`sorryAx` anywhere — there is no `blaster` call in this module. -/
+standard set; §5's two and §6's four carry the two `native_decide` compiler-trust
+axioms. NO `sorryAx` anywhere — there is no `blaster` call in this module. -/
 
 #print axioms WSC.Benchmark.seizedPolicyOf_S1R
 #print axioms WSC.Benchmark.pairedOutputsOf_S1R
@@ -610,6 +814,10 @@ standard set; §5's two carry the two `native_decide` compiler-trust axioms. NO
 #print axioms WSC.Benchmark.P2b_unshaped_specialises_S1R2
 #print axioms WSC.Benchmark.P2_unshaped_nonvacuous_at_3800_and_vacuous_at_600
 #print axioms WSC.Benchmark.P2_unshaped_accept_is_satisfiable
+#print axioms WSC.Benchmark.ada_seize_hypotheses
+#print axioms WSC.Benchmark.ada_seize_quantities
+#print axioms WSC.Benchmark.ada_seize_measured
+#print axioms WSC.Benchmark.ada_seize_p2a_holds
 
 end Benchmark
 end WSC
