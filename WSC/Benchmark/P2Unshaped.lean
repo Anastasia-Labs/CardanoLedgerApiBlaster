@@ -49,17 +49,16 @@ carry", N must be at least the largest step count a mainnet transaction can pay
 for.
 
 DERIVATION (identical to `WSC/Benchmark/P1Unshaped.lean`; from
-`maxTxExecutionUnits` and the per-step rates measured over nine accepting goldens
-in `WSC/goldens/K-MEASUREMENTS.md` §2, where PCB's metered CEK reproduces the
-ledger's ExBudget to the unit):
+`maxTxExecutionUnits` and the per-step rates measured over the nine accepting
+goldens in `WSC/goldens/K-MEASUREMENTS.md` **§2, the post-#112 table**, where PCB's
+metered CEK reproduces the ledger's ExBudget to the unit):
 
-    CPU  ceiling:  10,000,000,000 / 18,132 CPU-per-step ≈ 551,500 steps
-    MEM  ceiling:      14,000,000 /   54.1 mem-per-step ≈ 258,780 steps  ← BINDS
+    CPU  ceiling:  10,000,000,000 / 18,129 CPU-per-step ≈ 551,594 steps
+    MEM  ceiling:      14,000,000 /  54.46 mem-per-step ≈ 257,081 steps  ← BINDS
 
-The MEMORY budget binds first. **300000** is that ≈259k ceiling plus ≈16% margin.
-The two seize goldens sit at the cheap end of the measured band (54.6 and 54.1
-mem/step, the lowest of all nine), so the seize validator is exactly the case the
-margin is sized for; one ceiling serves both validators.
+The MEMORY budget binds first. **300000** is that ≈257k ceiling plus ≈16.7%
+margin. The post-#112 mem/step band is tight (54.46–55.38) and the two seize
+goldens sit mid-band at 55.00 and 55.07, so one ceiling serves both validators.
 
 NON-VACUITY IS PRESERVED, A FORTIORI — raising the budget only admits MORE
 accepting runs. Minimal accepting K on this bytecode, each pinned TWO-SIDED
@@ -71,7 +70,7 @@ accepting runs. Minimal accepting K on this bytecode, each pinned TWO-SIDED
 * **2739** — `WSC.P2R2Witness.K_R2_is_2739` (SHAPE S1R2, two token names).
 
 Real off-chain accepting seize goldens cost 2,305 and 2,905 steps
-(`WSC/goldens/K-MEASUREMENTS.md` §3). All are ≤ 300000.
+(`WSC/goldens/K-MEASUREMENTS.md` §2). All are ≤ 300000.
 `WSC.Benchmark.P2_unshaped_nonvacuous_at_3800_and_vacuous_at_600`
 (`WSC/Benchmark/P2UnshapedStatement.lean` §5) certifies executably that an
 accepting context exists at 3800 and that NONE exists at 600 — the lower pin is
@@ -83,9 +82,9 @@ THE RUNGS, EXPRESSED AS COVERAGE OF THE CEILING (edit the one literal on the
     budget   3,800  =  1.5% of ceiling — smallest NON-VACUOUS rung; the budget
                        the shaped P2 theorems use. Prep already does not
                        terminate here.
-    budget  26,000  =   10% of ceiling
-    budget  65,000  =   25% of ceiling
-    budget 130,000  =   50% of ceiling
+    budget  25,700  =   10% of ceiling
+    budget  64,300  =   25% of ceiling
+    budget 128,500  =   50% of ceiling
     budget 300,000  =  100% + margin — THIS MODULE. A verdict here IS P2 for
                        every seizure a mainnet transaction can carry.
 

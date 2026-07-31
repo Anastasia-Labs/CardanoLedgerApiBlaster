@@ -271,26 +271,25 @@ that makes the artifact mean *"P1/P2 hold for every transaction mainnet can
 carry"* is the mainnet ex-unit ceiling, and that is what both modules are set to.
 
 **Derivation.** From `maxTxExecutionUnits` and the per-step rates measured over
-all nine accepting goldens and all four validators (§5.1a and
-`WSC/goldens/K-MEASUREMENTS.md` §2, where PCB's metered CEK reproduces the
-ledger's own ExBudget **to the unit** — CPU/step 18,132–21,759, mem/step
-54.1–56.3):
+all nine accepting goldens and all four validators (`WSC/goldens/K-MEASUREMENTS.md`
+**§2, the post-#112 table** — where PCB's metered CEK reproduces the ledger's own
+ExBudget **to the unit** — CPU/step 18,129–24,968, mem/step 54.46–55.38):
 
 | limit | budget | ÷ cheapest measured per-step | max CEK steps |
 |---|---:|---:|---:|
-| CPU | 10,000,000,000 | 18,132 | ≈ 551,500 |
-| **memory** | **14,000,000** | **54.1** | **≈ 258,780  ← BINDS FIRST** |
+| CPU | 10,000,000,000 | 18,129 | ≈ 551,594 |
+| **memory** | **14,000,000** | **54.46** | **≈ 257,081  ← BINDS FIRST** |
 
 **The memory budget, not the CPU budget, is the binding constraint** — a fact
 worth stating on its own, since ex-unit discussions default to CPU. No accepting
-run of these validators inside mainnet limits exceeds ≈259k CEK steps.
+run of these validators inside mainnet limits exceeds ≈257k CEK steps.
 
-**Both modules are set to 300,000** = that ceiling plus ≈16% margin, so a step
+**Both modules are set to 300,000** = that ceiling plus ≈16.7% margin, so a step
 mix cheaper than any measured golden is still covered. The bound is honest about
-its own basis: 54.1 is the *cheapest observed* memory-per-step on this validator
-family (band 54.1–56.3, tight across nine goldens, and the two seize goldens are
-the two cheapest). A run built from cheaper steps than any measured one would
-raise the ceiling; the margin absorbs a 16% drop and no more. Re-derive if
+its own basis: 54.46 is the *cheapest observed* memory-per-step on this validator
+family (band 54.46–55.38, tight across all nine post-#112 goldens; the cheapest is
+`transfer-member-single-policy`). A run built from cheaper steps than any measured one would
+raise the ceiling; the margin absorbs a 16.7% drop and no more. Re-derive if
 `maxTxExecutionUnits` or the cost model changes.
 
 **The rungs, as coverage of that ceiling.** Each is a real proof obligation
@@ -299,15 +298,15 @@ reached by editing the single budget literal on the `#prep_uplc` line:
 | rung | budget | coverage | meaning |
 |---|---:|---:|---|
 | floor | 4,400 / 3,800 | 1.7% / 1.5% | smallest NON-VACUOUS rung (the shaped theorems' own budget). Prep already does not terminate here. **Do not go below.** |
-| 2 | 26,000 | 10% | intermediate progress marker |
-| 3 | 65,000 | 25% | |
-| 4 | 130,000 | 50% | |
+| 2 | 25,700 | 10% | intermediate progress marker |
+| 3 | 64,300 | 25% | |
+| 4 | 128,500 | 50% | |
 | **GOAL** | **300,000** | **100% + margin** | **what both modules are set to: a verdict here IS the property for every transaction mainnet can carry — no shape family, no residual, no budget caveat** |
 
 **Non-vacuity is preserved a fortiori.** Raising the budget only admits more
 accepting runs, so every two-sided witness pin in §4 still applies: cheapest
 accepting registered transfer 2288, P1's shapes 2343/2567/2777/2567, seize
-2301/2412/2739, real goldens 1,453–3,441 and 2,305/2,905 — all ≤ 300,000. The
+2301/2412/2739, real goldens 1,453–3,441 and 2,305/2,905 (K-MEASUREMENTS §2) — all ≤ 300,000. The
 executable certificates in the two `…Statement.lean` modules certify an accepting
 context AT the floor rung and NONE below it; that lower pin is what rules out
 vacuity and the raise does not touch it.

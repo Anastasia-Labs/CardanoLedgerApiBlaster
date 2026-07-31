@@ -61,21 +61,23 @@ For the benchmark to mean "P1 holds for EVERY transfer mainnet can carry", N mus
 be at least the largest step count a mainnet transaction can pay for.
 
 DERIVATION (from `maxTxExecutionUnits` and the measured per-step rates in
-`WSC/goldens/K-MEASUREMENTS.md` §2 — nine accepting goldens, all four
-validators, PCB's metered CEK reproducing the ledger's ExBudget TO THE UNIT):
+`WSC/goldens/K-MEASUREMENTS.md` **§2, the post-#112 table** — nine accepting
+goldens, all four validators, PCB's metered CEK reproducing the ledger's ExBudget
+TO THE UNIT):
 
-    CPU  ceiling:  10,000,000,000 / 18,132 CPU-per-step ≈ 551,500 steps
-    MEM  ceiling:      14,000,000 /   54.1 mem-per-step ≈ 258,780 steps  ← BINDS
+    CPU  ceiling:  10,000,000,000 / 18,129 CPU-per-step ≈ 551,594 steps
+    MEM  ceiling:      14,000,000 /  54.46 mem-per-step ≈ 257,081 steps  ← BINDS
 
 So the MEMORY budget, not the CPU budget, is the binding constraint, and no
-accepting run of this validator inside mainnet limits exceeds ≈259k CEK steps.
-**300000** is that ceiling rounded up with ≈16% margin, so that a step mix
+accepting run of this validator inside mainnet limits exceeds ≈257k CEK steps.
+**300000** is that ceiling rounded up with ≈16.7% margin, so that a step mix
 cheaper than any measured golden is still covered.
 
-Caveat, stated because it bounds the claim: 54.1 is the CHEAPEST memory-per-step
-observed on THIS validator family (the band is 54.1–56.3, tight across all nine
-goldens). A hypothetical accepting run built from cheaper steps than any measured
-one would raise the step ceiling; the margin absorbs a 16% drop and no more.
+Caveat, stated because it bounds the claim: 54.46 is the CHEAPEST memory-per-step
+observed on THIS validator family (the band is 54.46–55.38, tight across all nine
+post-#112 goldens). A hypothetical accepting run built from cheaper steps than any
+measured one would raise the step ceiling; the margin absorbs a 16.7% drop and no
+more.
 Re-derive if `maxTxExecutionUnits` or the cost model changes.
 
 NON-VACUITY IS PRESERVED, A FORTIORI. Raising the budget only ADMITS more
@@ -95,9 +97,9 @@ THE RUNGS, ALL EXPRESSED AS COVERAGE OF THE CEILING (edit the one literal on the
     budget   4,400  =  1.7% of ceiling — smallest NON-VACUOUS rung; the budget
                        the four shaped P1 theorems use. Prep already does not
                        terminate here.
-    budget  26,000  =   10% of ceiling — intermediate progress marker.
-    budget  65,000  =   25% of ceiling
-    budget 130,000  =   50% of ceiling
+    budget  25,700  =   10% of ceiling — intermediate progress marker.
+    budget  64,300  =   25% of ceiling
+    budget 128,500  =   50% of ceiling
     budget 300,000  =  100% + margin — THIS MODULE. A verdict here IS P1 for
                        every transfer a mainnet transaction can carry: no shape
                        family, no residual, no budget caveat.
