@@ -63,15 +63,24 @@ instantiate `plc` to a credential the transaction never mentions and `dirCS` to 
 policy no reference input carries. `Model.coveringNodeExists dirCS cs … = false`
 holds vacuously, `outSum = inSum = 0`, and the conclusion reads `0 ≥ 0 + q` with
 `q > 0`. So the "shape is the only difference" instruction cannot be followed
-literally: the unshaped statement needs ONE extra hypothesis, and it is exactly
-the by-construction fact the shape supplied.
+literally: the unshaped statement needs hypotheses the shape supplied BY
+CONSTRUCTION, and they have to be written down.
 
-That hypothesis is §1's
+The first is §1's
 
     paramsPublishedBy ctx = some (dirCS, IsData.toData (Credential.ScriptCredential plc))
 
-and §3 proves it holds of `p1RShapedCtx <leaves>` for all leaves, by computation,
-so the specialisation is real and the delta is genuinely just this one clause.
+and §3.0 proves it holds of `p1RShapedCtx <leaves>` for all leaves, by
+computation, so the specialisation is real.
+
+**THERE IS A SECOND ONE, AND MISSING IT IS THE DEFECT THIS MODULE HAD.** The
+shape also supplied `cs ≠ ByteString.mk ""` by construction — not through a
+component of the transaction, but through its VALUE SKELETON, which is
+ledger-invalid at the ada slot and so makes the shaped statement vacuous there.
+An arbitrary `ctx` supplies nothing of the kind. See the CORRECTED DEFECT note
+below; §3.1 is where the shape's version of it is proved and §3.2-§3.4 are where
+the specialisations consume it.
+
 Everything else — the `validRewardingContext` ledger-validity hypothesis, the
 `Model.coveringNodeExists … = false` registration hypothesis, and the
 `Model.outSum ≥ Model.inSum + Model.mintSigned` ground-truth conclusion — is
@@ -126,11 +135,13 @@ satisfies every hypothesis the broken form had:
 * the bytecode ACCEPTS — §4's conjunct 4, `native_decide` at 4400 steps.
 
 And the conclusion FAILS on it: `outSum = 150`, `inSum = 200`, `mintSigned = 0`,
-so `150 ≥ 200 + 0` is false. **The 50-lovelace gap is `txInfoFee := 50`.** The
-transfer validator deliberately never constrains ada — a transaction must be able
-to pay its fee out of a mini-ledger UTxO — so no budget, no shape and no better
-prep could ever make the unguarded statement true. It is a statement defect, not a
-proof gap.
+so `150 ≥ 200 + 0` is false. **The 50-lovelace gap IS `txInfoFee := 50`** — read
+`ctxOk`'s leaves (`inAda = 200`, `outAda = 150`, `in2Ada = 100`, `escAda = 100`,
+`fee = 50`, so ada in 300 = ada out 250 + fee 50). So the transfer validator does
+not constrain the ada slot on this path — MEASURED here, not inferred — and by
+design it cannot: a transaction has to be able to pay its fee out of a mini-ledger
+UTxO. No budget, no shape and no better prep could have made the unguarded
+statement true. It is a statement defect, not a proof gap.
 
 REFUTATION ARTIFACT: `WSC/Benchmark/AdaRefutation.lean` (standalone, re-derives
 `outSum`/`inSum`/`mintSigned`/`coveringNodeExists`/`adaPlusOne` from their cited

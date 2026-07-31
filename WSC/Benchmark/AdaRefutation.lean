@@ -37,8 +37,11 @@ WHAT THE FOUR THEOREMS SAY, in the order the argument needs them:
    i.e. this really is that witness's ledger data and not a look-alike.
 3. `ctxOk_refutes_P1_at_ada` — at `cs = tn = adaSymbol` the SAME accepting witness
    gives out = 150, in = 200, mint = 0, so `outSum ≥ inSum + mintSigned` is FALSE.
-   The 50-lovelace gap is `txInfoFee := 50`: the transfer validator never
-   constrains ada, because a transaction has to be able to pay its fee.
+   The 50-lovelace gap IS `txInfoFee := 50`: `ctxOk`'s leaves are `inAda = 200`,
+   `outAda = 150`, `in2Ada = 100`, `escAda = 100`, `fee = 50`, i.e. ada in 300 =
+   ada out 250 + fee 50. The transfer validator does not constrain the ada slot on
+   this path — and by design it cannot, because a transaction has to be able to
+   pay its fee out of a mini-ledger UTxO.
 4. `shaped_value_invalid_at_ada` / `shaped_value_valid_off_ada` — why the SHAPED
    theorems escape: `adaPlusOne` puts `cs` second, `validTxOutValue` demands
    strictly ascending currency symbols, so at `cs = adaSymbol` the shaped value is
