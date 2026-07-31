@@ -8,7 +8,7 @@ redeemer's `plgrParamsRefIdx` and extracts `(directoryNodeCS, progLogicCred)`
 WITHOUT the `phasCSH ppCS` authentication gate. The module's §1 (:298-307) and its
 "Both readings are sound … because ACCEPT does the authenticating" paragraph
 (:203-206) justify the omission by pointing at `pparamsAtRefIdx`
-(ProgrammableLogicBase.hs:912-926, gate at :919). But `P1UnshapedForm` quantifies
+(ProgrammableLogicBase.hs:820-834, gate at :828). But `P1UnshapedForm` quantifies
 `ppCS` UNIVERSALLY (:365), so an attacker may mint their own params NFT and
 instantiate `ppCS` at their OWN policy — under which the gate passes on a params
 UTxO the honest deployment would reject.
@@ -31,8 +31,8 @@ wsc-poc `main` @ 2306678), never by argument:
     the absent published base passes `pparamsAtRefIdx`, `pvalueFromCred` and the
     transfer walk; the ONLY difference in §C is the non-empty expected value, so
     the check that rejects is `poutputsContainExpectedValueAtCred`
-    (ProgrammableLogicBase.hs:597-602, invoked at :1370-1374, trace
-    "prog tokens escape"). §D's own conclusion is `0 ≥ 0 + 0` — true — so §D is
+    (ProgrammableLogicBase.hs:518-523, invoked at :1270-1274,
+    trace "prog tokens escape"). §D's own conclusion is `0 ≥ 0 + 0` — true — so §D is
     not a refutation either.
 
 VERDICT: NOT A REFUTATION. See the report for the prose defect that remains.
@@ -88,8 +88,7 @@ def atkPP : CurrencySymbol := ByteString.mk "ATTACKER"
 witness; its params reference input carries the policy `"PARAMS"`. -/
 
 /-- Halt at the honest policy, ERROR at the attacker's. The reject side is pinned
-`.Error`, so it is the `phasCSH` gate firing (`pparamsAtRefIdx` :919, error at
-:925), not the meter. -/
+`.Error`, so it is the `phasCSH` gate firing (`pparamsAtRefIdx` :828, error at :834), not the meter. -/
 theorem A_ctxOk_accept_is_ppCS_dependent :
     isHaltB (run honestPP P1RShapedWitness.ctxOk 4400) = true
     ∧ isHaltB (run atkPP P1RShapedWitness.ctxOk 4400) = false
@@ -272,9 +271,9 @@ theorem C_control_present_base_accepts :
 Same absent base, mint dropped. If this ACCEPTS then `pparamsAtRefIdx`,
 `pvalueFromCred` and `pcheckTransferLogicAndGetProgrammableValue` all survive an
 absent `progLogicCred` (the transfer walk's outer `pelimList` is on the VALUE, so
-the leftover proof `[1]` is ignored — ProgrammableLogicBase.hs:966-1036), and the
+the leftover proof `[1]` is ignored — ProgrammableLogicBase.hs:874-930), and the
 only thing §C adds is a non-empty `expectedProgrammableOutputValue`. That leaves
-exactly one check as the cause: `poutputsContainExpectedValueAtCred` at :1370-1374. -/
+exactly one check as the cause: `poutputsContainExpectedValueAtCred` at :1270-1274. -/
 
 /-- **THE ABSENT BASE ALONE IS NOT REJECTED.** And its own P1 conclusion is
 `0 ≥ 0 + 0`, which HOLDS — so §D is an accepting context that satisfies every
@@ -308,7 +307,7 @@ the containment check on its own.
 
 `foreignIn` is a second mini-ledger-shaped input at `ScriptCredential "FOREIGN"`,
 owner-witnessed by the same signatory (so `pvalueFromCred`'s fail-closed staking
-gate — ProgrammableLogicBase.hs:428-431 — is SATISFIED rather than dodged), and
+gate — ProgrammableLogicBase.hs:356-375 — is SATISFIED rather than dodged), and
 the params datum publishes `"FOREIGN"`. Balanced: in `5 + 4 = 9`, out `5 + 4 = 9`,
 no mint. -/
 
@@ -460,7 +459,7 @@ def ctxTwoParams : ScriptContext :=
 `paramsPublishedBy` names the ATTACKER's pair and the conclusion fails
 (`0 ≥ 0 + 3`), but the HONEST program errors — so the honest `accept` is false
 and the honest instance of `P1UnshapedForm` is not refuted by this context
-either. `phasCSH` (ProgrammableLogicBase.hs:838-841) reads the second entry of
+either. `phasCSH` (ProgrammableLogicBase.hs:750-753) reads the second entry of
 the params UTxO's value, and the attacker's carries `"ATTACKER"` there, so the
 honest `ppCS` cannot authenticate it. -/
 theorem F_honest_program_rejects_fake_params_redirect :
