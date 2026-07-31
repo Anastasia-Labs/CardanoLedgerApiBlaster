@@ -113,7 +113,8 @@ verdict there proves nothing. Do not go below 4,400.
 WHERE TO READ THE STATEMENT — IT IS NOT IN THIS FILE
 ════════════════════════════════════════════════════════════════════════════
 `WSC/Benchmark/P1UnshapedStatement.lean` carries the statement (`P1UnshapedForm`),
-the ONE hypothesis that separates it from `P1R_T1_stmt` and why that hypothesis
+the TWO hypotheses that separate it from `P1R_T1_stmt` (the params clause and the
+`cs ≠ ada` guard) and why each
 is not optional, FOUR kernel-checked specialisation theorems showing
 `P1UnshapedForm accept` implies the bodies of `P1R_T1_stmt` / `P1R_T2_stmt` /
 `P1R_T6_stmt` / `P1R_T7_stmt` at the same `accept`, and the executable

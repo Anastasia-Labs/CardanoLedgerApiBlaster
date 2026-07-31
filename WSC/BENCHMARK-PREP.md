@@ -169,9 +169,32 @@ The differences, in full:
   `seizeStructurePreserved`. Mandatory: the ada-EQUALITY version is ❌ FALSIFIED
   against the post-#112 bytecode, with a measured counterexample whose sole defect
   is an ada top-up;
-* `P1_model`'s `cs ≠ ByteString.mk ""` (the asset is not ada) is DROPPED — the
-  shaped bytecode theorems are `✅ Valid` without it, so carrying it would weaken
-  the benchmark for no reason;
+* `P1_model`'s `cs ≠ ByteString.mk ""` (the asset is not ada) is **CARRIED**.
+  ⚠️ **CORRECTED DEFECT.** An earlier revision of this document and of
+  `P1UnshapedStatement.lean` DROPPED it, on the reasoning that "the shaped
+  bytecode theorems are ✅ Valid without it". That reasoning was beside the point
+  and the resulting statement was **FALSE**: at `cs = tn = adaSymbol` the
+  library's own non-vacuity witness `WSC.P1RShapedWitness.ctxOk`
+  (`WSC/Props/Shaped/P1ShapedR.lean:582-596`) satisfies every hypothesis and gives
+  `outSum = 150`, `inSum = 200`, `mintSigned = 0` — the 50-lovelace gap is exactly
+  `txInfoFee := 50`. The transfer validator deliberately never constrains ada, so
+  every fee-paying transaction was a counterexample. The shaped theorems escape
+  only by accident of shape: `adaPlusOne` (`WSC/Shaped/Shape.lean:60-63`) puts
+  `cs` SECOND, and `validTxOutValue` demands strictly ascending currency symbols,
+  so the shaped statements are VACUOUS at ada — which is why they stayed `Valid`
+  and why their being `Valid` said nothing about the unshaped form. The refutation
+  is in the tree as `WSC/Benchmark/AdaRefutation.lean`, and the guard is now the
+  FIRST hypothesis of `P1UnshapedForm`.
+
+  **The guard is correct SCOPING, not a weakening of the security claim.** The
+  property is about programmable tokens, and ada is never one: `""` is structurally
+  reserved as the directory's HEAD SENTINEL key
+  (`isHeadNode node = pkey node' #== pemptyCSData`,
+  wsc-poc `SmartTokens/Types/PTokenDirectory.hs:190-194`), usable as the list
+  minimum precisely because it cannot be a real policy id. This also explains why
+  `coveringNodeExists` (`WSC/Props/P1_Transfer.lean:222-234`) is false at
+  `cs = ""` for EVERY reference-input list — it needs `decide (k < cs)` and nothing
+  is `< ""`. Nothing that a programmable token could ever be is excluded;
 * `P1_model`'s `∀ o ∈ outs, validTxOutValue o.txOutValue = true` is subsumed by
   `validRewardingContext ctx`, which the shaped theorems already carry;
 * the params hypothesis uses the validator's own INDEXED read

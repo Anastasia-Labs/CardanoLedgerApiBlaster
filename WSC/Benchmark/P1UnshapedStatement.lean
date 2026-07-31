@@ -17,7 +17,8 @@ deliverable: a malformed benchmark wastes the optimiser team's time and
 misrepresents what we claim. So everything about the statement that does NOT
 need the intractable prep lives HERE, in a module that compiles:
 
-* §1 the ONE hypothesis the shaped statements get for free from their shape, and
+* §1 the TWO hypotheses the shaped statements get for free from their shape (the
+  params clause and the `cs ≠ ada` guard — see the CORRECTED DEFECT note), and
   the ledger-only projection that expresses it;
 * §2 `P1UnshapedForm`, the statement, PARAMETRIC in the accept predicate;
 * §3 four SPECIALISATION theorems — `P1UnshapedForm accept` implies, verbatim,
@@ -328,9 +329,13 @@ and the module header explains why NEITHER is optional:
 * `cs ≠ ByteString.mk ""`, which the shape's VALUE SKELETON supplied by making
   itself ledger-invalid at the ada slot (see the CORRECTED DEFECT note).
 
-Both are clauses of `WSC.Model.P1_model`, so against the PUBLISHED model-level
-statement the form below adds nothing at all; everything else is unchanged,
-clause for clause. -/
+Only the SECOND of the two is literally a clause of `WSC.Model.P1_model`
+(`WSC/Props/P1_Transfer.lean:366`). The params clause is NOT: `P1_model`'s
+corresponding hypothesis is the ∀-scan `paramsPinned`, and this module states
+above that the scan and the indexed read are INCOMPARABLE in general (they
+coincide only UNDER `accept`). So the honest summary is: the ada guard restores
+parity with `P1_model`, and the params clause is a deliberate, documented
+substitution — not that the form "adds nothing". -/
 
 /-- **P1 — TRANSFER CONTAINMENT, UNSHAPED, over a FULLY SYMBOLIC `ScriptContext`,
 parametric in the accept predicate.**

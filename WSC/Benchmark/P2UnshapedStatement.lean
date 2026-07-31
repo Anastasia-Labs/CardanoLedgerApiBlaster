@@ -683,6 +683,46 @@ left-hand side. That is the argument; the construction below is what keeps it
 from being an assertion.
 
 ════════════════════════════════════════════════════════════════════════════
+REACHABILITY: IN AN HONEST DEPLOYMENT `seizedCS = ada` CANNOT ARISE AT ALL
+════════════════════════════════════════════════════════════════════════════
+The audit above is deliberately conducted WITHOUT this argument, so that its
+verdict rests on measurement rather than on a reachability claim.  But the
+reachability claim is also true, and it is worth recording because it explains
+WHY no guard is needed rather than merely that none is required.
+
+`seizedCS` is the `pkey` of the directory node the redeemer indexes
+(ProgrammableLogicBase.hs:1288-1293), and the ONLY node whose key is `""` is the
+HEAD SENTINEL: `isHeadNode node = pkey node' #== pemptyCSData`
+(SmartTokens/Types/PTokenDirectory.hs:190-194).  `""` is reserved as the sorted
+list's minimum precisely because it cannot be a real policy id.  The sentinel
+cannot be seized, in four steps:
+
+  1. `seizedCS = ""` requires referencing that head sentinel.
+  2. Its datum is fixed at mint time to `emptyNode` — `pInit` asserts
+     `pisEmptyNode nodeOutput` (LinkedList/Common.hs:188), an equality against
+     the WHOLE datum — and `emptyNode`'s `issuerLogicScript` is
+     `Constr 0 [B ""]` = `PubKeyCredential ""`
+     (PTokenDirectory.hs:206-210; Constr 0 is PubKeyCredential, CLAB
+     `CardanoLedgerApi/V1/Credential.lean:132`).
+  3. The seize arm requires `pisScriptInvokedEntries` against that credential
+     (ProgrammableLogicBase.hs:1297, fn at :361-373) — an exact `#==` match of
+     some withdrawal entry's credential against `PubKeyCredential ""`.
+  4. A reward account whose payment part is a 0-byte pubkey hash is not
+     ledger-constructible: stake credential hashes are 28 bytes.
+
+Hence no ledger-valid accepting seize transaction has `seizedCS = ""`.  Note
+step 2 is also why §6's constructed contexts are NOT counterexamples-in-waiting:
+`mkAdaKey` sets a node's key to `""` while leaving a real issuer script, and
+`pInit`/`pInsert` can never mint such a node (`pInsert` only inserts keys
+strictly greater than the spent node's key, and the head's key is the minimum).
+That exclusion is a DIRECTORY WELL-FORMEDNESS property, i.e. it lives in the
+`DirWF` assumption family (`WSC/Honest.lean`), not in the seize validator — the
+seize validator authenticates the node only by `phasCSH` on the directory NFT.
+So the measured result above is the stronger one to cite: the bytecode rejects
+the draining ada seizure even in a context an honest directory could never
+produce.
+
+════════════════════════════════════════════════════════════════════════════
 HONEST LIMITS OF THIS AUDIT — READ BEFORE CITING IT
 ════════════════════════════════════════════════════════════════════════════
 1. `ada_seize_measured` is TWO transactions, not a class. It refutes the natural
