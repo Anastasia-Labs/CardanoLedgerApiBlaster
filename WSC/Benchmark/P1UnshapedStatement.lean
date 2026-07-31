@@ -87,10 +87,10 @@ clause with §2's `P1UnshapedForm`:
 | `P1_model ppCS ctx base dirCS cs tn` | `P1UnshapedForm accept` |
 |---|---|
 | `globalModel ppCS ctx = true` (the hand TRANSCRIPTION) | `accept ppCS ctx` (the real BYTECODE's prepped residual) |
-| `cs ≠ ByteString.mk ""` | — (not needed: the shaped bytecode theorems are `✅ Valid` without it) |
+| `cs ≠ ByteString.mk ""` | identical — **see the CORRECTED DEFECT note below** |
 | `paramsPinned ppCS dirCS base (…refs) = true` | `paramsPublishedBy ctx = some (dirCS, toData base)` |
 | `coveringNodeExists dirCS cs (…refs) = false` | identical |
-| `∀ o ∈ outs, validTxOutValue o.txOutValue = true` | subsumed by `validRewardingContext ctx` |
+| `∀ o ∈ outs, validTxOutValue o.txOutValue = true` | subsumed by `validRewardingContext ctx` — and that is now PROVED, not asserted: §2.1's `outputs_ledger_valid_of_validRewardingContext` |
 | `outSum base cs tn … ≥ inSum base cs tn … + mintSigned cs tn …` | identical |
 
 So the unshaped statement was not invented here. What is new is only that the
@@ -100,6 +100,72 @@ matters, because the transcription's fidelity axiom is FALSE at wsc-poc
 implies nothing about production. `base` is a general `Credential` here for the
 same reason it is in `P1_model`: nothing about P1 needs it to be a script
 credential.
+
+════════════════════════════════════════════════════════════════════════════
+⚠️ CORRECTED DEFECT — THE `cs ≠ ada` GUARD WAS MISSING, AND THE STATEMENT WAS
+FALSE WITHOUT IT (found and repaired 2026-07-31)
+════════════════════════════════════════════════════════════════════════════
+**AS FIRST PUBLISHED, `P1UnshapedForm` DROPPED `P1_model`'s `cs ≠ ByteString.mk ""`
+clause** while the table above claimed the two agreed clause for clause. Dropping
+a hypothesis makes a ∀-statement STRICTLY STRONGER, and this one was strong enough
+to be FALSE. Do not read the history away: this is a corrected defect and the
+record is the useful part of it.
+
+**THE REFUTATION, at `cs = tn = adaSymbol = ByteString.mk ""`.** The witness is
+this library's OWN non-vacuity certificate, `WSC.P1RShapedWitness.ctxOk`
+(`WSC/Props/Shaped/P1ShapedR.lean:582-596`) — the same context §4 below uses. It
+satisfies every hypothesis the broken form had:
+
+* `validRewardingContext ctxOk = true` — `WSC.P1RShapedWitness.ctxOk_valid`;
+* the §1 params hypothesis — §4's conjunct 2, by `native_decide`;
+* the registration hypothesis is **FREE at ada, for every reference-input list**:
+  `Model.coveringNodeExists` (`WSC/Props/P1_Transfer.lean:222-234`) needs
+  `decide (k < cs)`, and nothing is `< ""`, so the covering test is `false` at
+  every node. The escape route the hypothesis is supposed to shut is not even
+  reachable at the ada slot;
+* the bytecode ACCEPTS — §4's conjunct 4, `native_decide` at 4400 steps.
+
+And the conclusion FAILS on it: `outSum = 150`, `inSum = 200`, `mintSigned = 0`,
+so `150 ≥ 200 + 0` is false. **The 50-lovelace gap is `txInfoFee := 50`.** The
+transfer validator deliberately never constrains ada — a transaction must be able
+to pay its fee out of a mini-ledger UTxO — so no budget, no shape and no better
+prep could ever make the unguarded statement true. It is a statement defect, not a
+proof gap.
+
+REFUTATION ARTIFACT: `WSC/Benchmark/AdaRefutation.lean` (standalone, re-derives
+`outSum`/`inSum`/`mintSigned`/`coveringNodeExists`/`adaPlusOne` from their cited
+definition sites and carries `ctxOk_refutes_P1_at_ada`, `covering_false_at_ada`,
+`shaped_value_invalid_at_ada`, `shaped_value_valid_off_ada`).
+
+**WHY THE SHAPED THEOREMS `P1R_T1`/`T2`/`T6`/`T7` ARE UNAFFECTED — and why §3 now
+needs a case split.** `Shape.adaPlusOne` (`WSC/Shaped/Shape.lean:60-63`) puts `cs`
+SECOND, after the ada slot, and `validTxOutValue`
+(`CardanoLedgerApi/V1/Contexts.lean:787-802`) demands strictly ascending currency
+symbols (`prev_cs < cs`). At `cs = adaSymbol` the shaped output value is therefore
+NOT ledger-valid, `validRewardingContext` is false, and every shaped statement is
+VACUOUSLY TRUE there. **That vacuity is exactly the protection the unshaped
+statement lost when it dropped the guard**, and it is what §3.1 below now proves
+outright so that each specialisation can discharge the restored hypothesis
+(§2.1: `validTxOutValue_adaPlusOne_at_ada`,
+`outputs_ledger_valid_of_validRewardingContext`).
+
+**WHY THE ROW ABOVE ONCE READ "not needed".** The reasoning recorded there was
+that the shaped bytecode theorems come back `✅ Valid` without the guard. That is
+true and it is beside the point: they are `✅ Valid` because they are vacuous at
+ada, which is a fact about the SHAPE's value skeleton, not about the property.
+Generalising a shaped theorem to an arbitrary `ctx` throws that skeleton away, so
+any hypothesis the skeleton was silently supplying has to be restored explicitly.
+The same trap is what §1 already documented for `plc`/`dirCS`; the ada slot is the
+third instance of it and was missed.
+
+**WHY `ByteString.mk ""` AND NOT `adaSymbol`.** `P1_model`
+(`WSC/Props/P1_Transfer.lean:366`) spells it `cs ≠ ByteString.mk ""` and neither
+that module nor this one opens `CardanoLedgerApi.V1.Value.adaSymbol`. The point of
+the guard is that the two statements agree character for character, so the
+spelling is copied rather than improved. (`adaSymbol` is *defined* as
+`ByteString.mk ""`, `CardanoLedgerApi/V1/Value.lean`; `WSC/Composition.lean:207-220`
+records the same side condition under that name and explains why the head
+sentinel makes it MANDATORY there too.)
 
 **WHY `paramsPublishedBy` AND NOT `paramsPinned`, since the latter is the
 published one.** `paramsPinned ppCS dirCS base refs` is a ∀-SCAN: *every*
@@ -244,26 +310,45 @@ def paramsPublishedBy (ctx : ScriptContext) : Option (CurrencySymbol × Data) :=
 Diff this against `WSC/Props/Shaped/P1ShapedR.lean`'s `P1R_T1_stmt`. Every
 `p1RShapedCtx <~40 leaves>` becomes the single universally quantified `ctx`; the
 `isSuccessful (appliedGlobalShapedT1R.prop ppCS <leaves>)` hypothesis becomes
-`accept ppCS ctx`; ONE hypothesis is added (§1's, and the module header explains
-why it is not optional); everything else is unchanged, clause for clause. -/
+`accept ppCS ctx`; TWO hypotheses appear that no shaped statement writes down,
+and the module header explains why NEITHER is optional:
+
+* §1's `paramsPublishedBy` clause, which the shape supplied by construction;
+* `cs ≠ ByteString.mk ""`, which the shape's VALUE SKELETON supplied by making
+  itself ledger-invalid at the ada slot (see the CORRECTED DEFECT note).
+
+Both are clauses of `WSC.Model.P1_model`, so against the PUBLISHED model-level
+statement the form below adds nothing at all; everything else is unchanged,
+clause for clause. -/
 
 /-- **P1 — TRANSFER CONTAINMENT, UNSHAPED, over a FULLY SYMBOLIC `ScriptContext`,
 parametric in the accept predicate.**
 
-*For every ledger-valid transaction, every asset `(cs, tn)` whose policy is
-REGISTERED (no authenticated directory node in the reference inputs covers `cs`,
-so the walk's only exemption route is shut), and the mini-ledger base credential
-`base` this transaction's own protocol-params datum publishes: if the real
-compiled `programmableLogicGlobal` bytecode accepts, then the amount of
+*For every ledger-valid transaction, every NON-ADA asset `(cs, tn)` whose policy
+is REGISTERED (no authenticated directory node in the reference inputs covers
+`cs`, so the walk's only exemption route is shut), and the mini-ledger base
+credential `base` this transaction's own protocol-params datum publishes: if the
+real compiled `programmableLogicGlobal` bytecode accepts, then the amount of
 `(cs, tn)` at outputs on `base` is at least the amount at inputs spent from
 `base` plus the SIGNED net mint of `(cs, tn)`.*
 
 `accept` is abstract so that §3 can be proved in the kernel. The benchmark
 instantiates it to `fun ppCS ctx => isSuccessful (appliedGlobalUCeiling.prop ppCS ctx)`
-in `WSC/Benchmark/P1Unshaped.lean`. -/
+in `WSC/Benchmark/P1Unshaped.lean`.
+
+**THE `cs ≠ ByteString.mk ""` HYPOTHESIS IS LOAD-BEARING AND WAS ONCE MISSING.**
+It is `WSC.Model.P1_model`'s own guard (`WSC/Props/P1_Transfer.lean:366`), copied
+character for character. Without it the statement is FALSE — refuted by this
+library's own accepting witness, on which the ada gap is exactly `txInfoFee`. The
+full record, the refutation and why the SHAPED theorems are unaffected are in the
+module header's CORRECTED DEFECT note and in
+`WSC/Benchmark/AdaRefutation.lean`. Do not remove it, and do not weaken it to a
+statement about the shapes: the shapes get it for free and an arbitrary `ctx`
+does not. -/
 def P1UnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
   ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
     (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName),
+    cs ≠ ByteString.mk "" →
     validRewardingContext ctx →
     paramsPublishedBy ctx = some (dirCS, IsData.toData base) →
     Model.coveringNodeExists dirCS cs
@@ -276,13 +361,128 @@ def P1UnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop :
           + Model.mintSigned cs tn
             ctx.scriptContextTxInfo.txInfoMint
 
+/-! ## §2.1 — LEDGER-VALIDITY PROJECTIONS
+
+Two facts about CLAB's `validRewardingContext`, both needed by §3.1 and both
+worth having on their own:
+
+* it really does subsume `P1_model`'s FIFTH clause
+  `∀ o ∈ outputs, validTxOutValue o.txOutValue = true` — that is the header
+  table's "subsumed by" entry, and it is PROVED below rather than asserted;
+* the canonical shaped output value is NOT ledger-valid at the ada slot, with the
+  three quantities left SYMBOLIC. This is
+  `WSC.AdaRefutation.shaped_value_invalid_at_ada` generalised off its concrete
+  numbers, and it is what makes each of §3.1's vacuity branches one line.
+
+The chain is `validRewardingContext` (`CardanoLedgerApi/V3/Contexts.lean:1867`)
+⟹ `validScriptContext` (:1849) ⟹ `validTxInfo` (:1821) ⟹ `validOutputs` (:1696)
+⟹ `V2.validTxOutValue` on each output (`CardanoLedgerApi/V1/Contexts.lean:787`).
+The two `Bool` projections are spelled out by `Bool.rec` rather than by `simp` so
+that the arithmetic of the `&&` chain is visible and axiom-free. -/
+
+/-- `&&`, left projection on `= true`. Axiom-free. -/
+theorem andEqTrueL {a b : Bool} (h : (a && b) = true) : a = true := by
+  cases a with
+  | true => rfl
+  | false => exact Bool.noConfusion h
+
+/-- `&&`, right projection on `= true`. Axiom-free. -/
+theorem andEqTrueR {a b : Bool} (h : (a && b) = true) : b = true := by
+  cases a with
+  | true => exact h
+  | false => exact Bool.noConfusion h
+
+/-- `validRewardingContext` is `validScriptContext` behind a `ScriptInfo` guard
+(`CardanoLedgerApi/V3/Contexts.lean:1867-1870`). -/
+theorem validScriptContext_of_validRewardingContext {ctx : ScriptContext}
+    (h : validRewardingContext ctx = true) :
+    CardanoLedgerApi.V3.validScriptContext ctx = true := by
+  unfold CardanoLedgerApi.V3.validRewardingContext at h
+  split at h
+  · exact h
+  · exact Bool.noConfusion h
+
+/-- …and `validScriptContext` carries `validOutputs` as one conjunct of
+`validTxInfo`. Proved by CONTRADICTION on the `Bool` rather than by counting
+positions in the 14-conjunct chain, so a future CLAB conjunct cannot silently
+shift the projection. -/
+theorem validOutputs_of_validRewardingContext {ctx : ScriptContext}
+    (h : validRewardingContext ctx = true) :
+    CardanoLedgerApi.V3.validOutputs ctx.scriptContextTxInfo.txInfoOutputs = true := by
+  have h := validScriptContext_of_validRewardingContext h
+  cases hb : CardanoLedgerApi.V3.validOutputs ctx.scriptContextTxInfo.txInfoOutputs with
+  | true => rfl
+  | false =>
+      exfalso
+      unfold CardanoLedgerApi.V3.validScriptContext CardanoLedgerApi.V3.validTxInfo at h
+      rw [hb] at h
+      simp at h
+
+/-- `validOutputs` is a `Recursor.all` over the output list
+(`CardanoLedgerApi/V3/Contexts.lean:1696-1697`), so it hands out per-output
+validity. -/
+theorem validTxOutValue_of_mem_validOutputs :
+    ∀ (outs : List TxOut) (o : TxOut),
+      CardanoLedgerApi.V3.validOutputs outs = true → o ∈ outs →
+        CardanoLedgerApi.V2.validTxOutValue o.txOutValue = true := by
+  intro outs
+  induction outs with
+  | nil => intro o _ ho; cases ho
+  | cons x rest ih =>
+      intro o h ho
+      have hx : CardanoLedgerApi.V2.validTxOutValue x.txOutValue = true := andEqTrueL h
+      have hrest : CardanoLedgerApi.V3.validOutputs rest = true := andEqTrueR h
+      cases ho with
+      | head => exact hx
+      | tail _ hmem => exact ih o hrest hmem
+
+/-- **The header table's "subsumed by `validRewardingContext ctx`" entry, PROVED.**
+`P1_model`'s fifth clause (`WSC/Props/P1_Transfer.lean:368`) is a consequence of
+the benchmark's ledger-validity hypothesis, so `P1UnshapedForm` really does state
+the model-level P1 and not a weakened relative of it. -/
+theorem outputs_ledger_valid_of_validRewardingContext {ctx : ScriptContext}
+    (h : validRewardingContext ctx = true) :
+    ∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs,
+      CardanoLedgerApi.V2.validTxOutValue o.txOutValue = true :=
+  fun o ho =>
+    validTxOutValue_of_mem_validOutputs _ o (validOutputs_of_validRewardingContext h) ho
+
+/-- **THE SHAPED OUTPUT VALUE IS NOT LEDGER-VALID AT THE ADA SLOT**, for every
+lovelace amount, token name and quantity. `Shape.adaPlusOne`
+(`WSC/Shaped/Shape.lean:60-63`) is `[(B "", Map [(B "", I n)]), (B cs, Map [(B tn,
+I q)])]`, and `validTxOutValue` (`CardanoLedgerApi/V1/Contexts.lean:787-802`)
+requires the second policy to satisfy `prev_cs < cs` with `prev_cs = ""`. At
+`cs = ByteString.mk ""` that test is `"" < ""`, which is false BY COMPUTATION, so
+the whole `&&` chain collapses and only the leading `n > 0` conjunct is left over
+— hence `Bool.and_false`. Axiom-free.
+
+This is the ONLY reason the four shaped P1 theorems survive with `cs` free, and
+therefore the only reason §3.1's vacuity branches close. -/
+theorem validTxOutValue_adaPlusOne_at_ada (n q : Integer) (tn : TokenName) :
+    CardanoLedgerApi.V2.validTxOutValue (Shape.adaPlusOne n (ByteString.mk "") tn q)
+      = false :=
+  Bool.and_false _
+
 /-! ## §3 — SPECIALISATION: the unshaped statement gives the shaped ones
 
 Each theorem below is the corresponding `P1R_*_stmt` of
 `WSC/Props/Shaped/P1ShapedR.lean` with its `isSuccessful (appliedGlobalShapedT*R.prop …)`
-hypothesis replaced by `accept ppCS (<shape> …)`, derived from `P1UnshapedForm accept`
-by instantiation alone. Read together with §3.0, which is what discharges the
-added hypothesis.
+hypothesis replaced by `accept ppCS (<shape> …)`. **The shaped statements quantify
+`cs` FREELY and must keep doing so** — they are the published theorems and their
+binder lists are part of the deliverable — so each specialisation now has to
+discharge `P1UnshapedForm`'s `cs ≠ ByteString.mk ""` itself. Each therefore SPLITS
+on the ada slot:
+
+* `cs ≠ ada` — instantiate the unshaped form, exactly as before (§3.0 supplies
+  the params hypothesis);
+* `cs = ada` — the SHAPED statement is vacuous: its own `validRewardingContext`
+  hypothesis is unsatisfiable, because the shape's first output carries
+  `Shape.adaPlusOne outAda cs tn qOut` and that value is not ledger-valid when
+  `cs` is the ada symbol (§2.1, §3.1). The branch is CLOSED, not assumed.
+
+Nothing about the shaped conclusions changes, so the specialisation is still the
+full four-way containment claim; what changed is that the ada slot is now
+discharged in the open instead of being smuggled in by the shape.
 
 Consequence a reviewer can check by inspection: the unshaped statement is not
 merely *similar* to the shaped ones, it CONTAINS all four of them — including
@@ -361,7 +561,114 @@ theorem paramsPublishedBy_T7R
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee)
       = some (dirCS, IsData.toData (Credential.ScriptCredential plc)) := rfl
 
-/-! ### §3.1 — SHAPE T1R: `P1R_T1_stmt`, with `accept` abstracted -/
+/-! ### §3.1 — THE ADA BRANCH IS CLOSED: every P1 shape is LEDGER-INVALID at
+`cs = adaSymbol`, for all leaves
+
+This is the half of the repair that is not bookkeeping. `Shape.adaPlusOne` puts
+`cs` in the SECOND value slot, after ada, and `validTxOutValue` demands strictly
+ascending currency symbols — so a shaped context whose asset IS ada cannot satisfy
+`validRewardingContext` at all, whatever the ~40 remaining leaves are. Each of the
+four theorems below turns that into `False`, which is what lets §3.2-§3.4 close
+the `cs = ada` case outright instead of assuming it away.
+
+Only the shape's FIRST output is used, and in all four shapes that is the
+mini-ledger output `p1ShapedBaseOut` (`WSC/Shaped/GlobalShapedR.lean:301`, `:369`,
+`:436`, `:503`) — the escape output would do just as well; the first one keeps the
+`&&` projection a single `andEqTrueL`. -/
+
+/-- SHAPE T1R is ledger-invalid at the ada slot. -/
+theorem shaped_invalid_at_ada_T1R
+    (cs tn plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rTls fee : Integer)
+    (hada : cs = ByteString.mk "")
+    (hv : validRewardingContext
+      (p1RShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) = true) : False := by
+  subst hada
+  have h : CardanoLedgerApi.V2.validTxOutValue
+      (Shape.adaPlusOne outAda (ByteString.mk "") tn qOut) = true :=
+    andEqTrueL (validOutputs_of_validRewardingContext hv)
+  rw [validTxOutValue_adaPlusOne_at_ada] at h
+  exact Bool.noConfusion h
+
+/-- SHAPE T2R (mint/burn) is ledger-invalid at the ada slot. -/
+theorem shaped_invalid_at_ada_T2R
+    (cs tn : ByteString) (q : Integer) (plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rMint rTls fee : Integer)
+    (hada : cs = ByteString.mk "")
+    (hv : validRewardingContext
+      (p1RShapedMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) = true) : False := by
+  subst hada
+  have h : CardanoLedgerApi.V2.validTxOutValue
+      (Shape.adaPlusOne outAda (ByteString.mk "") tn qOut) = true :=
+    andEqTrueL (validOutputs_of_validRewardingContext hv)
+  rw [validTxOutValue_adaPlusOne_at_ada] at h
+  exact Bool.noConfusion h
+
+/-- SHAPE T6R (two mini-ledger outputs) is ledger-invalid at the ada slot; the
+FIRST of the two is enough. -/
+theorem shaped_invalid_at_ada_T6R
+    (cs tn plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer)
+    (outAda0 qOut0 outAda1 qOut1 : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rTls fee : Integer)
+    (hada : cs = ByteString.mk "")
+    (hv : validRewardingContext
+      (p1ROutCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) = true) : False := by
+  subst hada
+  have h : CardanoLedgerApi.V2.validTxOutValue
+      (Shape.adaPlusOne outAda0 (ByteString.mk "") tn qOut0) = true :=
+    andEqTrueL (validOutputs_of_validRewardingContext hv)
+  rw [validTxOutValue_adaPlusOne_at_ada] at h
+  exact Bool.noConfusion h
+
+/-- SHAPE T7R (two mini-ledger outputs AND a mint) is ledger-invalid at the ada
+slot. -/
+theorem shaped_invalid_at_ada_T7R
+    (cs tn : ByteString) (q : Integer) (plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer)
+    (outAda0 qOut0 outAda1 qOut1 : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rMint rTls fee : Integer)
+    (hada : cs = ByteString.mk "")
+    (hv : validRewardingContext
+      (p1ROutMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) = true) : False := by
+  subst hada
+  have h : CardanoLedgerApi.V2.validTxOutValue
+      (Shape.adaPlusOne outAda0 (ByteString.mk "") tn qOut0) = true :=
+    andEqTrueL (validOutputs_of_validRewardingContext hv)
+  rw [validTxOutValue_adaPlusOne_at_ada] at h
+  exact Bool.noConfusion h
+
+/-! ### §3.2 — SHAPE T1R: `P1R_T1_stmt`, with `accept` abstracted -/
 
 /-- **`P1UnshapedForm accept` ⟹ `P1R_T1_stmt` at the same `accept`.**
 Diff the conclusion below against `WSC.P1R_T1_stmt`: the binder list, the
@@ -409,12 +716,16 @@ theorem P1_unshaped_specialises_T1R (accept : CurrencySymbol → ScriptContext �
   intro ppCS cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee hv hcn hacc
-  exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
-    (paramsPublishedBy_T1R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
-      pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-      key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) hcn hacc
+  by_cases hada : cs = ByteString.mk ""
+  · exact (shaped_invalid_at_ada_T1R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut
+      dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+      key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee hada hv).elim
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+      (paramsPublishedBy_T1R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) hcn hacc
 
-/-! ### §3.2 — SHAPE T2R: the MINT case (`q` free, sign unconstrained) -/
+/-! ### §3.3 — SHAPE T2R: the MINT case (`q` free, sign unconstrained) -/
 
 /-- **`P1UnshapedForm accept` ⟹ `P1R_T2_stmt` at the same `accept`.** `q` is a
 free `Integer`, so this one statement covers mint AND burn — the half a reviewer
@@ -462,12 +773,16 @@ theorem P1_unshaped_specialises_T2R (accept : CurrencySymbol → ScriptContext �
   intro ppCS cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee hv hcn hacc
-  exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
-    (paramsPublishedBy_T2R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
-      pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-      key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) hcn hacc
+  by_cases hada : cs = ByteString.mk ""
+  · exact (shaped_invalid_at_ada_T2R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut
+      dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+      key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee hada hv).elim
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+      (paramsPublishedBy_T2R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) hcn hacc
 
-/-! ### §3.3 — SHAPES T6R and T7R: output-side aggregation, without and with mint -/
+/-! ### §3.4 — SHAPES T6R and T7R: output-side aggregation, without and with mint -/
 
 /-- **`P1UnshapedForm accept` ⟹ `P1R_T6_stmt` at the same `accept`.** -/
 theorem P1_unshaped_specialises_T6R (accept : CurrencySymbol → ScriptContext → Prop)
@@ -512,10 +827,14 @@ theorem P1_unshaped_specialises_T6R (accept : CurrencySymbol → ScriptContext �
   intro ppCS cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee hv hcn hacc
-  exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
-    (paramsPublishedBy_T6R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
-      dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-      key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) hcn hacc
+  by_cases hada : cs = ByteString.mk ""
+  · exact (shaped_invalid_at_ada_T6R cs tn plc owner inAda qIn ext in2Ada qIn2
+      outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
+      nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee hada hv).elim
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+      (paramsPublishedBy_T6R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) hcn hacc
 
 /-- **`P1UnshapedForm accept` ⟹ `P1R_T7_stmt` at the same `accept`** — the
 strongest single shaped P1 statement in the library (aggregation AND a nonzero
@@ -563,10 +882,15 @@ theorem P1_unshaped_specialises_T7R (accept : CurrencySymbol → ScriptContext �
   intro ppCS cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee hv hcn hacc
-  exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
-    (paramsPublishedBy_T7R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
-      dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-      key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) hcn hacc
+  by_cases hada : cs = ByteString.mk ""
+  · exact (shaped_invalid_at_ada_T7R cs tn q plc owner inAda qIn ext in2Ada qIn2
+      outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
+      nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee
+      hada hv).elim
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+      (paramsPublishedBy_T7R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) hcn hacc
 
 /-! ## §4 — NON-VACUITY, and why the benchmark budget is 4400 and not 1600
 
@@ -587,9 +911,11 @@ shape it came from is irrelevant to the `∃`. -/
 
 /-- **THE BENCHMARK IS NON-VACUOUS AT 4400 AND VACUOUS AT 1600.**
 
-Conjuncts 1-3: `ctxOk` satisfies every hypothesis of `P1UnshapedForm` other than
-`accept` — ledger validity, the §1 params hypothesis, and "no covering directory
-node for `cs = "MMM"`", i.e. the policy is REGISTERED.
+Conjuncts 1-3: `ctxOk` satisfies every TRANSACTION-level hypothesis of
+`P1UnshapedForm` other than `accept` — ledger validity, the §1 params hypothesis,
+and "no covering directory node for `cs = "MMM"`", i.e. the policy is REGISTERED.
+The remaining hypothesis is about the ASSET, not the transaction, and is
+`ctxOk_asset_is_not_ada` below.
 
 Conjunct 4: the real compiled bytecode HALTS SUCCESSFULLY on it with 4400 steps.
 Conjunct 5: it does NOT halt with 1600 steps.
@@ -626,6 +952,13 @@ theorem P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600 :
         (globalInputs1600 P1ShapedWitness.ppCS P1RShapedWitness.ctxOk) 1600) = false := by
   native_decide
 
+/-- The §4 witness's asset is `"MMM"`, so the restored `cs ≠ ByteString.mk ""`
+guard is satisfied and the non-vacuity certificate covers the CURRENT form —
+not merely the form as it stood before the guard was restored. (This is the one
+hypothesis the `native_decide` conjunction above cannot carry, because it is a
+`Prop` about the asset rather than a `Bool` about the context.) -/
+theorem ctxOk_asset_is_not_ada : ByteString.mk "MMM" ≠ ByteString.mk "" := by decide
+
 /-- The `∃` in the form `P1UnshapedForm`'s accept hypothesis needs: there is a
 context at which the accept side of the benchmark statement is SATISFIABLE on the
 `.exec` term. `isHaltB_sound` is `WSC.P1ShapedWitness.isHaltB_sound`. -/
@@ -641,18 +974,43 @@ theorem P1_unshaped_accept_is_satisfiable :
 
 /-! ## §5 — AXIOM AUDIT
 
-Expected: §3's four specialisations and §3.0's four `rfl`s carry NO axioms at all
-(pure kernel reduction). §4's two carry the two `native_decide` compiler-trust
-axioms and NOT `sorryAx` — no `blaster` call appears in this module. -/
+**NOTHING IN THIS MODULE MAY CARRY `sorryAx`** — there is no `blaster` call here,
+so anything that did would be a hole, not a measurement. Measured profile:
 
+| declarations | axioms |
+|---|---|
+| §2.1's two `Bool` projections, `validTxOutValue_of_mem_validOutputs`, `validTxOutValue_adaPlusOne_at_ada`; §3.0's four `rfl`s | NONE |
+| §4's `ctxOk_asset_is_not_ada` | `[propext]` (`decide` on `ByteString`) |
+| §2.1's `validScriptContext_of_…`, `validOutputs_of_…`, `outputs_ledger_valid_of_…`; §3.1's four vacuity theorems; §3.2-§3.4's four specialisations | `[propext, Quot.sound]` — the Lean standard set |
+| §4's two measured theorems | the above plus `Lean.ofReduceBool`, `Lean.trustCompiler` (`native_decide`) |
+
+CORRECTION OF THE RECORD: this section previously claimed the four
+specialisations carried "NO axioms at all". That was never true — they carried
+`[propext, Quot.sound]` before the ada repair as well, inherited from
+`validRewardingContext`'s own dependency cone, which their STATEMENTS mention. The
+repair therefore adds no axiom that was not already there; what it adds is §2.1
+and §3.1, and those land in the same bucket. -/
+
+#print axioms WSC.Benchmark.andEqTrueL
+#print axioms WSC.Benchmark.andEqTrueR
+#print axioms WSC.Benchmark.validScriptContext_of_validRewardingContext
+#print axioms WSC.Benchmark.validOutputs_of_validRewardingContext
+#print axioms WSC.Benchmark.validTxOutValue_of_mem_validOutputs
+#print axioms WSC.Benchmark.outputs_ledger_valid_of_validRewardingContext
+#print axioms WSC.Benchmark.validTxOutValue_adaPlusOne_at_ada
 #print axioms WSC.Benchmark.paramsPublishedBy_T1R
 #print axioms WSC.Benchmark.paramsPublishedBy_T2R
 #print axioms WSC.Benchmark.paramsPublishedBy_T6R
 #print axioms WSC.Benchmark.paramsPublishedBy_T7R
+#print axioms WSC.Benchmark.shaped_invalid_at_ada_T1R
+#print axioms WSC.Benchmark.shaped_invalid_at_ada_T2R
+#print axioms WSC.Benchmark.shaped_invalid_at_ada_T6R
+#print axioms WSC.Benchmark.shaped_invalid_at_ada_T7R
 #print axioms WSC.Benchmark.P1_unshaped_specialises_T1R
 #print axioms WSC.Benchmark.P1_unshaped_specialises_T2R
 #print axioms WSC.Benchmark.P1_unshaped_specialises_T6R
 #print axioms WSC.Benchmark.P1_unshaped_specialises_T7R
+#print axioms WSC.Benchmark.ctxOk_asset_is_not_ada
 #print axioms WSC.Benchmark.P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600
 #print axioms WSC.Benchmark.P1_unshaped_accept_is_satisfiable
 
