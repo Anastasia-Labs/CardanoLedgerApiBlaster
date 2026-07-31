@@ -26,12 +26,15 @@ is CONFIRMED, and it is why the naive attack does not work.
 WHERE IT IS WRONG. `pcheckMintLogicAndGetProgrammableValue`
 (ProgrammableLogicBase.hs:970-1020) has a SECOND arm. A `NonMember` proof DROPS
 the minted policy from the expected value instead of absorbing it, at the price
-of exhibiting a covering directory node — and `P1UnshapedForm`'s
+of exhibiting a covering directory node (:986-1002) — and `P1UnshapedForm`'s
 `Model.coveringNodeExists … = false` hypothesis is supposed to shut that door.
 IT DOES NOT SHUT IT, because the two do not agree about what a directory node is:
 
 * the validator's mint walk reads ONLY fields 0 (`key`) and 1 (`next`) of the
-  node datum (:990-996) — it never touches `transferLogicScript`;
+  node datum (:986-1002) — it never touches `transferLogicScript`. The TRANSFER
+  walk's `pmatch` (:873-878) does NAME `ptransferLogicScript`, but its negative
+  branch (:882-898) never forces it: §7's `ctxG` MEASURES the compiled code
+  accepting a two-field node on that branch too;
 * `Model.dirNodeFields` (`WSC/Model/GlobalModel.lean:318-320`) pattern-matches
   `Data.List (Data.B k :: Data.B n :: tls :: _)` — it demands a THIRD field,
   because it is written for the TRANSFER walk, which does read field 2.

@@ -223,8 +223,9 @@ it and the bytecode disagree about what a directory node IS:
 
 * the bytecode's MINT walk reads only fields 0 (`key`) and 1 (`next`) of the node
   datum (`pcheckMintLogicAndGetProgrammableValue`,
-  ProgrammableLogicBase.hs:990-999), and so does the TRANSFER walk's negative
-  branch (:884-892) — MEASURED, not inferred;
+  ProgrammableLogicBase.hs:986-1002). The TRANSFER walk's `pmatch` (:873-878)
+  does NAME `ptransferLogicScript`, but its negative branch (:882-898) never
+  forces it — MEASURED (`BaseAbsentProbe`'s `ctxG`), not inferred;
 * `Model.dirNodeFields` (`WSC/Model/GlobalModel.lean:318-320`) matches
   `Data.List (Data.B k :: Data.B n :: tls :: _)` — it demands a THIRD field.
 
