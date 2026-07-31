@@ -206,6 +206,54 @@ fails, the validator `perror`s, and the obligation is discharged by the accept
 hypothesis rather than by an assumption.
 
 ════════════════════════════════════════════════════════════════════════════
+🛑 OPEN DEFECT — `P1UnshapedForm` AS WRITTEN IS **FALSE**, AND THE REFUTATION IS
+MACHINE-CHECKED (found 2026-07-31, NOT YET FIXED)
+════════════════════════════════════════════════════════════════════════════
+`WSC/Benchmark/BaseAbsentProbe.lean` carries
+`base_absent_refutes_P1UnshapedForm : ¬ P1UnshapedForm acceptCEK`, a kernel
+theorem with no `sorryAx`, where `acceptCEK` is the SAME
+`cekExecuteProgram programmableLogicGlobal1600.script (globalInputs1600 …) 4400`
+that §4 below uses to certify the benchmark non-vacuous. **Do not hand this
+statement to the optimiser team until the hypothesis below is strengthened —
+the goal is not provable, because it is not true.**
+
+WHAT IS BROKEN: the `Model.coveringNodeExists … = false` clause. It is meant to
+shut the ONE exemption route both lockstep walks offer, and it does not, because
+it and the bytecode disagree about what a directory node IS:
+
+* the bytecode's MINT walk reads only fields 0 (`key`) and 1 (`next`) of the node
+  datum (`pcheckMintLogicAndGetProgrammableValue`,
+  ProgrammableLogicBase.hs:990-999), and so does the TRANSFER walk's negative
+  branch (:884-892) — MEASURED, not inferred;
+* `Model.dirNodeFields` (`WSC/Model/GlobalModel.lean:318-320`) matches
+  `Data.List (Data.B k :: Data.B n :: tls :: _)` — it demands a THIRD field.
+
+So a reference input whose inline datum is the two-element `Data.List [B key,
+B next]` is a perfectly good covering node to the compiled validator and is
+INVISIBLE to the hypothesis. Three witnesses, all measured against the real
+bytecode: `ctxD` (base ABSENT, `+4` mint, `NonMember` proof — `0 ≥ 4`),
+`ctxF` (base PRESENT, `NonMember` — `5 ≥ 9`), `ctxG` (base PRESENT, the TRANSFER
+walk exempting — `4 ≥ 9`).
+
+WHAT IS NOT BROKEN. Not the bytecode: `DirWF` conjunct (iii)
+(`WSC/Honest.lean:1655`, via `dirNodeDatum` :168-171, which decodes only the
+FIVE-field `DirectorySetNode`) says no directory-NFT UTxO carries a truncated
+datum, and `WSC.DIRWF` (:1685) assumes that on chain. `P1UnshapedForm` assumes
+NEITHER — that is the whole gap. Not the four SHAPED theorems either:
+`p1ShapedNode` (`WSC/Shaped/GlobalShapedP1.lean:233`) builds its datum as
+`IsData.toData (DirectorySetNode.mk …)`, five fields BY CONSTRUCTION, exactly as
+the shapes supplied `cs ≠ ada` through their value skeleton. This is the THIRD
+instance of the same trap the note above already names twice.
+
+THE FIX (measured to work, `BaseAbsentProbe.fix_excludes_the_witnesses`): state
+the clause against what the bytecode reads — a covering test whose node pattern
+is `Data.List (Data.B k :: Data.B n :: _)`. It is true on strictly more
+contexts, so `= false` is strictly STRONGER, and it still holds of `ctxOk` and of
+the accepting control, so the repair does not make the statement vacuous.
+`Model.coveringNodeExists` is also a clause of `WSC.Model.P1_model`
+(`WSC/Props/P1_Transfer.lean:363-376`), so the same repair is owed there.
+
+════════════════════════════════════════════════════════════════════════════
 THE MINT IS SIGNED — DO NOT "FIX" IT TO `mintPos`
 ════════════════════════════════════════════════════════════════════════════
 The conclusion uses `Model.mintSigned` (`WSC/Props/P1_Transfer.lean:203`,
@@ -347,6 +395,15 @@ credential `base` this transaction's own protocol-params datum publishes: if the
 real compiled `programmableLogicGlobal` bytecode accepts, then the amount of
 `(cs, tn)` at outputs on `base` is at least the amount at inputs spent from
 `base` plus the SIGNED net mint of `(cs, tn)`.*
+
+🛑 **THIS FORM IS CURRENTLY FALSE — SEE THE OPEN DEFECT NOTE IN THE MODULE
+HEADER.** `WSC/Benchmark/BaseAbsentProbe.lean` carries
+`base_absent_refutes_P1UnshapedForm`, a machine-checked
+`¬ P1UnshapedForm acceptCEK` at §4's own accept term. The
+`Model.coveringNodeExists … = false` clause below does not exclude the covering
+nodes the bytecode's walks actually accept (it demands a third datum field they
+never read), so the exemption route it is supposed to shut is still open. The
+fix and its measurement are in that module's §7.
 
 `accept` is abstract so that §3 can be proved in the kernel. The benchmark
 instantiates it to `fun ppCS ctx => isSuccessful (appliedGlobalUCeiling.prop ppCS ctx)`
