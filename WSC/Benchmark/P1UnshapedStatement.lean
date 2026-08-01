@@ -292,6 +292,7 @@ WHAT THIS MODULE DOES NOT ESTABLISH
 -/
 import WSC.Props.Shaped.P1ShapedR
 import WSC.Model.SeizeModel
+import WSC.Model.Registry
 
 set_option maxHeartbeats 0
 -- The §4 witness is a large concrete `Data` skeleton, as in every witness module.
@@ -331,9 +332,7 @@ other index is `PSeizeAct`, which post-#112 is a hard error in this validator
 (:1290-1291) — so `none` there is not a loss, it only makes the hypothesis
 unsatisfiable on contexts the bytecode rejects anyway. Extra fields are ignored,
 exactly as a raw `phead`/`ptail` chain does. -/
-def transferParamsRefIdx : Data → Option Integer
-  | Data.Constr 0 (_ :: _ :: _ :: _ :: Data.I p :: _) => some p
-  | _ => none
+abbrev transferParamsRefIdx : Data → Option Integer := Model.transferParamsRefIdx
 
 /-- **The protocol-params datum this transaction publishes**, read the way the
 validator reads it: reference input at the redeemer's `plgrParamsRefIdx` (raw
@@ -354,17 +353,84 @@ statement stronger rather than weaker:
   `WSC.shapeR_progLogicCred`, which does), and that equation is only available
   from the accept path — see `WSC.P2_R_gates_are_earned`. Leaving the gate to the
   bytecode is what keeps the specialisation a pure instantiation. -/
-def paramsPublishedBy (ctx : ScriptContext) : Option (CurrencySymbol × Data) :=
-  match transferParamsRefIdx ctx.scriptContextRedeemer with
-  | none => none
-  | some idx =>
-      match SeizeModel.headM
-              (SeizeModel.dropL idx ctx.scriptContextTxInfo.txInfoReferenceInputs) with
-      | none => none
-      | some i =>
-          match i.txInInfoResolved.txOutDatum with
-          | .OutputDatum d => SeizeModel.paramsDirCSAndProgCred d
-          | _ => none
+abbrev paramsPublishedBy : ScriptContext → Option (CurrencySymbol × Data) :=
+  Model.paramsPublishedBy
+
+/-! ### §1.1 — the two defs above MOVED to `WSC/Model/Registry.lean` (Layer 0)
+
+They are now `WSC.Model.transferParamsRefIdx` / `WSC.Model.paramsPublishedBy`, so
+that `WSC.Model.P1_model` and this benchmark quantify over ONE definition object
+instead of two hand-maintained copies — that duplication is how defects 1 and 2
+drifted apart in the first place. The two `abbrev`s above keep every existing
+`WSC.Benchmark.paramsPublishedBy` reference in the tree resolving unchanged.
+
+Registry re-expresses the indexed read over `Model.atIdx` (GlobalModel.lean:128-131)
+rather than `SeizeModel.headM ∘ SeizeModel.dropL`, purely so that Layer 0 needs no
+`SeizeModel` import. The two migration debts that creates are PAID HERE, both by
+proof, not by assertion. -/
+
+/-- **DEBT 1 — the raw datum reader is unchanged, character for character.** -/
+theorem paramsDirCSAndProgCredRaw_eq_seize :
+    Model.paramsDirCSAndProgCredRaw = SeizeModel.paramsDirCSAndProgCred := rfl
+
+/-- **DEBT 2 — the indexed read is unchanged, INCLUDING the negative-index
+clamp.** `SeizeModel.dropL` clamps by an explicit `if n < 0 then xs`;
+`Model.dropIdx` clamps through `Int.toNat` (`(-1).toNat = 0`, so `drop 0`). The
+two are extensionally equal but NOT definitionally equal, so the agreement is
+proved rather than assumed — this is exactly the kind of silent substitution the
+fidelity audit exists to catch. Measured corroboration that the clamp is the
+bytecode's: `WSC/Benchmark/FidelityAuditProbe.lean` ctxK (index 99) and ctxL
+(index -1) both REJECT. -/
+theorem dropIdx_eq_dropL {α : Type} (idx : Integer) (l : List α) :
+    Model.dropIdx idx l = SeizeModel.dropL idx l := by
+  unfold Model.dropIdx SeizeModel.dropL
+  cases idx with
+  | ofNat n => rw [if_neg (by simp)]
+  | negSucc n => rw [if_pos (Int.negSucc_lt_zero n)]; rfl
+
+theorem atIdx_eq_headM_dropL {α : Type} (idx : Integer) (l : List α) :
+    Model.atIdx idx l = SeizeModel.headM (SeizeModel.dropL idx l) := by
+  rw [Model.atIdx, ← dropIdx_eq_dropL]
+  cases Model.dropIdx idx l <;> rfl
+
+/-- …hence the moved `paramsPublishedBy` is the same function as the one this
+module used to define locally. -/
+theorem paramsPublishedBy_eq_seize_read (ctx : ScriptContext) :
+    paramsPublishedBy ctx =
+      (match transferParamsRefIdx ctx.scriptContextRedeemer with
+       | none => none
+       | some idx =>
+           match SeizeModel.headM
+                   (SeizeModel.dropL idx ctx.scriptContextTxInfo.txInfoReferenceInputs) with
+           | none => none
+           | some i =>
+               match i.txInInfoResolved.txOutDatum with
+               | .OutputDatum d => SeizeModel.paramsDirCSAndProgCred d
+               | _ => none) := by
+  simp only [paramsPublishedBy, Model.paramsPublishedBy, atIdx_eq_headM_dropL]
+  rfl
+
+/-- **K6 — THE ARITY VACUITY PIN. DO NOT DELETE.**
+
+`PTransferAct` had FOUR fields at wsc-poc `f918ec6` (the revision several of this
+module's older citations resolve at) and FIVE at `2306678` (the revision
+`WSC/flats/PROVENANCE.md:6` pins the flat to). Against a 4-field redeemer
+`transferParamsRefIdx` returns `none`, `paramsPublishedBy` returns `none`, the
+params hypothesis becomes UNSATISFIABLE and the ENTIRE BENCHMARK BECOMES
+VACUOUSLY TRUE while still reporting `✅ Valid`.
+
+So the drift that springs this trap is already present in the citation trail, and
+this theorem is the loud failure. Conjunct 1: the 5-field shape is read.
+Conjunct 2: the 4-field shape returns `none`. Conjunct 3: the flat's own
+non-vacuity witness really does produce a `some`. -/
+theorem transferAct_arity_pin :
+    (( transferParamsRefIdx
+         (Data.Constr 0 [Data.List [], Data.List [], Data.List [], Data.List [],
+                         Data.I 7])
+     , transferParamsRefIdx
+         (Data.Constr 0 [Data.List [], Data.List [], Data.List [], Data.List []])
+     , (paramsPublishedBy P1RShapedWitness.ctxOk).isSome )
+     == (some 7, none, true)) = true := by native_decide
 
 /-! ## §2 — THE STATEMENT
 
@@ -418,8 +484,20 @@ full record, the refutation and why the SHAPED theorems are unaffected are in th
 module header's CORRECTED DEFECT note and in
 `WSC/Benchmark/AdaRefutation.lean`. Do not remove it, and do not weaken it to a
 statement about the shapes: the shapes get it for free and an arbitrary `ctx`
-does not. -/
-def P1UnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
+does not.
+
+═══════════════════════════════════════════════════════════════════════════
+🛑 **RENAMED, NOT REPAIRED IN PLACE. THIS DEF IS THE REFUTED FORM AND IS KEPT
+ONLY AS THE REGRESSION TEST FOR ITS OWN REFUTATION.** The live statements are
+`P1UnshapedFormD` (headline) and `P1UnshapedFormH` (blaster target) below.
+═══════════════════════════════════════════════════════════════════════════
+`WSC/Benchmark/BaseAbsentProbe.lean` carries TWO kernel refutations of the form
+below — `base_absent_refutes_P1UnshapedForm_REFUTED_arity`:400 (K = 1528, pinned
+two-sided) and `base_present_refutes_P1UnshapedForm_REFUTED_arity`:467. Keeping
+the def under its own name is what makes REINTRODUCING the 3-field node reader a
+BUILD FAILURE rather than a silent regression. Do not delete it, and do not
+"simplify" it back into the live statement. -/
+def P1UnshapedForm_REFUTED_arity (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
   ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
     (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName),
     cs ≠ ByteString.mk "" →
@@ -434,6 +512,106 @@ def P1UnshapedForm (accept : CurrencySymbol → ScriptContext → Prop) : Prop :
             ctx.scriptContextTxInfo.txInfoInputs
           + Model.mintSigned cs tn
             ctx.scriptContextTxInfo.txInfoMint
+
+/-! ### §2.0 — THE LIVE STATEMENT, IN TWO INTERCONVERTIBLE FORMS
+
+The survey that preceded this repair framed the hypothesis-negation form (A,
+tractable) and the disjunctive form (F, honest) as ALTERNATIVES. They are not:
+`Model.exempt` is a `Bool`, so the two are interconvertible by a two-line kernel
+theorem. Both ship.
+
+WHY THE DISJUNCTIVE FORM IS THE HEADLINE. Under hypothesis-negation the repair
+for a newly found exemption route is "strengthen the antecedent" — unbounded,
+invisible to a reader who reads only the conclusion, and monotonically
+approaching vacuity. **All three defects of this statement were antecedent
+repairs.** With the exemption in the CONSEQUENT the only available repair is
+"widen `Model.exempt`", which is on the reader's side of the turnstile AND must be
+discharged by `WSC/Composition.lean` (`coveringIn_of_exemptible` →
+`covering_excludes_ledger_registration` → `DIRWF_L`): a disjunct too weak to imply
+`WSC.coveringIn` FAILS TO TYPECHECK at
+`WSC.Composition.leafP1_of_shapedGlobalContainment`. That mechanical veto is the
+only structural guard on offer and it is free.
+
+**WHAT IT DOES NOT GUARANTEE, stated plainly: NOTHING here makes a FOURTH missed
+route impossible.** No hypothesis-form statement can. A route that (a) drops `cs`
+from the validator's `expected` value, (b) is not either walk's covering branch,
+and (c) survives `validRewardingContext`, refutes `P1UnshapedFormD` exactly as it
+refutes the hypothesis form. What the design buys is that the repair is FORCED
+into the consequent, the composition REJECTS it if it is not a genuine directory
+exemption, and `WSC/Benchmark/BaseAbsentProbe.lean` / `WSC/Review/ExemptionCensus.lean`
+/ `WSC/Review/AdversarialProbe.lean` are where it gets measured. -/
+
+/-- **P1 — TRANSFER CONTAINMENT, UNSHAPED, DISJUNCTIVE FORM. THE HEADLINE.**
+
+*For every ledger-valid transaction and every asset `(cs, tn)`, relative to the
+mini-ledger base credential this transaction's own protocol-params datum
+publishes: if the compiled `programmableLogicGlobal` bytecode accepts, then EITHER
+`(cs, tn)` is CONTAINED at `base`, OR this transaction puts an EXEMPTION
+CERTIFICATE for `cs` on the table — an authenticated directory node covering `cs`,
+or the fact that `cs` is ada.*
+
+Note the shape of the hypothesis list: THREE hypotheses, all about the
+TRANSACTION, none about the asset. The asset-level side conditions the refuted
+form carried (`cs ≠ ada`, `coveringNodeExists = false`) are gone from the
+antecedent and are now visible in the conclusion as `Model.exempt`. -/
+def P1UnshapedFormD (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
+  ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+    (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName),
+    validRewardingContext ctx = true →
+    Model.paramsPublishedBy ctx = some (dirCS, IsData.toData base) →
+    accept ppCS ctx →
+      Model.Contained base cs tn ctx
+      ∨ Model.exempt dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = true
+
+/-- **THE SAME CLAIM, HYPOTHESIS FORM — THE BLASTER TARGET.**
+
+Positively stated, one shared predicate, no double negative. The double negative
+is what hid defect 1: at `cs = ada` the covering test is FREE-FALSE, so the old
+hypothesis was VACUOUSLY SATISFIED rather than unsatisfiable. Here
+`Model.isProgrammable` is FALSE at ada and the statement says NOTHING — the
+correct and visible failure mode.
+
+This is the form `WSC/Benchmark/P1Unshaped.lean` instantiates at the real prepped
+residual, because a disjunctive conclusion would carry a tractability debit for
+the solver. **That debit is currently UNMEASURABLE and must not be quoted as an
+established advantage**: `WSC.Benchmark.P1_unshaped` is never elaborated (its
+`#prep_uplc` does not terminate — P1Unshaped.lean:180-193), and
+`timeout 900 lake build WSC.Benchmark.P1Unshaped` exceeds the cap. Shipping both
+forms costs nothing and gains nothing MEASURABLE today; the survey's trade-off is
+DEFERRED, not resolved. -/
+def P1UnshapedFormH (accept : CurrencySymbol → ScriptContext → Prop) : Prop :=
+  ∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+    (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName),
+    validRewardingContext ctx = true →
+    Model.paramsPublishedBy ctx = some (dirCS, IsData.toData base) →
+    Model.isProgrammable dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = true →
+    accept ppCS ctx →
+      Model.Contained base cs tn ctx
+
+/-- **THE TWO FORMS ARE EQUIVALENT, IN THE KERNEL, FOR EVERY `accept`.**
+
+`Model.exempt` is a `Bool`, so the case split is decidable and no axiom beyond the
+Lean standard set enters. This is what lets the design have the disjunctive form's
+honesty AND the hypothesis form's tractability at once: publish D, hand H to the
+optimiser team, let `WSC/Composition.lean` consume D.
+
+KILL CRITERION K4: this theorem failing to close in the kernel would mean the
+disjunctive layer must be dropped and M4's mechanical veto lost. It would fail if
+anyone "improved" `Model.exempt` into a `Prop`. -/
+theorem P1UnshapedForm_iff (accept : CurrencySymbol → ScriptContext → Prop) :
+    P1UnshapedFormD accept ↔ P1UnshapedFormH accept := by
+  constructor
+  · intro HD ppCS ctx base dirCS cs tn hv hp hprog hacc
+    rcases HD ppCS ctx base dirCS cs tn hv hp hacc with hc | hex
+    · exact hc
+    · exact absurd hex (by
+        rw [Model.exempt_false_of_isProgrammable hprog]; exact Bool.noConfusion)
+  · intro HH ppCS ctx base dirCS cs tn hv hp hacc
+    by_cases hex : Model.exempt dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = true
+    · exact Or.inr hex
+    · refine Or.inl (HH ppCS ctx base dirCS cs tn hv hp ?_ hacc)
+      simp only [Model.isProgrammable, Bool.not_eq_true']
+      simpa using hex
 
 /-! ## §2.1 — LEDGER-VALIDITY PROJECTIONS
 
@@ -635,6 +813,120 @@ theorem paramsPublishedBy_T7R
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee)
       = some (dirCS, IsData.toData (Credential.ScriptCredential plc)) := rfl
 
+/-! ### §3.0a — THE REPAIRED AND THE OLD COVERING TEST COINCIDE AT EVERY P1 SHAPE
+
+**KILL CRITERION K2, and the reason the four PUBLISHED shaped theorems survive
+the unshaped repair untouched.** `Model.exemptible` (the bytecode's 2-field node
+reader) and `Model.coveringNodeExists` (the old 3-field one) are DIFFERENT
+functions in general — that difference IS defect 2 — but at all four P1 shapes
+they are equal BY `rfl`, FOR ALL ~40 LEAVES, because `p1ShapedNode`
+(`WSC/Shaped/GlobalShapedP1.lean:233`) builds the node datum as
+`IsData.toData (DirectorySetNode.mk …)`, FIVE FIELDS BY CONSTRUCTION.
+
+⚠️ **THIS IS THE THIRD INSTANCE OF "THE SHAPE SUPPLIED A HYPOTHESIS BY
+CONSTRUCTION", AND RECORDING IT IS NOT OPTIONAL** — after `plc`/`dirCS` (§1) and
+after `cs ≠ ada` (the CORRECTED DEFECT note). Each time it went unrecorded it
+produced a defect. What the shaped theorems' `Model.coveringNodeExists … = false`
+hypothesis is NOT, in general, is the bytecode's exemption predicate; at these four
+shapes the two coincide, and that coincidence is why the shaped results survive.
+
+STATED HERE, NOT IMPORTED. These four were first measured at
+`WSC/Review/DesignProbe.lean:89,:109,:129,:150`; they cannot be "promoted" by
+moving a citation, because that module imports `WSC.Composition` and this one must
+not. They are RE-STATED — ~35 shape binders each — and that transcription cost is
+real and is being paid deliberately, in the module whose transcription fidelity is
+the subject of the repair.
+
+NOTE THE SCOPE, precisely: these give only the `exemptible` HALF of
+`Model.isProgrammable`. The ada half still comes from the existing
+`by_cases hada` branch plus §3.1's `shaped_invalid_at_ada_T*R`. -/
+
+/-- SHAPE T1R: the repaired and the old covering test agree, for all leaves. -/
+theorem exemptible_eq_covering_T1R
+    (cs tn plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rTls fee : Integer) :
+    Model.exemptible dirCS cs
+      (p1RShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs
+      = Model.coveringNodeExists dirCS cs
+      (p1RShapedCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs := rfl
+
+/-- SHAPE T2R (mint/burn). -/
+theorem exemptible_eq_covering_T2R
+    (cs tn : ByteString) (q : Integer) (plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rMint rTls fee : Integer) :
+    Model.exemptible dirCS cs
+      (p1RShapedMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs
+      = Model.coveringNodeExists dirCS cs
+      (p1RShapedMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
+        pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs := rfl
+
+/-- SHAPE T6R (two mini-ledger outputs). -/
+theorem exemptible_eq_covering_T6R
+    (cs tn plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer)
+    (outAda0 qOut0 outAda1 qOut1 : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rTls fee : Integer) :
+    Model.exemptible dirCS cs
+      (p1ROutCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs
+      = Model.coveringNodeExists dirCS cs
+      (p1ROutCtx cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs := rfl
+
+/-- SHAPE T7R (two mini-ledger outputs AND a nonzero mint of free sign). -/
+theorem exemptible_eq_covering_T7R
+    (cs tn : ByteString) (q : Integer) (plc owner : ByteString) (inAda qIn : Integer)
+    (ext : ByteString) (in2Ada qIn2 : Integer)
+    (outAda0 qOut0 outAda1 qOut1 : Integer)
+    (dest : ByteString) (escAda qEsc : Integer)
+    (pHash pCS pTn : ByteString) (pAda pQty : Integer)
+    (dirCS glc slc : ByteString)
+    (nHash nCS nTn : ByteString) (nAda nQty : Integer)
+    (key next tlsH ilsH gsCS : ByteString)
+    (w0 w1 : ByteString) (a0 a1 rBase rMint rTls fee : Integer) :
+    Model.exemptible dirCS cs
+      (p1ROutMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs
+      = Model.coveringNodeExists dirCS cs
+      (p1ROutMintCtx cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
+        dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls
+        fee).scriptContextTxInfo.txInfoReferenceInputs := rfl
+
 /-! ### §3.1 — THE ADA BRANCH IS CLOSED: every P1 shape is LEDGER-INVALID at
 `cs = adaSymbol`, for all leaves
 
@@ -750,7 +1042,7 @@ Diff the conclusion below against `WSC.P1R_T1_stmt`: the binder list, the
 hypothesis and the `outSum ≥ inSum + mintSigned` conclusion are character for
 character the same. -/
 theorem P1_unshaped_specialises_T1R (accept : CurrencySymbol → ScriptContext → Prop)
-    (H : P1UnshapedForm accept) :
+    (H : P1UnshapedFormH accept) :
     ∀ (ppCS : CurrencySymbol) (cs tn plc owner : ByteString) (inAda qIn : Integer)
       (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
       (dest : ByteString) (escAda qEsc : Integer)
@@ -794,10 +1086,16 @@ theorem P1_unshaped_specialises_T1R (accept : CurrencySymbol → ScriptContext �
   · exact (shaped_invalid_at_ada_T1R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut
       dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
       key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee hada hv).elim
-  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
       (paramsPublishedBy_T1R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) hcn hacc
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee)
+      (Model.isProgrammable_of hada (by
+        rw [exemptible_eq_covering_T1R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda qOut
+          dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+          key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee]
+        exact hcn))
+      hacc
 
 /-! ### §3.3 — SHAPE T2R: the MINT case (`q` free, sign unconstrained) -/
 
@@ -806,7 +1104,7 @@ free `Integer`, so this one statement covers mint AND burn — the half a review
 will want to see, because it is where `Model.mintSigned` bites and where the
 `mintPos` variant is refuted (`WSC.P1RShapedWitness.mintPos_form_REFUTED`). -/
 theorem P1_unshaped_specialises_T2R (accept : CurrencySymbol → ScriptContext → Prop)
-    (H : P1UnshapedForm accept) :
+    (H : P1UnshapedFormH accept) :
     ∀ (ppCS : CurrencySymbol) (cs tn : ByteString) (q : Integer)
       (plc owner : ByteString) (inAda qIn : Integer)
       (ext : ByteString) (in2Ada qIn2 : Integer) (outAda qOut : Integer)
@@ -851,16 +1149,22 @@ theorem P1_unshaped_specialises_T2R (accept : CurrencySymbol → ScriptContext �
   · exact (shaped_invalid_at_ada_T2R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut
       dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
       key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee hada hv).elim
-  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
       (paramsPublishedBy_T2R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut dest escAda qEsc
         pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) hcn hacc
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee)
+      (Model.isProgrammable_of hada (by
+        rw [exemptible_eq_covering_T2R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda qOut
+          dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
+          key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee]
+        exact hcn))
+      hacc
 
 /-! ### §3.4 — SHAPES T6R and T7R: output-side aggregation, without and with mint -/
 
 /-- **`P1UnshapedForm accept` ⟹ `P1R_T6_stmt` at the same `accept`.** -/
 theorem P1_unshaped_specialises_T6R (accept : CurrencySymbol → ScriptContext → Prop)
-    (H : P1UnshapedForm accept) :
+    (H : P1UnshapedFormH accept) :
     ∀ (ppCS : CurrencySymbol) (cs tn plc owner : ByteString) (inAda qIn : Integer)
       (ext : ByteString) (in2Ada qIn2 : Integer)
       (outAda0 qOut0 outAda1 qOut1 : Integer)
@@ -905,16 +1209,22 @@ theorem P1_unshaped_specialises_T6R (accept : CurrencySymbol → ScriptContext �
   · exact (shaped_invalid_at_ada_T6R cs tn plc owner inAda qIn ext in2Ada qIn2
       outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
       nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee hada hv).elim
-  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
       (paramsPublishedBy_T6R cs tn plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee) hcn hacc
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee)
+      (Model.isProgrammable_of hada (by
+        rw [exemptible_eq_covering_T6R cs tn plc owner inAda qIn ext in2Ada qIn2
+          outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
+          nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee]
+        exact hcn))
+      hacc
 
 /-- **`P1UnshapedForm accept` ⟹ `P1R_T7_stmt` at the same `accept`** — the
 strongest single shaped P1 statement in the library (aggregation AND a nonzero
 mint of unconstrained sign) falls out of the same unshaped form. -/
 theorem P1_unshaped_specialises_T7R (accept : CurrencySymbol → ScriptContext → Prop)
-    (H : P1UnshapedForm accept) :
+    (H : P1UnshapedFormH accept) :
     ∀ (ppCS : CurrencySymbol) (cs tn : ByteString) (q : Integer)
       (plc owner : ByteString) (inAda qIn : Integer)
       (ext : ByteString) (in2Ada qIn2 : Integer)
@@ -961,10 +1271,16 @@ theorem P1_unshaped_specialises_T7R (accept : CurrencySymbol → ScriptContext �
       outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
       nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee
       hada hv).elim
-  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hada hv
+  · exact H ppCS _ (.ScriptCredential plc) dirCS cs tn hv
       (paramsPublishedBy_T7R cs tn q plc owner inAda qIn ext in2Ada qIn2 outAda0 qOut0 outAda1 qOut1
         dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc nHash nCS nTn nAda nQty
-        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee) hcn hacc
+        key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee)
+      (Model.isProgrammable_of hada (by
+        rw [exemptible_eq_covering_T7R cs tn q plc owner inAda qIn ext in2Ada qIn2
+          outAda0 qOut0 outAda1 qOut1 dest escAda qEsc pHash pCS pTn pAda pQty dirCS glc slc
+          nHash nCS nTn nAda nQty key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rMint rTls fee]
+        exact hcn))
+      hacc
 
 /-! ## §4 — NON-VACUITY, and why the benchmark budget is 4400 and not 1600
 
@@ -1023,15 +1339,75 @@ theorem P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600 :
         (globalInputs1600 P1ShapedWitness.ppCS P1RShapedWitness.ctxOk) 4400) = true
     ∧ P1ShapedWitness.isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
         programmableLogicGlobal1600.script
-        (globalInputs1600 P1ShapedWitness.ppCS P1RShapedWitness.ctxOk) 1600) = false := by
+        (globalInputs1600 P1ShapedWitness.ppCS P1RShapedWitness.ctxOk) 1600) = false
+    -- CONJUNCT 6, ADDED WITH THE ARITY REPAIR: the STRENGTHENED hypothesis of
+    -- `P1UnshapedFormH` holds at the same witness, at the same budget, on the
+    -- same prep term. This is what stops the repair from buying soundness by
+    -- emptying the accept class (KILL CRITERION K2). It subsumes conjunct 3 and
+    -- `ctxOk_asset_is_not_ada` in ONE `Bool`.
+    ∧ Model.isProgrammable (ByteString.mk "DIRCS") (ByteString.mk "MMM")
+        P1RShapedWitness.ctxOk.scriptContextTxInfo.txInfoReferenceInputs = true := by
   native_decide
 
-/-- The §4 witness's asset is `"MMM"`, so the restored `cs ≠ ByteString.mk ""`
-guard is satisfied and the non-vacuity certificate covers the CURRENT form —
-not merely the form as it stood before the guard was restored. (This is the one
-hypothesis the `native_decide` conjunction above cannot carry, because it is a
-`Prop` about the asset rather than a `Bool` about the context.) -/
+/-- The §4 witness's asset is `"MMM"`, so the ada guard is satisfied and the
+non-vacuity certificate covers the CURRENT form. Retained after the repair folded
+the guard into `Model.exempt`: it is what conjunct 6's `isProgrammable` unpacks to
+on the ada side (`Model.ne_ada_of_isProgrammable`). -/
 theorem ctxOk_asset_is_not_ada : ByteString.mk "MMM" ≠ ByteString.mk "" := by decide
+
+/-- **NON-VACUITY OF THE REPAIRED FORM, ASSEMBLED — every hypothesis of
+`P1UnshapedFormH` at the benchmark's own accept term holds SIMULTANEOUSLY at
+`WSC.P1RShapedWitness.ctxOk`, AND SO DOES THE CONCLUSION.**
+
+`Model.Contained` at `(cs, tn) = ("MMM", "TOK")` reads `150 ≥ 150 + 0`. So the
+repaired statement is neither vacuous nor false at the witness, at the same 4400
+meter, on the same program-and-inputs pair (`K` pinned two-sided by conjuncts 4-5
+above, and at the shape level by `WSC.P1RShapedWitness.K_T1R_is_2343`).
+
+A STRONGER, INDEPENDENT non-vacuity certificate exists and should be quoted
+alongside this one: `WSC.Review.GoldenEval.golden_inhabits_the_proposed_hypotheses`
+(`WSC/Review/GoldenEval.lean:92`) runs the SAME table on the decoded REAL golden
+`programmableLogicGlobal.transfer-member-single-policy` — an off-chain-produced
+transaction that clears `isBalanced`, which no hand-built witness in this library
+respects by accident. -/
+theorem P1_unshapedH_hypotheses_and_conclusion_hold_at_ctxOk :
+    validRewardingContext P1RShapedWitness.ctxOk = true
+    ∧ Model.paramsPublishedBy P1RShapedWitness.ctxOk
+        = some (ByteString.mk "DIRCS",
+                IsData.toData (Credential.ScriptCredential (ByteString.mk "PROGLOGIC")))
+    ∧ Model.isProgrammable (ByteString.mk "DIRCS") (ByteString.mk "MMM")
+        P1RShapedWitness.ctxOk.scriptContextTxInfo.txInfoReferenceInputs = true
+    ∧ P1ShapedWitness.isHaltB (PlutusCore.UPLC.CekMachine.cekExecuteProgram
+        programmableLogicGlobal1600.script
+        (globalInputs1600 P1ShapedWitness.ppCS P1RShapedWitness.ctxOk) 4400) = true
+    ∧ Model.Contained (Credential.ScriptCredential (ByteString.mk "PROGLOGIC"))
+        (ByteString.mk "MMM") (ByteString.mk "TOK") P1RShapedWitness.ctxOk := by
+  refine ⟨P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600.1,
+          P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600.2.1,
+          P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600.2.2.2.2.2,
+          P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600.2.2.2.1, ?_⟩
+  show Model.outSum (Credential.ScriptCredential (ByteString.mk "PROGLOGIC"))
+        (ByteString.mk "MMM") (ByteString.mk "TOK")
+        P1RShapedWitness.ctxOk.scriptContextTxInfo.txInfoOutputs
+      ≥ Model.inSum (Credential.ScriptCredential (ByteString.mk "PROGLOGIC"))
+          (ByteString.mk "MMM") (ByteString.mk "TOK")
+          P1RShapedWitness.ctxOk.scriptContextTxInfo.txInfoInputs
+        + WSC.mintOf (ByteString.mk "MMM") (ByteString.mk "TOK")
+            P1RShapedWitness.ctxOk.scriptContextTxInfo.txInfoMint
+  native_decide
+
+/-- **THE DRIFT-PROOF: the two published P1 statements ARE ONE STATEMENT.**
+
+`WSC.Model.P1_model` is `P1UnshapedFormH` at `accept := globalModel · · = true`,
+BY `Iff.rfl`. They differ in EXACTLY ONE ATOM — the hand transcription versus the
+compiled bytecode. Defects 1 and 2 both arose because these two statements were
+maintained separately and drifted; this theorem is what makes that impossible to
+repeat silently. -/
+theorem P1_model_is_the_unshaped_form :
+    (∀ (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+       (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName),
+        Model.P1_model ppCS ctx base dirCS cs tn)
+      ↔ P1UnshapedFormH (fun pp c => Model.globalModel pp c = true) := Iff.rfl
 
 /-- The `∃` in the form `P1UnshapedForm`'s accept hypothesis needs: there is a
 context at which the accept side of the benchmark statement is SATISFIABLE on the
@@ -1087,6 +1463,19 @@ and §3.1, and those land in the same bucket. -/
 #print axioms WSC.Benchmark.ctxOk_asset_is_not_ada
 #print axioms WSC.Benchmark.P1_unshaped_nonvacuous_at_4400_and_vacuous_at_1600
 #print axioms WSC.Benchmark.P1_unshaped_accept_is_satisfiable
+-- the repair: Layer-0 bridges, the two live forms and their equivalence
+#print axioms WSC.Benchmark.paramsDirCSAndProgCredRaw_eq_seize
+#print axioms WSC.Benchmark.dropIdx_eq_dropL
+#print axioms WSC.Benchmark.atIdx_eq_headM_dropL
+#print axioms WSC.Benchmark.paramsPublishedBy_eq_seize_read
+#print axioms WSC.Benchmark.transferAct_arity_pin
+#print axioms WSC.Benchmark.P1UnshapedForm_iff
+#print axioms WSC.Benchmark.exemptible_eq_covering_T1R
+#print axioms WSC.Benchmark.exemptible_eq_covering_T2R
+#print axioms WSC.Benchmark.exemptible_eq_covering_T6R
+#print axioms WSC.Benchmark.exemptible_eq_covering_T7R
+#print axioms WSC.Benchmark.P1_unshapedH_hypotheses_and_conclusion_hold_at_ctxOk
+#print axioms WSC.Benchmark.P1_model_is_the_unshaped_form
 
 end Benchmark
 end WSC

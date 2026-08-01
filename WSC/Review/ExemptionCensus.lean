@@ -295,14 +295,20 @@ theorem noAda_conclusion_fails :
          + Model.mintSigned BaseAbsentProbe.csMMM BaseAbsentProbe.tnTOK
              noAdaCtx.scriptContextTxInfo.txInfoMint) := by native_decide
 
-/-- **`WSC.Model.P1_model` IS FALSE**, by a route that involves no directory
-node, no covering interval and no mint proof — only the positional ada strip at
-`ProgrammableLogicBase.hs:424`. The repair `P1_model` needs is an INPUT-value
-validity clause (or `validRewardingContext` outright), independent of the
-`coveringNodeExists` repair. -/
+/-- **`WSC.Model.P1_model_REFUTED_value` IS FALSE**, by a route that involves no
+directory node, no covering interval and no mint proof — only the positional ada
+strip at `ProgrammableLogicBase.hs@2306678:424`. The repair that form needed is an
+INPUT-value validity clause (or `validRewardingContext` outright), independent of
+the `coveringNodeExists` repair.
+
+**REPOINTED, NOT DELETED (migration Stage 3).** This theorem was stated against
+the def now named `WSC.Model.P1_model_REFUTED_value`; the LIVE
+`WSC.Model.P1_model` carries `validRewardingContext` instead of the output-only
+clause. The refutation SURVIVES AS A REGRESSION TEST: weakening that clause back
+to the output-only form makes the build fail here. -/
 theorem noAda_refutes_P1_model :
-    ¬ Model.P1_model ppCS noAdaCtx BaseAbsentProbe.plcCred BaseAbsentProbe.dirCS
-        BaseAbsentProbe.csMMM BaseAbsentProbe.tnTOK := by
+    ¬ Model.P1_model_REFUTED_value ppCS noAdaCtx BaseAbsentProbe.plcCred
+        BaseAbsentProbe.dirCS BaseAbsentProbe.csMMM BaseAbsentProbe.tnTOK := by
   intro H
   exact noAda_conclusion_fails
     (H noAda_P1_model_hyps.1
@@ -311,6 +317,38 @@ theorem noAda_refutes_P1_model :
        noAda_P1_model_hyps.2.2
        noAda_outputs_valid)
 
+/-! ### §2.4 — …AND THE REPAIRED `P1_model` EXCLUDES THIS CONTEXT
+
+A probe that proves the REPAIR WORKS is worth more than one that proves the old
+bug existed, so both are kept. `noAdaCtx` is excluded from the repaired
+`WSC.Model.P1_model` by its FIRST hypothesis and by nothing else: the context is
+ledger-INVALID on the INPUT side while every OUTPUT is `validTxOutValue`-valid
+(that is `the_saving_clause_is_validInputs`:262). The covering half of the repair
+is INERT here — `isProgrammable` is TRUE at `noAdaCtx` — so the covering repair
+must not be credited with closing this route. -/
+
+/-- **THE REPAIR CLOSES THIS ROUTE, AND IT IS `validRewardingContext` THAT DOES
+IT.** Conjunct 1: `noAdaCtx` fails ledger validity. Conjunct 2: `isProgrammable`
+is TRUE, i.e. the covering half of the repair is NOT what excludes it. -/
+theorem repaired_P1_model_excludes_noAdaCtx :
+    (( CardanoLedgerApi.V3.validRewardingContext noAdaCtx
+     , Model.isProgrammable BaseAbsentProbe.dirCS BaseAbsentProbe.csMMM
+         noAdaCtx.scriptContextTxInfo.txInfoReferenceInputs )
+     == (false, true)) = true := by native_decide
+
+/-- …stated as the repaired `Prop` itself: at `noAdaCtx`, `WSC.Model.P1_model`
+holds VACUOUSLY, so the value-surface escape is no longer a counterexample. -/
+theorem repaired_P1_model_holds_vacuously_at_noAdaCtx :
+    Model.P1_model ppCS noAdaCtx BaseAbsentProbe.plcCred BaseAbsentProbe.dirCS
+      BaseAbsentProbe.csMMM BaseAbsentProbe.tnTOK := by
+  intro hv _ _ _
+  have h : CardanoLedgerApi.V3.validRewardingContext noAdaCtx = false := by
+    have hb := repaired_P1_model_excludes_noAdaCtx
+    simp only [beq_iff_eq, Prod.mk.injEq] at hb
+    exact hb.1
+  rw [h] at hv
+  exact Bool.noConfusion hv
+
 #print axioms arity_floor_mint_walk
 #print axioms arity_floor_transfer_walk
 #print axioms noAda_route_is_real
@@ -318,6 +356,8 @@ theorem noAda_refutes_P1_model :
 #print axioms the_saving_clause_is_validInputs
 #print axioms noAda_P1_model_hyps
 #print axioms noAda_refutes_P1_model
+#print axioms repaired_P1_model_excludes_noAdaCtx
+#print axioms repaired_P1_model_holds_vacuously_at_noAdaCtx
 
 end ExemptionCensus
 end Review

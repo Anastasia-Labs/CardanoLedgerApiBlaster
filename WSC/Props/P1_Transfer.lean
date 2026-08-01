@@ -30,6 +30,7 @@ be false on top of that, so the route lost both its motivation and its
 soundness.
 -/
 import WSC.Model.Ground
+import WSC.Model.Registry
 import WSC.Prep.Global1600
 import WSC.Model.GlobalGoldens
 import WSC.Honest
@@ -39,7 +40,8 @@ namespace WSC.Model
 open CardanoLedgerApi.IsData.Class (IsData)
 open CardanoLedgerApi.V2 (TxOut)
 open CardanoLedgerApi.V3 (Credential CurrencySymbol TokenName Value MintValue
-                          ScriptContext TxInInfo valueOf validTxOutValue)
+                          ScriptContext TxInInfo valueOf validTxOutValue
+                          validRewardingContext)
 open PlutusCore.Data (Data)
 open PlutusCore.ByteString (ByteString)
 open PlutusCore.Integer (Integer)
@@ -216,22 +218,42 @@ datum's `(key, next)` interval STRICTLY covers the symbol
 (transfer walk :891-908, mint walk :996-1016).  So the hypothesis that turns
 "registered" into "cannot be exempted" is precisely the negation of that. -/
 
-/-- Some reference input is a `phasCSH`-authenticated directory node whose
-`(key, next)` interval strictly covers `cs`.  Ground truth: a pure function of
-`txInfoReferenceInputs` and their datums. -/
-def coveringNodeExists (dirCS : CurrencySymbol) (cs : CurrencySymbol) :
-    List TxInInfo → Bool
-  | [] => false
-  | i :: rest =>
-      (match i.txInInfoResolved.txOutDatum with
-       | .OutputDatum d =>
-           (match dirNodeFields d with
-            | some (k, n, _) =>
-                decide (k < cs) && decide (cs < n) &&
-                  (hasCSH dirCS i.txInInfoResolved.txOutValue == some true)
-            | none => false)
-       | _ => false)
-      || coveringNodeExists dirCS cs rest
+/-- ⚠️ **`WSC.Model.coveringNodeExists` HAS MOVED to `WSC/Model/Registry.lean`**
+(Layer 0 of the P1 architecture), keeping its fully-qualified name, so every
+reference in the tree still resolves and nothing about the four PUBLISHED shaped
+P1 theorems changes.
+
+WHY IT MOVED. It is the DEFECT-2 site: its node reader
+`WSC.Model.dirNodeFields` (GlobalModel.lean:318-320) demands a THIRD datum field,
+and NEITHER exemption arm of the compiled validator reads one
+(ProgrammableLogicBase.hs@2306678:997-1001 mint, :890-906 transfer — the latter
+MEASURED at `WSC/Benchmark/BaseAbsentProbe.lean:518`). So a reference input
+carrying `Data.List [B key, B next]` is a valid covering node TO THE BYTECODE and
+INVISIBLE to this predicate. Registry.lean carries the repaired
+`WSC.Model.exemptible` alongside it, plus
+`coveringNodeExists_false_of_exemptible_false` (the repaired clause is strictly
+STRONGER), and the two live in ONE module so they cannot drift again.
+
+**NEW STATEMENTS MUST USE `WSC.Model.isProgrammable`.** This predicate survives
+only because the four published shaped theorems state their hypothesis in it and
+at those four shapes the two coincide by `rfl` for all leaves
+(`WSC.Benchmark.exemptible_eq_covering_T{1,2,6,7}R`). -/
+theorem coveringNodeExists_moved_to_Registry
+    (dirCS cs : CurrencySymbol) (refs : List TxInInfo) :
+    coveringNodeExists dirCS cs refs
+      = (match refs with
+         | [] => false
+         | i :: rest =>
+             (match i.txInInfoResolved.txOutDatum with
+              | .OutputDatum d =>
+                  (match dirNodeFields d with
+                   | some (k, n, _) =>
+                       decide (k < cs) && decide (cs < n) &&
+                         (hasCSH dirCS i.txInInfoResolved.txOutValue == some true)
+                   | none => false)
+              | _ => false)
+             || coveringNodeExists dirCS cs rest) := by
+  cases refs <;> rfl
 
 /-- **⚠️ SUPERSEDED (task U3 audit, 2026-07-25) — the finding below WAS acted on;
 this `Prop` is kept only as the historical record of the gap.**
@@ -292,24 +314,43 @@ def L1_3_valueFromCred_counts_all_base_inputs : Prop :=
     valueFromCred base sigs wdrl inputs = some total →
     lookupDataOuter cs tn total = inSum base cs tn inputs
 
-/-- **L1.4** — a policy with no covering node survives the transfer walk with its
-token map intact (the contrapositive of P5, ADDENDUM E3). -/
+/-- **L1.4** — a NON-EXEMPT policy survives the transfer walk with its token map
+intact (the contrapositive of P5, ADDENDUM E3).
+
+RE-STATED IN THE `exempt` VOCABULARY (Layer 0). The old form said
+`coveringNodeExists dirCS cs refs = false`, which is the DEFECT-2 predicate: it
+demands a third datum field the walk never reads, so it fails to exclude the
+truncated covering nodes the bytecode accepts. `isProgrammable = true` is the
+STRICTLY STRONGER hypothesis (`Model.coveringNodeExists_false_of_exemptible_false`),
+so this `Prop` is now WEAKER and therefore not a stronger claim than before.
+
+⚠️ **STILL A `Prop`, STILL UNPROVED.** It is the target of the deferred
+`fun_induction` exhaustiveness artifact (migration Stage 5): `fun_induction
+Model.transferWalk` generates ONE CASE PER BRANCH of the walk's own equation
+compiler, so a branch that drops `cs` without the covering guard becomes a case
+that cannot be closed — a BUILD ERROR rather than a silent hole. The template is
+`WSC.P2.tokensContain_sound` (`WSC/Props/P2_Seize.lean:447`). SCOPE CAVEAT that
+must ship with it: it is a theorem about the TRANSCRIPTION `Model.globalModel`,
+whose global fidelity axiom was REFUTED and deleted
+(`WSC/Model/GlobalModelRefuted.lean`). -/
 def L1_4_registered_survives_transfer_walk : Prop :=
   ∀ (dirCS : CurrencySymbol) (refs : List TxInInfo) (wdrl : CardanoLedgerApi.V3.Withdrawals)
     (proofs wdrlIdxs : List Integer) (total total' : CsPairs) (cached : Data)
     (cs : CurrencySymbol) (tn : TokenName),
-    coveringNodeExists dirCS cs refs = false →
+    isProgrammable dirCS cs refs = true →
     transferWalk dirCS refs wdrl proofs wdrlIdxs total [] cached = some total' →
     lookupDataOuter cs tn total' = lookupDataOuter cs tn total
 
-/-- **L1.5** — a policy with no covering node keeps its mint entry through the
-mint walk (P6's positional-classification link: no covering node ⟹ the only
-admissible proof is `Member`, and `mintWalk_member_retains` then retains the
-entry verbatim). -/
+/-- **L1.5** — a NON-EXEMPT policy keeps its mint entry through the mint walk
+(P6's positional-classification link: no covering node ⟹ the only admissible
+proof is `Member`, and `mintWalk_member_retains` then retains the entry verbatim).
+
+Re-stated in the `exempt` vocabulary for the same reason as L1.4, and it is the
+mint-walk half of the same deferred Stage-5 artifact. -/
 def L1_5_registered_keeps_mint_entry : Prop :=
   ∀ (dirCS : CurrencySymbol) (refs : List TxInInfo) (proofs : List MintProof)
     (mint mv : CsPairs) (cs : CurrencySymbol) (tn : TokenName),
-    coveringNodeExists dirCS cs refs = false →
+    isProgrammable dirCS cs refs = true →
     mintWalk dirCS refs proofs mint [] = some mv →
     lookupDataOuter cs tn mv = lookupDataOuter cs tn mint
 
@@ -358,8 +399,33 @@ transaction that burns a registered asset out of a mini-ledger input: with
 one that is true, and it is also the one ARCHITECTURE.md §5.2's Preservation
 reduction actually consumes ("`B_out(cs) ≥ B_in(cs) + mint(cs)`").  Where they
 differ the signed form is weaker, and where the escape risk lives — positive mint
-— the two coincide (`P1_model_mintPos_form` below). -/
-def P1_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+— the two coincide (`P1_model_mintPos_form` below).
+
+═══════════════════════════════════════════════════════════════════════════
+🛑 **THE FORM BELOW IS `P1_model_REFUTED_value` — KEPT ONLY AS THE REGRESSION
+TEST FOR ITS OWN REFUTATION.  THE LIVE STATEMENT IS `P1_model`, FURTHER DOWN.**
+═══════════════════════════════════════════════════════════════════════════
+It is FALSE, and the refutation is a kernel theorem:
+`WSC.Review.ExemptionCensus.noAda_refutes_P1_model`
+(`WSC/Review/ExemptionCensus.lean:303`) exhibits a context on which the compiled
+bytecode accepts, all five hypotheses below hold, and the conclusion fails —
+by a route with NO directory node, NO covering interval and NO mint proof. The
+cause is the FIFTH clause: `∀ o ∈ outputs, validTxOutValue …` constrains only the
+OUTPUT side, while the escape runs through the validator's POSITIONAL ADA STRIP
+on a mini-ledger INPUT that carries no lovelace entry
+(`ProgrammableLogicBase.hs@2306678:424`; the saving clause is
+`validInputs`, measured at `ExemptionCensus.the_saving_clause_is_validInputs`:262).
+
+It ALSO carried defect 2 (the 3-field `coveringNodeExists`). It is not LITERALLY
+refuted by the defect-2 witnesses only because the transcription rejects them
+through the SAME too-strict node reader
+(`WSC.Review.DesignProbe.K6_transcription_rejects_all_three_witnesses`:175) —
+that is luck, not soundness, which is why the covering repair lands here at the
+same time as the value repair.
+
+DO NOT DELETE: keeping the refuted form under its own name is what makes
+reintroducing either defect a BUILD FAILURE rather than a silent regression. -/
+def P1_model_REFUTED_value (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
     (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName) : Prop :=
   globalModel ppCS ctx = true →
   cs ≠ ByteString.mk "" →
@@ -370,12 +436,53 @@ def P1_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
     ≥ inSum base cs tn ctx.scriptContextTxInfo.txInfoInputs
       + mintSigned cs tn ctx.scriptContextTxInfo.txInfoMint
 
-/-- **P6 (model level, inequality form).**  A `Member` classification puts the
-minted amount on the REQUIREMENT side: whatever is minted must still be at the
-mini-ledger outputs.  (The self-penalization CORE — that the walk carries the
-ledger-truth entry over verbatim and can only drop, never negate — is PROVED in
-`WSC/Props/P6_Member.lean`.) -/
-def P6_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+/-- **P1 (model level) — THE REPAIRED STATEMENT.**  *When the global validator
+accepts a transfer, no programmable token can leave or vanish from the
+mini-ledger.*
+
+**IT IS `WSC.Benchmark.P1UnshapedFormH` AT `accept := globalModel · · = true`,
+AND THAT IS PROVED BY `Iff.rfl`**
+(`WSC.Benchmark.P1_model_is_the_unshaped_form`). The two published P1 statements
+now differ in EXACTLY ONE ATOM — the transcription versus the compiled bytecode.
+Drift between two hand-maintained copies is what produced defects 1 and 2, so the
+anti-drift property is the point of the rewrite, not a bonus.
+
+THREE CLAUSE CHANGES from `P1_model_REFUTED_value`, each forced:
+
+1. `validRewardingContext ctx = true` REPLACES the output-only value clause.
+   NOT cosmetic — the old clause is why that form is refuted (see above). The old
+   clause is not lost, it is a PROVED CONSEQUENCE
+   (`WSC.Benchmark.outputs_ledger_valid_of_validRewardingContext`,
+   `WSC/Benchmark/P1UnshapedStatement.lean:517`).
+2. `paramsPublishedBy` REPLACES `paramsPinned`. `paramsPinned` is a ∀-SCAN over
+   reference inputs; the validator reads the ONE input at the redeemer's
+   `plgrParamsRefIdx` (`pparamsAtRefIdx`, :820-834). The two are INCOMPARABLE in
+   general (P1UnshapedStatement.lean:189-196); the indexed read is what
+   `globalModel` itself does (`Model.paramsAtRefIdx`, GlobalModel.lean:352-364),
+   so this is the faithful mirror.
+3. `isProgrammable` REPLACES the pair `cs ≠ "" ∧ coveringNodeExists = false`. ONE
+   predicate object shared with the benchmark (`WSC/Model/Registry.lean`), not two
+   hand-maintained copies, and its node reader is the bytecode's node reader
+   (measured tight at `WSC/Review/ExemptionCensus.lean:115,:127`).
+
+⚠️ STILL A `Prop`, STILL UNPROVED, and its links L1.1a/b, L1.2-L1.6 are still
+`Prop`s. Nothing here claims otherwise. -/
+def P1_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+    (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName) : Prop :=
+  validRewardingContext ctx = true →
+  paramsPublishedBy ctx = some (dirCS, IsData.toData base) →
+  isProgrammable dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = true →
+  globalModel ppCS ctx = true →
+    Contained base cs tn ctx
+
+/-- 🛑 **THE REFUTED P6 FORM, kept under its own name for the same reason.**
+
+⚠️ **NOT YET MACHINE-REFUTED, AND THAT MUST NOT BE READ AS "UNAFFECTED".** It
+carries BOTH defective clauses — the output-only value clause AND the 3-field
+`coveringNodeExists` — so it has both of `P1_model_REFUTED_value`'s defects; only
+the mint-side witness has not been built. State it as "same defects, refutation
+not yet exhibited". -/
+def P6_model_REFUTED_value (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
     (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName) : Prop :=
   globalModel ppCS ctx = true →
   cs ≠ ByteString.mk "" →
@@ -384,6 +491,24 @@ def P6_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
   (∀ o ∈ ctx.scriptContextTxInfo.txInfoOutputs, validTxOutValue o.txOutValue = true) →
   outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs
     ≥ mintPosOf cs tn ctx.scriptContextTxInfo.txInfoMint
+
+/-- **P6 (model level, inequality form) — THE REPAIRED STATEMENT.**  A `Member`
+classification puts the minted amount on the REQUIREMENT side: whatever is minted
+must still be at the mini-ledger outputs.  (The self-penalization CORE — that the
+walk carries the ledger-truth entry over verbatim and can only drop, never negate
+— is PROVED in `WSC/Props/P6_Member.lean`.)
+
+Identical clause treatment to `P1_model`: `validRewardingContext`, the indexed
+params read, and the ONE shared `isProgrammable` predicate. Only the conclusion
+differs (`mintPosOf`, not `inSum + mintSigned`). -/
+def P6_model (ppCS : CurrencySymbol) (ctx : ScriptContext) (base : Credential)
+    (dirCS : CurrencySymbol) (cs : CurrencySymbol) (tn : TokenName) : Prop :=
+  validRewardingContext ctx = true →
+  paramsPublishedBy ctx = some (dirCS, IsData.toData base) →
+  isProgrammable dirCS cs ctx.scriptContextTxInfo.txInfoReferenceInputs = true →
+  globalModel ppCS ctx = true →
+    outSum base cs tn ctx.scriptContextTxInfo.txInfoOutputs
+      ≥ mintPosOf cs tn ctx.scriptContextTxInfo.txInfoMint
 
 /-! ## THE FAITHFULNESS AXIOM — **RETRACTED at task R1** (2026-07-28)
 
