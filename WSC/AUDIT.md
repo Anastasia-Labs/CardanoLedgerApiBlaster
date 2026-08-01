@@ -1,5 +1,76 @@
 # WSC containment campaign — FINAL AUDIT (sealed at E5, re-sealed at G3)
 
+> # 🔧 P1 FORMALIZATION ARCHITECTURE (2026-07-31) — THE COVERING/ADA/VALUE REPAIR
+>
+> **WHAT WAS WRONG.** Three machine-checked defects of the two published P1
+> statements, all the same shape (a hypothesis meant to say "`cs` is a programmable
+> token subject to containment" failed to exclude a context the bytecode treats as
+> EXEMPT), on THREE DIFFERENT adversary surfaces:
+> DATUM (`Model.dirNodeFields` demands a third node field NEITHER exemption arm of
+> the validator reads), VALUE (the positional ada strip), REDEEMER+DEPLOYMENT
+> (`ppCS` universally quantified).
+>
+> **WHAT SHIPPED.** ONE PREDICATE, THREE LAYERS, TWO FORMS — Stages 0-4 of the
+> migration plan:
+> * **Layer 0**, NEW `WSC/Model/Registry.lean`: `dirNodeInterval` (the bytecode's
+>   2-field node reader), `exemptible`, `exempt`, `isProgrammable`,
+>   `paramsPublishedBy`, `Contained`, plus `coveringNodeExists` MOVED here from
+>   `WSC/Props/P1_Transfer.lean` (same fully-qualified name). Ten kernel lemmas,
+>   `[]`/`[propext]`, no `sorryAx`. `WSC.Composition.coveringRaw` — a verbatim
+>   third copy of the covering test — is **DELETED**.
+> * **Layer 1**, `WSC/Benchmark/P1UnshapedStatement.lean`: `P1UnshapedForm` renamed
+>   `P1UnshapedForm_REFUTED_arity` (its two kernel refutations survive as
+>   REGRESSION TESTS); NEW `P1UnshapedFormD` (disjunctive, headline) and
+>   `P1UnshapedFormH` (hypothesis form, blaster target), equivalent by the kernel
+>   theorem `P1UnshapedForm_iff`.
+> * **Layer 1'**, `WSC/Props/P1_Transfer.lean`: `P1_model`/`P6_model` renamed
+>   `*_REFUTED_value` and re-stated so that `P1_model` **IS** `P1UnshapedFormH` at
+>   the transcription — `P1_model_is_the_unshaped_form`, by `Iff.rfl`. The two
+>   published P1 statements now differ in EXACTLY ONE ATOM.
+>
+> **MEASURED, CENSUS `lake build WSC`:** 451 → **453 jobs**; **201 solver verdicts
+> (126 `✅ Valid` + 75 `✅ Expected Falsified`) — IDENTICAL**; 0 errors, 0 `⚠️`/`❌`,
+> 20 `sorry`, 5 unused-variable. `+2` reconciles to two source lines:
+> `WSC/Composition.lean:128` and `WSC.lean`'s new `import WSC.Props.Shaped.P1ShapedRProg`.
+> Both new modules are kernel-only, hence no verdict moves.
+>
+> **THE FOUR SHAPED THEOREMS `P1R_T1`/`T2`/`T6`/`T7` ARE UNCHANGED AND WERE NOT
+> RE-RUN** (measured 16× solver variance on that family). They survive because at
+> all four shapes the OLD and REPAIRED covering tests coincide by `rfl` for all
+> leaves — `WSC.Benchmark.exemptible_eq_covering_T{1,2,6,7}R`, axiom-free. **THAT
+> COINCIDENCE MUST BE STATED WHENEVER THEY ARE QUOTED:** their
+> `Model.coveringNodeExists = false` hypothesis is NOT the bytecode's exemption
+> predicate in general. This is the THIRD instance of "the shape supplied a
+> hypothesis by construction" (after `plc`/`dirCS` and after `cs ≠ ada`), and each
+> time it went unrecorded it produced a defect.
+>
+> **KILL CRITERION K3 PASSES, MEASURED:**
+> `#print axioms WSC.Composition.coveringIn_of_exemptible` =
+> `[propext, Classical.choice, Quot.sound, WSC.Deployed, WSC.OnChain, WSC.TS3]`.
+> No `WSC.TS5`. The "cost stays TS3 only" claim at Composition.lean:1129 STANDS.
+> `top_claim` / `LeafSet` are UNAFFECTED; no published composition result changes.
+>
+> **WHAT IS NOT CLOSED — MANDATORY SENTENCES, DO NOT DROP THEM:**
+> * **DEFECT 3 IS NOT CLOSED.** `ppCS` is universally quantified and `base` is the
+>   credential this transaction's CHOSEN reference input publishes, NOT the
+>   deployment's `programmableLogicBase`. A proved `P1UnshapedFormD` alone does NOT
+>   give "programmable tokens cannot exist outside the mini-ledger". Layer 2
+>   (`P1_honest`) is DESIGNED but NOT IMPLEMENTED, and two of its designed steps are
+>   defective: it must carry `cs ≠ adaSymbol` EXPLICITLY (the head sentinel makes
+>   `WSC.IsRegistered dirCS refs ""` SATISFIABLE, so "registered ⇒ not ada" is FALSE
+>   as stated), and it needs a params raw↔decoded bridge lemma that does not exist.
+> * **Exhaustiveness of the exemption enumeration is ARGUED (M1) and MEASURED at
+>   the node-reader boundary (M3), NOT PROVED.** Migration Stage 5 (the
+>   `fun_induction` artifact over `Model.transferWalk` / `Model.mintWalk`) is not
+>   done, so kill criterion K5 is untested.
+> * **`WSC.Model.P6_model_REFUTED_value` is NOT machine-refuted** — same defects,
+>   refutation not yet exhibited. Never state it as "unaffected".
+> * `WSC.Benchmark.P1_unshaped` is STILL OPEN and still never elaborated
+>   (`#prep_uplc` does not terminate).
+>
+> Full record: `WSC/Benchmark/P1UnshapedStatement.lean` §2.0, §6 and §7.
+
+
 > # ⛔ REVISION R1 (2026-07-28) — **THE TWO FAITHFULNESS AXIOMS ARE RETRACTED**
 >
 > **`WSC.Model.globalModel_faithful` and `WSC.SeizeModel.seizeModel_faithful` are

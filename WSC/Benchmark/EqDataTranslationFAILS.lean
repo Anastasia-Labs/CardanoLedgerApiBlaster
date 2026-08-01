@@ -117,10 +117,18 @@ open PlutusCore.UPLC.Utils (isSuccessful)
 
 /-! ## Stanza 1 — the benchmark statement form, at the budget that preps -/
 
-/-- `P1UnshapedForm` at `appliedGlobal1600.prop`. **PROVABLY VACUOUS** (see the
-banner); stated only to reach the translator. -/
+/-- `P1UnshapedForm_REFUTED_arity` at `appliedGlobal1600.prop`. **PROVABLY
+VACUOUS** (see the banner); stated only to reach the translator.
+
+DELIBERATELY STILL THE REFUTED FORM (renamed 2026-07-31, task: P1 formalization
+architecture). This module is a TRANSLATOR REPRODUCER, not a claim: its job is to
+reproduce, byte for byte, the (BLOCKER-TRANSLATE) measurement recorded in the
+banner, and that measurement was taken on THIS goal shape. Repointing it to
+`P1UnshapedFormD`/`P1UnshapedFormH` would silently invalidate the recorded 16.85 s
+/ 13.219 s figures. `Model.coveringNodeExists` and `Model.mintSigned` below are
+likewise the shapes the measurement was taken on. -/
 def P1_form_at_1600 : Prop :=
-  P1UnshapedForm (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
+  P1UnshapedForm_REFUTED_arity (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
     isSuccessful (appliedGlobal1600.prop ppCS ctx))
 
 #blaster (timeout: 240) (verbose: 1) (gen-cex: 0) [P1_form_at_1600]

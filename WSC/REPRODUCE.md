@@ -1,5 +1,41 @@
 # REPRODUCE — building and re-checking the WSC containment campaign elsewhere
 
+> # 🔁 CENSUS RE-BASELINE (task: P1 formalization architecture, 2026-07-31)
+>
+> **THE FIGURES BELOW THIS BANNER ARE STALE AND WERE ALREADY STALE BEFORE THIS
+> TASK.** They publish `445 jobs` / `175 verdicts (110 ✅ Valid + 65 ✅ Expected
+> Falsified)`. Measured on the current tree, `timeout 900 lake build WSC`
+> reported **451 jobs, 201 solver verdicts (126 ✅ Valid + 75 ✅ Expected
+> Falsified), 0 errors, 0 `⚠️`/`❌`, 20 `sorry`, 5 unused-variable** BEFORE the P1
+> architecture repair. The published 175 has not tracked the tree for several
+> tasks; do not quote it.
+>
+> **AFTER the P1 repair: 453 jobs, 201 solver verdicts (126 ✅ Valid + 75 ✅
+> Expected Falsified) — IDENTICAL — 0 errors, 0 `⚠️`/`❌`, 20 `sorry`,
+> 5 unused-variable.** The `+2` delta reconciles to two SOURCE LINES and nothing
+> else:
+>
+> * `WSC/Model/Registry.lean` (NEW, Layer 0) enters the census through
+>   `WSC/Composition.lean:128` `import WSC.Model.Registry`;
+> * `WSC/Props/Shaped/P1ShapedRProg.lean` (NEW, Stage 2 interface) enters through
+>   `WSC.lean`'s `import WSC.Props.Shaped.P1ShapedRProg`.
+>
+> Both are KERNEL-ONLY modules — no `blaster` call, no solver — which is why the
+> verdict counts do not move.
+>
+> ⚠️ **THE CENSUS TARGET IS `lake build WSC`, AND IT IS NOT WHAT CI BUILDS.**
+> `.github/workflows/ci-linux.yaml:53-64` runs only `make check_cardano_ledger_api`
+> and `make check_tests`; `Makefile:16` is `lake build CardanoLedgerApi`; the
+> `@[default_target]` in `lakefile.lean:137-138` is `CardanoLedgerApi` alone. A
+> plain `lake build` produces ZERO `WSC/` modules. Moreover `lake build WSC`
+> itself contains NO `WSC/Benchmark/` and NO `WSC/Review/` modules — those must be
+> built BY NAME (`lake build WSC.Benchmark.P1UnshapedStatement`,
+> `lake build WSC.Review.AdversarialProbe`, …), and
+> `WSC/Benchmark/P1Unshaped.lean` — the file carrying the published P1 obligation
+> — is reachable from none of the above.
+>
+
+
 > # ⚠️ POST-#112 (task N6, 2026-07-28) — READ `WSC/AUDIT.md`'s BANNER FIRST
 >
 > This file was written against the PRE-#112 wsc-poc bytecode. wsc-poc PR #112

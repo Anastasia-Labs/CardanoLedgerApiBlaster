@@ -206,8 +206,22 @@ fails, the validator `perror`s, and the obligation is discharged by the accept
 hypothesis rather than by an assumption.
 
 ════════════════════════════════════════════════════════════════════════════
-🛑 OPEN DEFECT — `P1UnshapedForm` AS WRITTEN IS **FALSE**, AND THE REFUTATION IS
-MACHINE-CHECKED (found 2026-07-31, NOT YET FIXED)
+✅ CORRECTED DEFECT — THE ARITY (COVERING-NODE) DEFECT, FOUND AND **FIXED**
+2026-07-31. `P1UnshapedForm` IS NOW `P1UnshapedForm_REFUTED_arity` AND IS KEPT
+ONLY AS THE REGRESSION TEST FOR ITS OWN REFUTATION. THE LIVE STATEMENTS ARE §2.0's
+`P1UnshapedFormD` (headline) AND `P1UnshapedFormH` (blaster target).
+════════════════════════════════════════════════════════════════════════════
+THE REPAIR, in one line: the exemption clause is no longer a hand-written
+negation in the antecedent; it is `WSC.Model.exempt`, ONE SHARED PREDICATE
+(`WSC/Model/Registry.lean`) whose node reader IS the bytecode's node reader and
+which also carries the ada disjunct. `P1UnshapedFormD` puts it in the CONSEQUENT
+so that a future missed route forces a VISIBLE widening that
+`WSC/Composition.lean` must discharge, instead of an invisible antecedent
+strengthening. `WSC.BaseAbsentProbe` §8 measures that the repaired predicate
+EXCLUDES `ctxD`/`ctxF`/`ctxG` while keeping `ctxA` and `ctxOk`. Read §6 for what
+does and does not stop the next missed route, and §7 for what is still open.
+
+THE HISTORICAL RECORD FOLLOWS, unchanged, because it is the useful part.
 ════════════════════════════════════════════════════════════════════════════
 `WSC/Benchmark/BaseAbsentProbe.lean` carries
 `base_absent_refutes_P1UnshapedForm : ¬ P1UnshapedForm acceptCEK`, a kernel
@@ -246,13 +260,18 @@ NEITHER — that is the whole gap. Not the four SHAPED theorems either:
 the shapes supplied `cs ≠ ada` through their value skeleton. This is the THIRD
 instance of the same trap the note above already names twice.
 
-THE FIX (measured to work, `BaseAbsentProbe.fix_excludes_the_witnesses`): state
-the clause against what the bytecode reads — a covering test whose node pattern
-is `Data.List (Data.B k :: Data.B n :: _)`. It is true on strictly more
-contexts, so `= false` is strictly STRONGER, and it still holds of `ctxOk` and of
-the accepting control, so the repair does not make the statement vacuous.
-`Model.coveringNodeExists` is also a clause of `WSC.Model.P1_model`
-(`WSC/Props/P1_Transfer.lean:363-376`), so the same repair is owed there.
+THE FIX — **SHIPPED**. State the clause against what the bytecode reads: a
+covering test whose node pattern is `Data.List (Data.B k :: Data.B n :: _)`. That
+is `WSC.Model.exemptible` (`WSC/Model/Registry.lean`), and its TIGHTNESS is
+MEASURED rather than assumed — `WSC/Review/ExemptionCensus.lean:115,:127` pin the
+whole acceptance boundary on BOTH arms at 44000 steps over six datum shapes. It is
+true on strictly more contexts than `Model.coveringNodeExists`
+(`WSC.Model.exemptible_of_coveringNodeExists`), so `= false` is strictly STRONGER,
+and it still holds of `ctxOk` and of the accepting control, so the repair does not
+make the statement vacuous (§4 conjunct 6). `Model.coveringNodeExists` was also a
+clause of `WSC.Model.P1_model`; that repair landed at the same time, together with
+the INDEPENDENT value-surface repair `P1_model` needed
+(`WSC.Review.ExemptionCensus.noAda_refutes_P1_model`).
 
 ════════════════════════════════════════════════════════════════════════════
 THE MINT IS SIGNED — DO NOT "FIX" IT TO `mintPos`
@@ -463,14 +482,14 @@ real compiled `programmableLogicGlobal` bytecode accepts, then the amount of
 `(cs, tn)` at outputs on `base` is at least the amount at inputs spent from
 `base` plus the SIGNED net mint of `(cs, tn)`.*
 
-🛑 **THIS FORM IS CURRENTLY FALSE — SEE THE OPEN DEFECT NOTE IN THE MODULE
-HEADER.** `WSC/Benchmark/BaseAbsentProbe.lean` carries
+🛑 **THIS FORM IS FALSE.** `WSC/Benchmark/BaseAbsentProbe.lean` carries
 `base_absent_refutes_P1UnshapedForm`, a machine-checked
-`¬ P1UnshapedForm acceptCEK` at §4's own accept term. The
+`¬ P1UnshapedForm_REFUTED_arity acceptCEK` at §4's own accept term. The
 `Model.coveringNodeExists … = false` clause below does not exclude the covering
 nodes the bytecode's walks actually accept (it demands a third datum field they
-never read), so the exemption route it is supposed to shut is still open. The
-fix and its measurement are in that module's §7.
+never read), so the exemption route it is supposed to shut is still open. It is
+RETAINED, under this name, precisely so that reintroducing the 3-field reader is a
+BUILD FAILURE. The live statements are §2.0's.
 
 `accept` is abstract so that §3 can be proved in the kernel. The benchmark
 instantiates it to `fun ppCS ctx => isSuccessful (appliedGlobalUCeiling.prop ppCS ctx)`
@@ -1440,6 +1459,178 @@ specialisations carried "NO axioms at all". That was never true — they carried
 `validRewardingContext`'s own dependency cone, which their STATEMENTS mention. The
 repair therefore adds no axiom that was not already there; what it adds is §2.1
 and §3.1, and those land in the same bucket. -/
+
+/-! ## §6 — WHAT STOPS THE NEXT MISSED ROUTE, AND THE KILL CRITERIA
+
+**BOTTOM LINE FIRST: NOTHING makes a fourth missed exemption route impossible.**
+No hypothesis-form statement can. Three defects have already been found this way
+(ada / arity / no-ada-input), each on a DIFFERENT adversary surface, and the
+honest claim is only that the FAILURE MODE and the DETECTION SURFACE have changed.
+Four mechanisms, with their real status:
+
+**M1 — THE ALGEBRAIC DECOMPOSITION OF `expected`. ARGUMENT, not machine-checked.**
+A branch census of the `TransferAct` arm (ProgrammableLogicBase.hs@2306678:1194-1277)
+returns exactly one `pmatch` (:1202), one `pif` (:1227) and the two-element
+`pvalidateConditions` list (:1270-1277), so
+`accept ⟺ poutputsContainExpectedValueAtCred ∧ pisRewardingScript`, and `expected`
+has exactly two producers (:1216-1223, :1259-1264) joined by one `punionValue`
+(:1252). Hence
+
+    expected(cs,tn) = [transfer KEEPS cs]·aggIn(cs,tn) + [mint KEEPS cs]·mint(cs,tn)
+
+and the conclusion can fail in exactly SIX ways — (1) transfer drops `cs`;
+(2) mint drops `cs`; (3) `aggIn < inSum`; (4) containment does not imply
+`outSum ≥ expected`; (5) `progLogicCred ≠ base`; (6) a kept mint entry is not the
+ledger mint. THERE IS NO SEVENTH BECAUSE THERE IS NO SEVENTH TERM.
+
+CLOSURE ATTRIBUTIONS — CORRECTED, because the first version of this argument
+mis-assigned two of them. (1)+(2) = `Model.exempt`. (5) = the params clause.
+(6) = :991 conses the ledger pair verbatim. `validRewardingContext` closes the
+POSITIONAL ADA STRIPS (:424 input side, :638 output side) AND NOTHING ELSE — it
+says nothing about whether the union of two ledger-valid input values sums, nor
+about the direction of `pvalueContains`. (3) and (4) are closed by the CIP-153
+BUILTIN DENOTATIONS, which M1 used to list as black boxes:
+
+* `unionValue` = pointwise addition dropping exact-zero sums
+  (`.lake/packages/PlutusCore/PlutusCore/Value/Basic.lean:260-269`);
+* `insertCoin cur tok 0` = DELETE (`:188-190`) — which also settles the open
+  question whether `pinsertCoin cs tn 0` stores a zero rather than deleting;
+* `valueContains v1 v2` = "every `(c,t,q)` of `v2` has `q ≤ lookupCoin c t v1`",
+  `none` on any negative operand (`:293-302`) — so the argument order at :616-618
+  (`accumulated` then `expected`) is the correct direction.
+
+SCOPE OF THAT CLOSURE, which must ship with it: those are the LEAN INTERPRETER's
+denotations, i.e. the machine this benchmark runs on. They are NOT the Haskell
+`Value.hs` implementations. So (3) and (4) are closed against the machine the
+benchmark evaluates, not against mainnet. STILL NOT COVERED: the Lean↔UPLC
+context-encoding bridge (audited separately, `WSC/LR-CTX-AUDIT.md`),
+`punValueData`/`pvalueData` canonicity, and agreement of Lean `ByteString <` with
+UPLC `lessThanByteString` (inspected: Lean `<` on `ByteString` is `String.<` on
+`.data`, `PlutusCore/ByteString/Basic.lean:14,:88-89`, i.e. `List.lt` over `Char`s
+= lexicographic with shorter-prefix-less, the same rule — but not machine-checked).
+
+**M2 — THE `fun_induction` EXHAUSTIVENESS THEOREM. PROVABLE, NOT OPTIONAL, NOT
+DONE.** `WSC.Model.L1_4_registered_survives_transfer_walk` and
+`…L1_5_registered_keeps_mint_entry` (`WSC/Props/P1_Transfer.lean`) are re-stated in
+the `exempt` vocabulary and remain `Prop`s. `fun_induction` generates ONE CASE PER
+BRANCH of the walk's own equation compiler, so a branch that drops `cs` without the
+covering guard becomes a case that CANNOT BE CLOSED — a BUILD ERROR, not a silent
+hole. Template: `WSC.P2.tokensContain_sound` (`WSC/Props/P2_Seize.lean:447`).
+SCOPE CAVEAT: it would be a theorem about the TRANSCRIPTION `Model.globalModel`,
+whose global fidelity axiom was REFUTED and DELETED
+(`WSC/Model/GlobalModelRefuted.lean`). **UNTIL IT LANDS, EXHAUSTIVENESS OF THE
+EXEMPTION ENUMERATION IS ARGUED (M1) AND MEASURED AT THE NODE-READER BOUNDARY (M3),
+NOT PROVED.**
+
+**M3 — BYTECODE-SIDE BOUNDARY MEASUREMENT. MEASURED, DONE.**
+`WSC/Review/ExemptionCensus.lean:115,:127` pin the acceptance boundary on BOTH arms
+at 44000 steps over six datum shapes, so the fix's node reader IS the bytecode's
+node reader. Two FURTHER measurement families, added by adversarial review, close
+the two branch families no witness in this tree had ever executed:
+`WSC/Review/AdversarialProbe.lean:319` (multi-asset containment — BOTH the
+wholesale Data-equality branch and the `pvalueContains` accumulate branch accept,
+and the escape is REJECTED), `:330` (two token names under one policy), `:343`
+(`pvalueFromCred` PHASE 3 counts EVERY base input — neither first-only nor
+last-only), `:354` (all five escapes still `false` at 176000 steps, 40× the meter,
+so they are `perror`s and not budget exhaustion). All carry
+`Model.isProgrammable = true`, so any of them halting would have REFUTED
+`P1UnshapedFormH`.
+
+**M4 — THE COMPOSITION VETO. STRUCTURAL, FREE, AND NOW LIVE.**
+`WSC.Composition.LeafSet.p1` requires containment under `¬ WSC.coveringIn`; to
+consume `P1UnshapedFormD` the composition must REFUTE the right disjunct, which it
+can do ONLY through `WSC.Composition.coveringIn_of_exemptible` → `DIRWF_L`. Widen
+`Model.exempt` with a disjunct that does not imply `WSC.coveringIn` and
+`WSC.Composition.leafP1_of_shapedGlobalContainment` STOPS COMPILING. Under
+hypothesis-negation the analogous over-strengthening merely makes the leaf harder
+to instantiate, SILENTLY.
+
+### KILL CRITERIA (as amended by adversarial review)
+
+* **K1 — THE PREDICATE IS STILL INCOMPLETE (FATAL).** Exhibit a `ScriptContext`
+  with `validRewardingContext = true`, `Model.paramsPublishedBy = some (dirCS,
+  toData base)`, `Model.isProgrammable dirCS cs refs = true`, halting at 44000, and
+  `outSum < inSum + mintSigned`. Harness: `BaseAbsentProbe.report`,
+  `ExemptionCensus.halts`, `AdversarialProbe.report`. ⇒ a fourth adversary surface
+  exists and only a PROVED functional spec will do. NOT FOUND by the review's
+  attack on the two never-executed branch families.
+* **K2 — TOO STRONG (VACUITY).** `Model.exempt` true at
+  `WSC.P1RShapedWitness.ctxOk`, or any of `exemptible_eq_covering_T*R` (§3.0a)
+  stops being `rfl`. CURRENTLY MEASURED FALSE — §4 conjunct 6,
+  `BaseAbsentProbe.repaired_statement_excludes_the_witnesses` conjuncts 4-5,
+  `AdversarialProbe.K2_hypothesis_is_inhabited`.
+* **K3 — THE REPAIR RAISES THE TRUST COST.** `#print axioms
+  WSC.Composition.coveringIn_of_exemptible` mentions `WSC.TS5` or anything outside
+  `[propext, Classical.choice, Quot.sound, WSC.Deployed, WSC.OnChain, WSC.TS3]`.
+  MEASURED AT THE REPAIR: exactly that list. PASSES.
+* **K4 — THE TWO FORMS ARE NOT EQUIVALENT.** `P1UnshapedForm_iff` fails in the
+  kernel. It would if anyone "improved" `Model.exempt` into a `Prop`. PASSES,
+  `[propext, Quot.sound]`.
+* **K5 — A WALK BRANCH CANNOT BE CLOSED.** M2's `fun_induction` leaves a case not
+  dischargeable from `exempt = false` ⇒ THAT CASE IS A NEW ROUTE. **UNTESTED — M2
+  is not done.** This is why M2 is not optional.
+* **K6 — VACUITY BY REVISION DRIFT.** `transferAct_arity_pin` (§1.1) fails after a
+  flat re-export, or `Model.paramsPublishedBy` returns `none` on the non-vacuity
+  witness. PASSES.
+* **K7 — THE ADA STRIP IS REACHABLE ON A LEDGER-VALID TRANSACTION.** A context with
+  `validRewardingContext = true` on which `pvalueFromCred`'s phase-2 `ptail`
+  (:424) still deletes a non-ada policy. ⇒ THAT IS A BUG IN THE VALIDATOR, NOT IN
+  THIS STATEMENT — escalate to wsc-poc. NOT FOUND
+  (`ExemptionCensus.the_saving_clause_is_validInputs`).
+* **K8 — LAYER 2 IS VACUOUS. RESTATED, AND NOT SETTLED.** The earlier form of K8
+  tested only that `paramsAuthAtIdx` is jointly satisfiable with `accept`
+  (`WSC/Review/DesignProbe.lean:221`), which is NOT what gates an honest-deployment
+  corollary. What gates it is `WSC.Deployed hp` and `WSC.OnChain ctx` — OPAQUE
+  AXIOM-DECLARED predicates (`WSC/Honest.lean:249,:259`) with NO inhabitant
+  anywhere in this tree — plus `WSC.DirWF`, never exhibited at any concrete
+  context. **Layer 2 is therefore CONDITIONALLY VACUOUS ON THE SAME TERMS AS
+  `WSC.Composition.top_claim`, and `DesignProbe:221` must NOT be cited as having
+  settled it.** Layer 2 is NOT IMPLEMENTED here (see §7).
+* **K9 — DESIGN-INTEGRITY REVIEW RULE, SCOPE EXTENDED.** If any future edit puts
+  `WSC.DirWF`, or any `WSC.*` deployment axiom, into this statement's hypotheses,
+  the benchmark has stopped being a statement about compiled bytecode. Detect by
+  grepping for `WSC.Deployed`, `WSC.OnChain`, `DirWF`, `TS[0-9]` in **THREE**
+  files, not one: `WSC/Benchmark/P1UnshapedStatement.lean`,
+  `WSC/Model/Registry.lean` (Layer 0 — a deployment axiom there reaches the
+  statement THROUGH THE IMPORT and a grep of this file alone would miss it) and
+  `WSC/Props/Shaped/P1ShapedRProg.lean` (Stage 2 — cited by §3).
+
+### §7 — WHAT IS NOT CLOSED
+
+1. **DEFECT 3 (`ppCS`) IS NOT CLOSED.** `ppCS` is universally quantified and `base`
+   is the credential THIS TRANSACTION'S CHOSEN reference input publishes, NOT the
+   deployment's `programmableLogicBase`. **A proved `P1UnshapedFormD` alone does
+   NOT give "programmable tokens cannot exist outside the mini-ledger."** The
+   honest-deployment corollary (Layer 2, `P1_honest`) is DESIGNED but NOT
+   IMPLEMENTED, and two of its steps are known-defective as designed:
+   * it MUST carry `cs ≠ adaSymbol` (or `Model.isProgrammable … = true`) as an
+     EXPLICIT hypothesis, exactly as `WSC.Composition.LeafSet.p1` already does. The
+     designed discharge "`hprog` + DIR-1/DIR-5 ⇒ `cs ≠ ""`" is FALSE AS STATED:
+     `WSC.IsRegistered dirCS refs (ByteString.mk "")` is SATISFIABLE, because the
+     directory HEAD SENTINEL has key `""` and carries the directory NFT
+     (`WSC/Honest.lean:195-202`; `DirWF` at :1655-1673 has four conjuncts and none
+     constrains key length; there is no `dirKeys28`);
+   * it needs a PARAMS RAW↔DECODED BRIDGE that DOES NOT EXIST in the tree:
+     `paramsDatum o = some hp.datum → Model.paramsDirCSAndProgCredRaw d =
+     some (hp.directoryNodeCS, IsData.toData hp.progLogicCred)` for
+     `o.txOutDatum = .OutputDatum d`. The DIRECTORY analogue exists and is audited
+     (`WSC.Composition.dirNodeFields_of_fromData`); the params analogue does not.
+2. **M2 / STAGE 5 (the `fun_induction` exhaustiveness artifact) IS NOT DONE**, so
+   K5 is untested — see M2 above.
+3. **`WSC.Model.P6_model_REFUTED_value` IS NOT MACHINE-REFUTED.** It carries BOTH
+   defective clauses, so it has both of `P1_model_REFUTED_value`'s defects; only the
+   mint-side witness has not been built. State it as "same defects, refutation not
+   yet exhibited", NEVER as "unaffected".
+4. **`WSC.Benchmark.P1_unshaped` IS STILL OPEN AND STILL UNELABORATED.** Its
+   `#prep_uplc` does not terminate; `timeout 900 lake build WSC.Benchmark.P1Unshaped`
+   exceeds the cap. So the "H has no disjunctive-conclusion tractability debit"
+   claim is UNMEASURABLE today, not established.
+5. **The `exemptible` ADDRESSING OVER-APPROXIMATION** costs positive content and is
+   documented at its definition site (`WSC/Model/Registry.lean`, `exemptible`): it
+   fires on any authentic-looking covering node ANYWHERE in
+   `txInfoReferenceInputs`, while the bytecode reads only the node the redeemer
+   ADDRESSES (:879, :995). Under `DirWF` the loss is not live; at this
+   DirWF-free layer it is. -/
 
 #print axioms WSC.Benchmark.andEqTrueL
 #print axioms WSC.Benchmark.andEqTrueR

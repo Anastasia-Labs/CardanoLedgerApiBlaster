@@ -273,6 +273,11 @@ import WSC.Shaped.GlobalShapedP1RMintPrep
 import WSC.Shaped.GlobalShapedP1ROutPrep
 import WSC.Shaped.GlobalShapedP1ROutMintPrep
 import WSC.Props.Shaped.P1ShapedR
+-- ── P1 architecture repair: the four shaped P1 theorems, restated over the ────
+-- SHARED exemption predicate `WSC.Model.isProgrammable` (`WSC/Model/Registry.lean`).
+-- KERNEL wrappers only — the `blaster` proofs above are NOT re-run — and the
+-- wrappers are STRICTLY WEAKER than `P1R_T*` (stronger hypothesis). Interface.
+import WSC.Props.Shaped.P1ShapedRProg
 import WSC.Props.Shaped.P5ShapedR
 import WSC.Props.Shaped.P6ShapedR
 import WSC.Props.Shaped.GlobalRealizability

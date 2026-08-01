@@ -1,5 +1,24 @@
 # `#prep_uplc` benchmark: the UNSHAPED P1 and P2 obligations
 
+> # 🔁 NAME CHANGE (task: P1 formalization architecture, 2026-07-31)
+>
+> **Every `P1UnshapedForm` below now names `WSC.Benchmark.P1UnshapedForm_REFUTED_arity`,
+> which is FALSE and is retained only as the regression test for its own two kernel
+> refutations** (`WSC.BaseAbsentProbe.base_absent_refutes_P1UnshapedForm`,
+> `…base_present_refutes_P1UnshapedForm`). The LIVE statements are
+> `WSC.Benchmark.P1UnshapedFormD` (disjunctive, headline) and
+> `WSC.Benchmark.P1UnshapedFormH` (hypothesis form, the blaster target), equivalent
+> by the kernel theorem `P1UnshapedForm_iff`. `WSC.Benchmark.P1_unshaped_stmt`
+> (`WSC/Benchmark/P1Unshaped.lean`) is repointed to `P1UnshapedFormH`.
+>
+> The tractability figures in the tables below were measured on the REFUTED form and
+> are NOT re-measured: `timeout 900 lake build WSC.Benchmark.P1Unshaped` still
+> **EXCEEDS THE CAP (exit 124)**, i.e. the `#prep_uplc` of `appliedGlobalUCeiling`
+> still does not terminate and `theorem P1_unshaped` is still never elaborated. So
+> the claim "the hypothesis form has no disjunctive-conclusion tractability debit"
+> is **UNMEASURABLE today, not established** — state it as "when the prep lands".
+
+
 > **Cross-reference note.** This file ships in two trees. Prose citations to
 > `WSC/ARCHITECTURE.md`, `WSC/AUDIT.md` and `WSC/IMPACT-PR112.md` resolve in the
 > canonical `CardanoLedgerApiBlaster` tree; citations to `docs/METHOD.md`,
