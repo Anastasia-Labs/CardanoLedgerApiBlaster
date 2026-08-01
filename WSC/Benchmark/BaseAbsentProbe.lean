@@ -396,8 +396,17 @@ theorem ctxD_conclusion_fails :
           + Model.mintSigned csMMM tnTOK ctxD.scriptContextTxInfo.txInfoMint) := by
   native_decide
 
-/-- **`P1UnshapedForm` IS FALSE at the benchmark's own accept predicate.** -/
-theorem base_absent_refutes_P1UnshapedForm : ¬ Benchmark.P1UnshapedForm acceptCEK := by
+/-- **`P1UnshapedForm_REFUTED_arity` IS FALSE at the benchmark's own accept
+predicate.**
+
+REPOINTED, NOT DELETED (migration Stage 1). This theorem was stated against the
+def now named `WSC.Benchmark.P1UnshapedForm_REFUTED_arity`; the LIVE statements
+are `P1UnshapedFormD`/`P1UnshapedFormH`. Keeping it makes REINTRODUCING the
+3-field node reader a BUILD FAILURE rather than a silent regression. §8 below adds
+the complementary, more valuable measurement: the REPAIRED statement EXCLUDES
+these contexts. -/
+theorem base_absent_refutes_P1UnshapedForm :
+    ¬ Benchmark.P1UnshapedForm_REFUTED_arity acceptCEK := by
   intro H
   exact ctxD_conclusion_fails
     (H ppCS ctxD absentCred dirCS csMMM tnTOK
@@ -463,8 +472,10 @@ theorem ctxF_conclusion_fails :
           + Model.mintSigned csMMM tnTOK ctxF.scriptContextTxInfo.txInfoMint) := by
   native_decide
 
-/-- …and the same instantiation refutes `P1UnshapedForm` with a PRESENT base. -/
-theorem base_present_refutes_P1UnshapedForm : ¬ Benchmark.P1UnshapedForm acceptCEK := by
+/-- …and the same instantiation refutes `P1UnshapedForm_REFUTED_arity` with a
+PRESENT base. Repointed for the same reason as §5's. -/
+theorem base_present_refutes_P1UnshapedForm :
+    ¬ Benchmark.P1UnshapedForm_REFUTED_arity acceptCEK := by
   intro H
   exact ctxF_conclusion_fails
     (H ppCS ctxF plcCred dirCS csMMM tnTOK
@@ -518,8 +529,62 @@ def ctxG : ScriptContext := probeCtx (ByteString.mk "PROGLOGIC") nodeShort redMe
 theorem transfer_walk_also_accepts_the_truncated_node :
     (report ctxG plcCred == (true, false, true, 4, 5, 4, true)) = true := by native_decide
 
+/-! ## §8 — THE REPAIRED STATEMENT EXCLUDES ALL THREE WITNESSES
+
+A probe that proves the REPAIR WORKS is worth more than one that proves the old
+bug existed, so §5-§7's refutations are kept as regression tests AND this section
+is added. `WSC.Model.exemptible` — the shipped Layer-0 predicate, NOT the local
+`coveringNodeExistsMint` sketch of §7 — is TRUE at `ctxD`, `ctxF` and `ctxG`, so
+`WSC.Model.isProgrammable` is FALSE at all three: `P1UnshapedFormH`'s third
+hypothesis is unsatisfiable there and `P1UnshapedFormD`'s right disjunct is
+SATISFIED there, i.e. both live forms say nothing about them. The accepting
+control `ctxA` and the library's own non-vacuity witness `ctxOk` keep
+`isProgrammable = true`, so the exclusion is not achieved by emptying the class
+(KILL CRITERIA K1 and K2, at the SHIPPED predicate). -/
+
+/-- **K1/K2 AT THE SHIPPED PREDICATE.** Conjuncts 1-3: the three refuting
+witnesses are EXCLUDED. Conjuncts 4-5: the accepting control and the benchmark's
+non-vacuity witness are NOT. -/
+theorem repaired_statement_excludes_the_witnesses :
+    (( Model.isProgrammable dirCS csMMM ctxD.scriptContextTxInfo.txInfoReferenceInputs
+     , Model.isProgrammable dirCS csMMM ctxF.scriptContextTxInfo.txInfoReferenceInputs
+     , Model.isProgrammable dirCS csMMM ctxG.scriptContextTxInfo.txInfoReferenceInputs
+     , Model.isProgrammable dirCS csMMM ctxA.scriptContextTxInfo.txInfoReferenceInputs
+     , Model.isProgrammable dirCS csMMM
+         P1RShapedWitness.ctxOk.scriptContextTxInfo.txInfoReferenceInputs )
+     == (false, false, false, true, true)) = true := by native_decide
+
+/-- …stated as the live `Prop`s themselves. At `ctxD` the DISJUNCTIVE form's
+right disjunct is discharged outright, so `P1UnshapedFormD` is SATISFIED at the
+exact context that refutes the old form — for EVERY `accept`, including the real
+bytecode's. This is the repair, in the kernel. -/
+theorem repaired_D_holds_at_ctxD
+    (base : Credential) (tn' : CardanoLedgerApi.V3.TokenName) :
+    Model.Contained base csMMM tn' ctxD
+    ∨ Model.exempt dirCS csMMM ctxD.scriptContextTxInfo.txInfoReferenceInputs = true := by
+  refine Or.inr ?_
+  have h : Model.isProgrammable dirCS csMMM
+      ctxD.scriptContextTxInfo.txInfoReferenceInputs = false := by
+    have hb := repaired_statement_excludes_the_witnesses
+    simp only [beq_iff_eq, Prod.mk.injEq] at hb
+    exact hb.1
+  simpa [Model.isProgrammable] using h
+
+/-- …and the HYPOTHESIS form is vacuous there: its third hypothesis cannot be
+met, so `ctxD` is no longer a counterexample to anything. -/
+theorem repaired_H_is_vacuous_at_ctxD :
+    Model.isProgrammable dirCS csMMM ctxD.scriptContextTxInfo.txInfoReferenceInputs
+      ≠ true := by
+  have hb := repaired_statement_excludes_the_witnesses
+  simp only [beq_iff_eq, Prod.mk.injEq] at hb
+  rw [hb.1]
+  exact Bool.noConfusion
+
 #print axioms fix_excludes_the_witnesses
 #print axioms transfer_walk_also_accepts_the_truncated_node
+#print axioms repaired_statement_excludes_the_witnesses
+#print axioms repaired_D_holds_at_ctxD
+#print axioms repaired_H_is_vacuous_at_ctxD
 #print axioms five_point_table
 #print axioms nonmember_arm_is_really_checked
 #print axioms rejections_are_errors_not_budget

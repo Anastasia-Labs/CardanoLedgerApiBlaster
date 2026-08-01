@@ -120,11 +120,20 @@ import WSC.Model.Ground
 -- in transitively; task R1 cut that edge so nothing depends on the retracted
 -- transcription by accident. This file does need TWO raw `Data` decoders that live
 -- there — `WSC.Model.dirNodeFields` and `WSC.Model.hasCSH`, used by §7.1's
--- `authenticDirNode_of_hasCSH` / `coveringIn_of_coveringRaw` — so the dependency is
+-- `authenticDirNode_of_hasCSH` / `coveringIn_of_exemptible` — so the dependency is
 -- now DECLARED rather than inherited. It is a dependency on two decoders, NOT on
 -- `WSC.Model.globalModel`: no theorem in this file mentions the model's verdict, and
 -- the model's faithfulness axiom no longer exists (WSC/Model/GlobalModelRefuted.lean).
 import WSC.Model.GlobalModel
+-- LAYER 0 of the P1 architecture (task: P1 formalization architecture). This file
+-- used to carry `coveringRaw`, a VERBATIM duplicate of `WSC.Model.coveringNodeExists`
+-- kept only to dodge an import cycle — and duplication is exactly the surface along
+-- which the P1 statements drifted into three machine-checked defects. `WSC.Model.Registry`
+-- imports only `WSC.Model.GlobalModel` + `WSC.Model.Ground`, so it is importable here,
+-- by `WSC/Props/P1_Transfer.lean` AND by `WSC/Benchmark/P1UnshapedStatement.lean` alike;
+-- the duplicate is DELETED and `WSC.Model.exemptible` (the bytecode's own 2-field node
+-- reader) takes its place.
+import WSC.Model.Registry
 
 namespace WSC.Composition
 
@@ -1126,7 +1135,7 @@ structure LeafSet (hp : WSC.HonestParams) (Shape : ScriptContext → Prop) : Pro
   2. It said the raw↔ground-truth reconciliation "costs `WSC.TS3` + `WSC.TS5`".
      Measured cost is **`WSC.TS3` only** — see §7.1's
      `authenticDirNode_of_hasCSH` (TS5 is the converse direction and is not
-     used); `#print axioms WSC.Composition.coveringIn_of_coveringRaw` gives
+     used); `#print axioms WSC.Composition.coveringIn_of_exemptible` gives
      `[propext, Classical.choice, Quot.sound, WSC.Deployed, WSC.OnChain,
      WSC.TS3]`.
 
@@ -1388,45 +1397,65 @@ theorem covering_excludes_ledger_registration
 `LeafSet.p1` states the non-exemption premise in this file's GROUND-TRUTH
 vocabulary — `¬ WSC.coveringIn` (`authenticDirNode` = `hasCurrencySymbol`, plus
 the full 5-field `DirectorySetNode` decode). Every leaf that could discharge it
-states it RAW, as `coveringNodeExists dirCS cs referenceInputs = false`
-(`WSC/Props/P1_Transfer.lean:211-223`, and the four shaped P1 theorems of
-`WSC/Props/Shaped/P1Shaped.lean` carry exactly that hypothesis): PCB's cheap
-`hasCSH` shape check plus the 3-field prefix decode `dirNodeFields`.
+states it RAW, as `WSC.Model.exemptible dirCS cs referenceInputs = false`
+(`WSC/Model/Registry.lean`): PCB's cheap `hasCSH` shape check plus the 2-field
+prefix decode `dirNodeInterval` — the reader BOTH exemption arms of the compiled
+validator actually use (ProgrammableLogicBase.hs@2306678:997-1001 mint,
+:890-906 transfer). The four shaped P1 theorems of `WSC/Props/Shaped/P1Shaped.lean`
+still carry the OLD 3-field `Model.coveringNodeExists … = false`; at those four
+shapes the two predicates COINCIDE by `rfl` for all leaves
+(`WSC.Benchmark.exemptible_eq_covering_T{1,2,6,7}R`), which is why those published
+theorems are untouched by this repair, and
+`WSC/Props/Shaped/RealizableLeaves.lean` converts between them by
+`WSC.Model.coveringNodeExists_false_of_exemptible_false`.
 
 §9.2 recorded closing that gap as an unwritten obligation "costing `WSC.TS3` +
 `WSC.TS5`". This section CLOSES it, and it costs `WSC.TS3` ONLY — the `hasCSH` →
 `authenticDirNode` half turns out to be an ordinary lemma (`hasCSH` returning
 `some true` exhibits the policy as the value's second entry, which is enough for
 `hasCurrencySymbol`), so `TS5` is not needed for this direction.
+**THE REPAIR DOES NOT MOVE THAT COST**, and that is a measurement, not a hope:
+the new branch to close is "a 2-field datum that is `hasCSH`-authentic and covers
+`cs`", and it is VACUOUS under `WSC.TS3` — TS3 supplies
+`(dirNodeDatum …).isSome`, i.e. the datum decodes as an EXACT 5-element
+`Data.List` (`WSC/Redeemer.lean:374`), whose positions 0 and 1 ARE the interval
+`dirNodeInterval` returned. Verify with
+`#print axioms WSC.Composition.coveringIn_of_exemptible` at the end of this file
+(KILL CRITERION K3: anything outside
+`[propext, Classical.choice, Quot.sound, WSC.Deployed, WSC.OnChain, WSC.TS3]`
+withdraws the "cost stays TS3 only" claim).
 
-IMPORT-CYCLE NOTE, stated rather than hidden: `coveringNodeExists` is defined in
-`WSC/Props/P1_Transfer.lean`, which imports `WSC.Honest`, so this file cannot
-name it. `coveringRaw` below is that definition RE-STATED verbatim over the same
-two `WSC.Model` primitives this file does import. The `rfl`-style bridge
-`coveringRaw ≡ Model.coveringNodeExists` therefore belongs in a module downstream
-of both; that is exactly the pattern `WSC/Props/Shaped/P6Bridge.lean` already
-uses for the two independently-defined copies of `outSum`/`inSum`, and it adds no
-trust. -/
+IMPORT-CYCLE NOTE — **OBSOLETE, AND THE DUPLICATE IS GONE.** `coveringNodeExists`
+used to live in `WSC/Props/P1_Transfer.lean`, which imports `WSC.Honest`, so this
+file could not name it and carried a verbatim duplicate (`coveringRaw`). The
+predicate now lives in `WSC/Model/Registry.lean`, which imports only
+`WSC.Model.GlobalModel` and `WSC.Model.Ground`, so THIS FILE, `P1_Transfer` and
+`WSC/Benchmark/P1UnshapedStatement.lean` all name the SAME definition object and
+the duplicate is deleted. That duplication was itself a defect-propagation
+surface: three copies of one predicate is how the P1 statements drifted. -/
 
-/-- **The RAW exemption predicate**, verbatim re-statement of
-`WSC.Model.coveringNodeExists` (`WSC/Props/P1_Transfer.lean:211-223`): some
-reference input is `hasCSH`-authenticated for `dirCS` and its datum's 3-field
-prefix decodes to an interval that STRICTLY covers `cs`.
+/-! ### `Composition.coveringRaw` IS DELETED
 
-Both walks of the transfer validator exempt a policy in exactly this one way
-(transfer walk ProgrammableLogicBase.hs:891-908, mint walk :996-1016). -/
-def coveringRaw (dirCS cs : CurrencySymbol) : List TxInInfo → Bool
-  | [] => false
-  | i :: rest =>
-      (match i.txInInfoResolved.txOutDatum with
-       | .OutputDatum d =>
-           (match WSC.Model.dirNodeFields d with
-            | some (k, n, _) =>
-                decide (k < cs) && decide (cs < n) &&
-                  (WSC.Model.hasCSH dirCS i.txInInfoResolved.txOutValue == some true)
-            | none => false)
-       | _ => false)
-      || coveringRaw dirCS cs rest
+⚠️ It was a verbatim duplicate of
+`WSC.Model.coveringNodeExists`, and it carried DEFECT 2 with it: its node reader
+demanded a THIRD datum field that NEITHER exemption arm of the compiled validator
+reads (ProgrammableLogicBase.hs@2306678:997-1001 mint, :890-906 transfer). Its
+replacement throughout §7.1 is `WSC.Model.exemptible` (`WSC/Model/Registry.lean`),
+the SAME definition object the benchmark statement and `WSC.Model.P1_model` now
+quantify over — so the vocabulary gap this section closes is now a gap between
+TWO definitions instead of three.
+
+The import-cycle note that used to stand here is obsolete: `WSC.Model.Registry`
+imports only `WSC.Model.GlobalModel` and `WSC.Model.Ground`, so this file can name
+the predicate directly and `WSC/Props/Shaped/RealizableLeaves.lean` no longer needs
+a `coveringRaw ≡ coveringNodeExists` bridge.
+
+`WSC.Model.exemptible` is TRUE on strictly more reference-input lists than
+`coveringRaw` was (`WSC.Model.exemptible_of_coveringNodeExists`), so
+`exemptible … = false` is a STRICTLY STRONGER hypothesis than the old
+`coveringRaw … = false`, and every theorem below is correspondingly WEAKER. That
+is the correct direction: the leaves must not be allowed to assume away an
+exemption the bytecode would grant. -/
 
 /-- **Half 1 of the reconciliation: the cheap authentication implies the
 ground-truth one.** `WSC.Model.hasCSH` (the mirror of `phasCSH`,
@@ -1487,35 +1516,38 @@ theorem dirNodeFields_of_dirNodeDatum (o : TxOut) (nd : WSC.DirectorySetNode)
 /-- **The reconciliation, list form.** Over a reference-input list whose
 authentic directory nodes are known to carry decodable datums (that is `WSC.TS3`),
 the RAW covering-node scan is SOUND for the ground-truth `coveringIn`. -/
-theorem coveringIn_of_coveringRaw_aux (dirCS cs : CurrencySymbol) :
+theorem coveringIn_of_exemptible_aux (dirCS cs : CurrencySymbol) :
     ∀ (refs : List TxInInfo),
       (∀ t ∈ refs, WSC.authenticDirNode dirCS t.txInInfoResolved →
         (WSC.dirNodeDatum t.txInInfoResolved).isSome) →
-      coveringRaw dirCS cs refs = true →
+      WSC.Model.exemptible dirCS cs refs = true →
       WSC.coveringIn dirCS cs (refs.map (·.txInInfoResolved)) := by
   intro refs
   induction refs with
-  | nil => intro _ h; simp [coveringRaw] at h
+  | nil => intro _ h; simp [WSC.Model.exemptible] at h
   | cons i rest ih =>
       intro hts h
-      simp only [coveringRaw, Bool.or_eq_true] at h
+      simp only [WSC.Model.exemptible, Bool.or_eq_true] at h
       rcases h with hhd | hrest
       · -- the covering node is THIS reference input
         match hdat : i.txInInfoResolved.txOutDatum with
         | .OutputDatum d =>
             simp only [hdat] at hhd
-            match hf : WSC.Model.dirNodeFields d with
-            | some (k, n, tls) =>
+            match hf : WSC.Model.dirNodeInterval d with
+            | some (k, n) =>
                 simp only [hf] at hhd
                 simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hhd
                 obtain ⟨⟨hk, hn⟩, hcsh⟩ := hhd
                 have hauth := authenticDirNode_of_hasCSH dirCS _ hcsh
                 obtain ⟨nd, hnd⟩ :=
                   Option.isSome_iff_exists.mp (hts i (List.mem_cons_self ..) hauth)
+                -- THE 2-FIELD-ONLY CASE IS VACUOUS UNDER `WSC.TS3`: the datum
+                -- decodes as a FIVE-element `Data.List` (WSC/Redeemer.lean:374),
+                -- whose positions 0 and 1 ARE the interval `dirNodeInterval` read.
                 obtain ⟨tls', hf'⟩ := dirNodeFields_of_dirNodeDatum _ nd hnd d hdat
-                rw [hf] at hf'
-                simp only [Option.some.injEq, Prod.mk.injEq] at hf'
-                obtain ⟨hkey, hnext, -⟩ := hf'
+                rw [WSC.Model.dirNodeInterval_of_dirNodeFields hf'] at hf
+                simp only [Option.some.injEq, Prod.mk.injEq] at hf
+                obtain ⟨hkey, hnext⟩ := hf
                 refine ⟨i.txInInfoResolved, by simp, hauth, k, n, ?_, ?_, hk, hn⟩
                 · rw [WSC.dirNodeKey, hnd]; simp [hkey]
                 · rw [WSC.dirNodeNext, hnd]; simp [hnext]
@@ -1535,15 +1567,15 @@ deployment, the RAW covering-node scan the leaves carry implies the GROUND-TRUTH
 TRUST COST: `WSC.TS3` (authentic directory nodes among the reference inputs carry
 a decodable inline datum) — a consequence of `WSC.DIRWF` conjunct (iii), same
 discharge (U10). Nothing else. -/
-theorem coveringIn_of_coveringRaw (hp : WSC.HonestParams) (ctx : ScriptContext)
+theorem coveringIn_of_exemptible (hp : WSC.HonestParams) (ctx : ScriptContext)
     (cs : CurrencySymbol) (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx)
-    (h : coveringRaw hp.directoryNodeCS cs
+    (h : WSC.Model.exemptible hp.directoryNodeCS cs
       ctx.scriptContextTxInfo.txInfoReferenceInputs = true) :
     WSC.coveringIn hp.directoryNodeCS cs (WSC.dirPreState ctx) := by
   refine WSC.coveringIn_mono (os := ctx.scriptContextTxInfo.txInfoReferenceInputs.map
     (·.txInInfoResolved)) (fun o ho => ?_) ?_
   · simp only [WSC.dirPreState, List.mem_append]; exact Or.inl ho
-  · exact coveringIn_of_coveringRaw_aux _ _ _
+  · exact coveringIn_of_exemptible_aux _ _ _
       (fun t ht hauth => Option.isSome_iff_exists.mpr
         (by
           have := WSC.TS3 hp ctx hdep hoc t ht hauth
@@ -1553,28 +1585,28 @@ theorem coveringIn_of_coveringRaw (hp : WSC.HonestParams) (ctx : ScriptContext)
 /-- **WHAT §7 AND ITEM 3 OF TASK U2 ASK FOR: the leaves' raw premise, supplied by
 the PROVED bridge.** A policy registered in the pre-state ledger cannot be
 exempted, and the exemption is unavailable in the RAW form the leaves state it —
-no explicit `coveringNodeExists … = false` hypothesis is needed anywhere.
+no explicit `Model.exemptible … = false` hypothesis is needed anywhere.
 
 CHAIN: `DIRWF_L` (ledger-level interval non-overlap) →
 `covering_excludes_ledger_registration` (proved above, via
 `WSC.covering_excludes_registeredIn`) → this contraposition of
-`coveringIn_of_coveringRaw` (via `WSC.TS3`).
+`coveringIn_of_exemptible` (via `WSC.TS3`).
 
 So the ONLY directory assumptions behind the leaves' exemption hypothesis are
 `DIRWF_L` conjunct-(iv)-analogue and `WSC.TS3`, both discharged by U10. -/
-theorem coveringRaw_false_of_registered
+theorem exemptible_false_of_registered
     (hp : WSC.HonestParams) (L : Ledger) (ctx : ScriptContext) (L' : Ledger)
     (cs : CurrencySymbol)
     (hdep : WSC.Deployed hp) (hoc : WSC.OnChain ctx)
     (hno : WSC.dirNoOverlap hp.directoryNodeCS (ledgerOuts L))
     (hstep : LedgerStep L ctx L')
     (hreg : RegisteredIn hp L cs) :
-    coveringRaw hp.directoryNodeCS cs
+    WSC.Model.exemptible hp.directoryNodeCS cs
       ctx.scriptContextTxInfo.txInfoReferenceInputs = false := by
   have hnocov := covering_excludes_ledger_registration hp L ctx L' cs hno hstep hreg
-  by_cases hb : coveringRaw hp.directoryNodeCS cs
+  by_cases hb : WSC.Model.exemptible hp.directoryNodeCS cs
       ctx.scriptContextTxInfo.txInfoReferenceInputs = true
-  · exact absurd (coveringIn_of_coveringRaw hp ctx cs hdep hoc hb) hnocov
+  · exact absurd (coveringIn_of_exemptible hp ctx cs hdep hoc hb) hnocov
   · simpa using hb
 
 /-- `NE` follows from `CONTAIN` once the out-of-base inputs are known to hold
@@ -1969,7 +2001,8 @@ T1/T2/T6/T7, `#print axioms` free of any `*_faithful` axiom), with
 `Shape := fun ctx => ∃ scalars, ctx = p1ShapedCtx scalars ∨ ctx = p1ShapedMintCtx
 scalars ∨ …`.
 
-NOTE the hypothesis vocabulary: `coveringRaw` (§7.1), i.e. exactly what those
+NOTE the hypothesis vocabulary: `WSC.Model.exemptible` (§7.1), i.e. the repaired
+form of exactly what those
 theorems carry, NOT the ground-truth `¬ WSC.coveringIn`. §7.1 is what closes the
 difference, and it is applied in `leafP1_of_shapedGlobalContainment` below. -/
 structure ShapedGlobalContainment (hp : WSC.HonestParams)
@@ -1980,7 +2013,7 @@ structure ShapedGlobalContainment (hp : WSC.HonestParams)
     ctx'.scriptContextScriptInfo = ScriptInfo.RewardingScript hp.globalLogicCred →
     WSC.NodeAcceptsGlobal hp.protocolParamsCS ctx' →
     cs ≠ adaSymbol →
-    coveringRaw hp.directoryNodeCS cs
+    WSC.Model.exemptible hp.directoryNodeCS cs
       ctx.scriptContextTxInfo.txInfoReferenceInputs = false →
       WSC.Model.outSum hp.progLogicCred cs tn ctx.scriptContextTxInfo.txInfoOutputs
         ≥ WSC.Model.inSum hp.progLogicCred cs tn ctx.scriptContextTxInfo.txInfoInputs
@@ -1992,7 +2025,7 @@ now named as `ShapedGlobalContainment.contain`'s reason for existing.
 
 Note what this theorem does with the exemption premise, which is item 3 of task
 U2: the field's `¬ WSC.coveringIn` premise is converted into the leaves' raw
-`coveringRaw … = false` by §7.1's `coveringIn_of_coveringRaw`, i.e. through
+`WSC.Model.exemptible … = false` by §7.1's `coveringIn_of_exemptible`, i.e. through
 `WSC.TS3` — so no leaf has to carry a raw covering hypothesis into the
 composition, and no new directory assumption enters. -/
 theorem leafP1_of_shapedGlobalContainment (hp : WSC.HonestParams)
@@ -2006,11 +2039,11 @@ theorem leafP1_of_shapedGlobalContainment (hp : WSC.HonestParams)
       ¬ WSC.coveringIn hp.directoryNodeCS cs (WSC.dirPreState ctx) →
         Contain hp.progLogicCred cs tn ctx := by
   intro ctx ctx' cs tn hdep hoc hsh hbud hsame hoc' hsi hacc hcs hnocov
-  have hraw : coveringRaw hp.directoryNodeCS cs
+  have hraw : WSC.Model.exemptible hp.directoryNodeCS cs
       ctx.scriptContextTxInfo.txInfoReferenceInputs = false := by
-    by_cases hb : coveringRaw hp.directoryNodeCS cs
+    by_cases hb : WSC.Model.exemptible hp.directoryNodeCS cs
         ctx.scriptContextTxInfo.txInfoReferenceInputs = true
-    · exact absurd (coveringIn_of_coveringRaw hp ctx cs hdep hoc hb) hnocov
+    · exact absurd (coveringIn_of_exemptible hp ctx cs hdep hoc hb) hnocov
     · simpa using hb
   exact (contain_iff_modelSums _ _ _ _).mpr
     (hgc.contain ctx ctx' cs tn hoc hsh hbud hsame hoc' hsi hacc hcs hraw)
@@ -2571,8 +2604,8 @@ proved anywhere.
 | `WSC.MintingNonVacuous K_mint_custody` (2500) | **PROVED** (task A1) — `WSC.NonVacuity.mintingNonVacuous_at_2500`, SHAPE L1, K = 1681 |
 | `WSC.GlobalNonVacuous` at 1600 / 3300 / 4400 | **PROVED** (task A1) — `WSC.NonVacuity.globalNonVacuous_at_{1600,3300,4400}` from SHAPES G1 / G6 / T1 (K = 1541 / 2837 / 2603). Closes audit **F7**; was STILL-OPEN at every budget |
 | `WSC.SeizeNonVacuous K_seize` (3800) | **PROVED** (task A1) — `WSC.NonVacuity.seizeNonVacuous_at_3800`, SHAPE S1, K = 3004. Was recorded MEASURED FALSE at every affordable prep budget |
-| `authenticDirNode_of_hasCSH`, `dirNodeFields_of_fromData`, `coveringIn_of_coveringRaw` (§7.1) | **PROVED** (task U2) — the raw↔ground-truth reconciliation of the exemption predicate, at a cost of `WSC.TS3` only |
-| `coveringRaw_false_of_registered` (§7.1) | **PROVED** — registered ⟹ the leaves' RAW exemption is unavailable |
+| `authenticDirNode_of_hasCSH`, `dirNodeFields_of_fromData`, `coveringIn_of_exemptible` (§7.1) | **PROVED** (task U2) — the raw↔ground-truth reconciliation of the exemption predicate, at a cost of `WSC.TS3` only |
+| `exemptible_false_of_registered` (§7.1) | **PROVED** — registered ⟹ the leaves' RAW exemption is unavailable |
 | `outSum_eq_sumOutsIf`, `inSum_eq_sumInsIf`, `contain_iff_modelSums` (§10.1) | **PROVED** — the sum vocabulary bridges |
 | `leafP1_of_shapedGlobalContainment` (§10.2) | **PROVED** from `ShapedGlobalContainment` (which packages the shape bridge + the 4400 budget bridge) |
 | `p4_disjuncts_of_custody` (§10.3) | **PROVED** from `WSC/Spec.lean`'s four-way disjunction + `SeizeWdrlOfScoped` |
@@ -2664,7 +2697,7 @@ glossed:
    (ground-truth `authenticDirNode` + full 5-field decode). Both bridges are now
    theorems: `outSum_eq_sumOutsIf` / `inSum_eq_sumInsIf` / `contain_iff_modelSums`
    (§10.1, trivial list inductions — the two transcriptions agree on the nose), and
-   `coveringIn_of_coveringRaw` (§7.1). The reconciliation costs `WSC.TS3` ONLY, not
+   `coveringIn_of_exemptible` (§7.1). The reconciliation costs `WSC.TS3` ONLY, not
    `TS3 + TS5` as this list previously estimated: the `hasCSH ⟹ authenticDirNode`
    half is an ordinary lemma (`authenticDirNode_of_hasCSH`).
    `WSC.Model.mintSigned` needs NO bridge — it is definitionally `WSC.mintOf`.
@@ -2868,7 +2901,7 @@ UNCHANGED, verified by the `#print axioms` output below.** What moved:
 * `Lean.ofReduceBool` / `Lean.trustCompiler` still enter through `baseNonVacuous`,
   now via `P3Witness.exec_accepts` rather than `ctx_valid` alone.
 * the §7.1 reconciliation theorems add `WSC.TS3` (plus `WSC.Deployed`/`WSC.OnChain`)
-  — visible in `coveringIn_of_coveringRaw`'s own census below, and NOT in
+  — visible in `coveringIn_of_exemptible`'s own census below, and NOT in
   `top_claim`'s, because §7 discharges the exemption premise through
   `covering_excludes_ledger_registration` / `DIRWF_L` instead.
 * `LR_BALANCE_SLOT_of_valueAlgebra` depends on `WSC.LR7` (and `WSC.OnChain`) and
@@ -2908,8 +2941,9 @@ Three observations that belong in any published summary:
 #print axioms WSC.Composition.mintingNonVacuous
 #print axioms WSC.Composition.authenticDirNode_of_hasCSH
 #print axioms WSC.Composition.dirNodeFields_of_fromData
-#print axioms WSC.Composition.coveringIn_of_coveringRaw
-#print axioms WSC.Composition.coveringRaw_false_of_registered
+#print axioms WSC.Composition.coveringIn_of_exemptible_aux
+#print axioms WSC.Composition.coveringIn_of_exemptible
+#print axioms WSC.Composition.exemptible_false_of_registered
 #print axioms WSC.Composition.merge_not_additive_without_canonicity
 #print axioms WSC.Composition.valueOf_withoutLovelace
 #print axioms WSC.Composition.isBalanced_nonAda_eq

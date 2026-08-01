@@ -159,23 +159,52 @@ The `1600` in the name is the module the DECODE lives in, not a budget. -/
 
 /-- **P1, UNSHAPED, AT THE MAINNET EX-UNIT CEILING — THE BENCHMARK OBLIGATION.**
 
-`P1UnshapedForm` (`WSC/Benchmark/P1UnshapedStatement.lean` §2) with the accept
+**REPOINTED — this def, not `P1UnshapedStatement`'s, is what `theorem P1_unshaped`
+below actually proves, so the repair had to land HERE too or the published
+obligation would silently have remained the REFUTED statement.** Note that NO CI
+job would have caught the omission: `.github/workflows/ci-linux.yaml:53-64` runs
+only `make check_cardano_ledger_api` and `make check_tests`, `Makefile:16` is
+`lake build CardanoLedgerApi`, and `@[default_target]` in `lakefile.lean:137-138`
+is `CardanoLedgerApi` alone — a plain `lake build` produces ZERO `WSC/` modules.
+Even `lake build WSC` does not reach this module (`WSC.lean` does not import
+`WSC/Benchmark/`). It must be built by name.
+
+MEASURED at the repair (task: P1 formalization architecture):
+`timeout 900 lake build WSC.Benchmark.P1Unshaped` EXCEEDS THE CAP (exit 124/144).
+The cap firing IS the measurement — the `#prep_uplc` above still does not
+terminate, so `theorem P1_unshaped` is still never elaborated. The repointing
+below is therefore verified by inspection plus a `#check` of the STATEMENT in
+`WSC/Benchmark/P1UnshapedStatement.lean`, not by a completed build of this module.
+
+`P1UnshapedFormH` (`WSC/Benchmark/P1UnshapedStatement.lean` §2.0) with the accept
 predicate instantiated to the real bytecode's prepped residual. Spelled out, this
 is:
 
     ∀ ppCS ctx cs tn dirCS plc,
-      validRewardingContext ctx →
-      paramsPublishedBy ctx = some (dirCS, toData (ScriptCredential plc)) →
-      Model.coveringNodeExists dirCS cs ctx.…txInfoReferenceInputs = false →
+      validRewardingContext ctx = true →
+      Model.paramsPublishedBy ctx = some (dirCS, toData (ScriptCredential plc)) →
+      Model.isProgrammable dirCS cs ctx.…txInfoReferenceInputs = true →
       isSuccessful (appliedGlobalUCeiling.prop ppCS ctx) →
-        Model.outSum (.ScriptCredential plc) cs tn ctx.…txInfoOutputs
-          ≥ Model.inSum (.ScriptCredential plc) cs tn ctx.…txInfoInputs
-            + Model.mintSigned cs tn ctx.…txInfoMint
+        Model.Contained (.ScriptCredential plc) cs tn ctx
 
-The mint is SIGNED. The `max(mint, 0)` variant is machine-refuted on a burn
+🛑 IT WAS `P1UnshapedForm`, WHICH IS NOW `P1UnshapedForm_REFUTED_arity` AND IS
+FALSE — two kernel refutations at the same bytecode,
+`WSC.BaseAbsentProbe.base_absent_refutes_P1UnshapedForm` (K = 1528, pinned
+two-sided) and `…base_present_refutes_P1UnshapedForm`. The third hypothesis is
+where the repair lives: `Model.isProgrammable` reads directory nodes the way BOTH
+of the validator's exemption arms read them (two fields, not three) and folds in
+the ada exclusion.
+
+WHY `H` AND NOT THE HEADLINE `D`: a disjunctive conclusion would carry a
+tractability debit for the solver. That debit is currently UNMEASURABLE (see the
+`OPEN` note below), and `WSC.Benchmark.P1UnshapedForm_iff` makes the two forms
+interconvertible in the kernel, so nothing is lost by targeting `H` here.
+
+The mint is SIGNED (`Model.Contained` uses `WSC.mintOf`). The `max(mint, 0)`
+variant is machine-refuted on a burn
 (`WSC.P1RShapedWitness.mintPos_form_REFUTED`); do not "repair" it. -/
 def P1_unshaped_stmt : Prop :=
-  P1UnshapedForm (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
+  P1UnshapedFormH (fun (ppCS : CurrencySymbol) (ctx : ScriptContext) =>
     isSuccessful (appliedGlobalUCeiling.prop ppCS ctx))
 
 /-- **OPEN.** Not reached: the `#prep_uplc` above does not terminate, so this

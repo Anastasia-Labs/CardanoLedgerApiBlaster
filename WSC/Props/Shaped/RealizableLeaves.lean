@@ -178,17 +178,27 @@ theorem t1RShape_wdrlPair (hp : WSC.HonestParams) :
 
 Both are ordinary Lean; neither uses a solver, `native_decide` or any axiom. -/
 
-/-- `Composition.coveringRaw` and `WSC.Model.coveringNodeExists` are the SAME
-function — the composition restates it locally to avoid an import. Proved rather
-than assumed, because `WSC.P1R_T1`'s exemption hypothesis is in the second
-vocabulary and `ShapedGlobalContainment`'s is in the first. -/
-theorem coveringRaw_eq_coveringNodeExists (dirCS cs : CurrencySymbol) (is : List TxInInfo) :
-    Composition.coveringRaw dirCS cs is = WSC.Model.coveringNodeExists dirCS cs is := by
-  induction is with
-  | nil => rfl
-  | cons i rest ih =>
-      rw [Composition.coveringRaw, WSC.Model.coveringNodeExists, ih]
-      rfl
+/-- ⚠️ **SUPERSEDED — `Composition.coveringRaw` NO LONGER EXISTS.**
+
+This used to prove `Composition.coveringRaw = WSC.Model.coveringNodeExists`, i.e.
+that the composition's local duplicate and `P1_Transfer`'s definition were the
+SAME function. Both facts about that equality are now obsolete: the duplicate is
+deleted, and `ShapedGlobalContainment.contain` states its exemption hypothesis in
+`WSC.Model.exemptible` (the bytecode's 2-field node reader,
+`WSC/Model/Registry.lean`), which is NOT the same function as
+`WSC.Model.coveringNodeExists` — that difference IS defect 2.
+
+The translation `ShapedGlobalContainment` → `WSC.P1R_T1` is therefore no longer an
+equality; it is the STRENGTHENING
+`WSC.Model.coveringNodeExists_false_of_exemptible_false`, restated here as the
+§3 vocabulary lemma. It runs in the sound direction: the field now supplies the
+STRONGER `exemptible … = false`, and the shaped theorem consumes the WEAKER
+`coveringNodeExists … = false`. -/
+theorem coveringNodeExists_false_of_exemptible_false_at
+    (dirCS cs : CurrencySymbol) (is : List TxInInfo)
+    (h : WSC.Model.exemptible dirCS cs is = false) :
+    WSC.Model.coveringNodeExists dirCS cs is = false :=
+  WSC.Model.coveringNodeExists_false_of_exemptible_false h
 
 /-- **The off-shape slot lemma.** SHAPE T1R gives every value the canonical
 `adaPlusOne` form — ada plus exactly one policy carrying exactly one token name —
@@ -332,7 +342,7 @@ theorem shapedGlobalContainment_T1R (hp : WSC.HonestParams) :
         pHash pCS pTn pAda pQty hp.directoryNodeCS glc slc nHash nCS nTn nAda nQty
         key next tlsH ilsH gsCS w0 w1 a0 a1 rBase rTls fee).scriptContextTxInfo.txInfoReferenceInputs
       = false := by
-    rw [← coveringRaw_eq_coveringNodeExists, ← hEq]; exact hraw
+    exact coveringNodeExists_false_of_exemptible_false_at _ _ _ (by rw [← hEq]; exact hraw)
   -- STEP 5 / 6: the shape's own slot from the bytecode, every other slot from §3.
   rw [hEq, hplc]
   by_cases hslot : cs = cs0 ∧ tn = tn0
