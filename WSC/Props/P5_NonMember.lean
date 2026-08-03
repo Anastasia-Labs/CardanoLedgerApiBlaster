@@ -56,8 +56,11 @@ independently of the solver, by `WSC.NonVacuity.globalNonVacuous_at_1600`
 `Runs.globalRun 1600` = `appliedGlobal1600.exec` — i.e. the executable form of
 the very term the statements below quantify over — at the SHAPE-G1 witness
 `P5ShapedWitness.ctx`, which is P5's own subject shape and is
-`validRewardingContext` with zero failing conjuncts. Measured K = 1541, pinned
-two-sided by `P5ShapedWitness.K_is_1541`. **0 project axioms, no `sorryAx`.**
+`validRewardingContext` with zero failing conjuncts. Measured K = 1402 against
+the post-#112 bytecode, pinned two-sided by `P5ShapedWitness.K_is_1402`
+(citation corrected 2026-08-02: this header used to cite `K_is_1541`, the
+PRE-#112 value — that declaration no longer exists). **0 project axioms, no
+`sorryAx`.**
 So the statements below are known to be about a non-empty set of transactions —
 what is missing is the solver verdict, not the witness.
 
@@ -503,8 +506,9 @@ returning, and a build that hangs is worse than an honest gap.
 NOTE (E9, binding, unchanged): the negative control is ALSO satisfied by
 budget-`Error`, so it can never by itself detect the 1600-step bound; the
 non-vacuity evidence is `WSC.NonVacuity.globalNonVacuous_at_1600` (theorem,
-`native_decide`, real CEK on `Runs.globalRun 1600`, K = 1541 pinned two-sided by
-`P5ShapedWitness.K_is_1541`), corroborated by the golden's measured K = 1554 in
+`native_decide`, real CEK on `Runs.globalRun 1600`, K = 1402 post-#112, pinned
+two-sided by `P5ShapedWitness.K_is_1402` — corrected 2026-08-02 from the
+pre-#112 `K_is_1541`), corroborated by the golden's measured K = 1554 in
 K-MEASUREMENTS.md §3. -/
 
 /-- Negative control (STATED): a context in which the redeemer positionally
@@ -563,8 +567,9 @@ So the symbolic non-vacuity certificate for `appliedGlobal1600.prop` is OPEN.
 The substitute evidence is concrete and independent:
 `WSC.NonVacuity.globalNonVacuous_at_1600` runs the real bytecode on
 `Runs.globalRun 1600` (= `appliedGlobal1600.exec`) at the SHAPE-G1 NonMember
-witness and HALTS, `native_decide`, 0 project axioms and no `sorryAx`; K = 1541
-is pinned two-sided by `P5ShapedWitness.K_is_1541`. Note the residual gap this
+witness and HALTS, `native_decide`, 0 project axioms and no `sorryAx`; K = 1402
+post-#112, pinned two-sided by `P5ShapedWitness.K_is_1402` (corrected
+2026-08-02 from the pre-#112 `K_is_1541`). Note the residual gap this
 does NOT close: the certificate is on `.exec`, the statement here is on `.prop`,
 and their equality is audit finding F8.
 

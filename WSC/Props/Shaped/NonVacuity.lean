@@ -31,7 +31,7 @@ and this module follows it.
 | obligation | budget | witness | measured witness K | instrument | previous status |
 |---|---|---|---|---|---|
 | `MintingNonVacuous K_mint_custody` | 2500 | `P4LocalShapedWitness.ctx` (SHAPE L1) | 1681 | `native_decide` | NO STATEMENT EXISTED (no affordable 2500 prep) |
-| `GlobalNonVacuous K_global_nonmember` | 1600 | `P5ShapedWitness.ctx` (SHAPE G1) | 1541 | `native_decide` | **OPEN** (audit F7) |
+| `GlobalNonVacuous K_global_nonmember` | 1600 | `P5ShapedWitness.ctx` (SHAPE G1) | 1402 post-#112 (was 1541) | `native_decide` | **OPEN** (audit F7) |
 | `GlobalNonVacuous K_global_member` | 3300 | `P6ShapedWitness.ctx` (SHAPE G6) | 2837 | `native_decide` | no statement existed |
 | `GlobalNonVacuous K_global` | 4400 | `P1ShapedWitness.ctxOk` (SHAPE T1) | 2603 | `native_decide` | no statement existed |
 | `SeizeNonVacuous K_seize` | 3800 | `P2ShapedWitness.ctxAccept` (SHAPE S1) | 3004 | `native_decide` | **MEASURED FALSE** at every affordable prep budget |
@@ -72,11 +72,13 @@ Every K below is pinned to the STEP by a theorem in the witness's own module
   measured step count of the REAL off-chain `Local` golden
   `mint-local-registered-by-ref` (K-MEASUREMENTS §3).  Companions inside the same
   2500 bound: DT1 at 1257 (`ctxDT_K_is_1257`), DS1 at 1466 (`ctxDS_K_is_1466`).
-* 1541 — `P5ShapedWitness.K_is_1541` (`WSC/Shaped/Probe/G1K.lean`); the cheapest
-  accepting global GOLDEN is 1554, so SHAPE G1 sits in the real transaction's
-  regime.
+* 1402 — `P5ShapedWitness.K_is_1402` (re-measured post-#112 in
+  `WSC/Props/Shaped/P5Shaped.lean`; the pre-#112 value was 1541, measured in
+  `WSC/Shaped/Probe/G1K.lean`, and this line used to cite the now-deleted
+  `K_is_1541` — corrected 2026-08-02); the cheapest accepting global GOLDEN is
+  1554, so SHAPE G1 sits in the real transaction's regime.
 * 2837 — `P6ShapedWitness.K_is_2837` (`WSC/Shaped/Probe/G6Diag.lean`).  The
-  1,296-step gap over G1's 1541 is the containment scan a `Member` claim switches
+  1,296-step gap over G1's pre-#112 1541 is the containment scan a `Member` claim switches
   on, and 2500 < 2837 is exactly why P6-at-2500 was VACUOUS
   (`WSC/Shaped/Probe/G6Vacuous2500.lean`).
 * 2603 — `P1ShapedWitness.K_T1_is_2603`; T2/T7 cost 3572 and T6 3150, all < 4400.
@@ -133,7 +135,7 @@ This closes audit **F7**, which recorded `GlobalNonVacuous` as open in
 obligation.**  Witness: SHAPE G1 at `P5ShapedWitness.ctx` — P5's own subject
 context, `validRewardingContext`-true with ZERO failing conjuncts
 (`WSC/Shaped/Probe/G1Witness.lean` evaluates CLAB's per-conjunct report on it and
-gets the empty failure list).  Measured K = 1541.
+gets the empty failure list).  Measured K = 1402 post-#112 (1541 pre-#112).
 
 STRICTLY CLEANER THAN THE DISCHARGE F7 POINTED AT, and the difference is the whole
 value of A1's restatement.  F7 pointed at
