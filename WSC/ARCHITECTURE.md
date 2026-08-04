@@ -607,6 +607,20 @@ Never "PROVEN-BY-DESIGN".
 
 **Current pins** (`CardanoLedgerApiBlaster/lakefile.lean`, branch `wsc-containment-proofs`):
 
+> **✅ SUPERSEDED AGAIN (2026-08-03): BOTH PINS ARE PUBLIC GIT REQUIRES AND THE
+> REPRODUCIBILITY CAVEAT IS DISCHARGED.** The N6 table below says "local path"
+> for both dependencies; that stopped being true on 2026-07-28 when both
+> branches were PUBLISHED and `lakefile.lean` was repointed to machine-enforced
+> 40-hex git pins (the lakefile's own D5 stanza records the change; task R2).
+> Verified by `git ls-remote` on 2026-08-03:
+> `Anastasia-Labs/Lean-blaster` `refs/heads/wsc-d6-dite-branch-retype` =
+> `4d320dd5f70ac953945b5126f5cfd45128da8131` and
+> `Anastasia-Labs/PlutusCoreBlaster` `refs/heads/cip153-value-builtins` =
+> `3fdd3fb5cb259f039b60cc584cd954de18c819dc` — exactly the SHAs the requires
+> pin, so `lake update` fetches them on any machine. The `WSC/substrate/*.bundle`
+> artifacts remain as belt-and-suspenders custody, no longer the trust anchor.
+> "Neither pin is machine-enforced" below is likewise obsolete: both are.
+
 > **⚠️ SUPERSEDED AT TASK N6 (2026-07-28). BOTH PINS MOVED because of wsc-poc
 > PR #112, and Blaster is no longer a public git rev.** The table immediately
 > below is the CURRENT state; the historical X4 text follows it unchanged.
